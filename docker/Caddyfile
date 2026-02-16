@@ -1,0 +1,46 @@
+{
+    # Global options
+    email admin@go4.energy
+}
+
+:80 {
+    # API requests → Backend
+    handle /api/* {
+        reverse_proxy backend:8000
+    }
+
+    # Health endpoint → Backend
+    handle /health {
+        reverse_proxy backend:8000
+    }
+
+    # API docs → Backend
+    handle /docs* {
+        reverse_proxy backend:8000
+    }
+    handle /redoc* {
+        reverse_proxy backend:8000
+    }
+    handle /openapi.json {
+        reverse_proxy backend:8000
+    }
+
+    # Everything else → Frontend
+    handle {
+        root * /srv
+        try_files {path} /index.html
+        file_server
+    }
+
+    # Security headers
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+
+    # Gzip compression
+    encode gzip
+}
