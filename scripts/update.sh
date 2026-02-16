@@ -29,8 +29,15 @@ echo ""
 echo "4. Warte auf Healthchecks..."
 sleep 15
 
-# 5. Smoke-Test
-echo "5. Smoke-Test..."
+# 5. Alembic Migration
+echo "5. Alembic Migration..."
+docker exec go4-backend alembic upgrade head 2>/dev/null && \
+    echo -e "${GREEN}[OK]${NC} Migrationen ausgeführt" || \
+    echo -e "${YELLOW}[WARNUNG]${NC} Migrationen fehlgeschlagen"
+echo ""
+
+# 6. Smoke-Test
+echo "6. Smoke-Test..."
 if curl -sf http://localhost:8000/health > /dev/null; then
     echo -e "${GREEN}[OK]${NC} Backend healthy"
 else
@@ -43,6 +50,12 @@ if curl -sf http://localhost:80 > /dev/null; then
     echo -e "${GREEN}[OK]${NC} Frontend healthy"
 else
     echo -e "${YELLOW}[WARNUNG]${NC} Frontend nicht erreichbar"
+fi
+
+if curl -sf http://localhost:5678/healthz > /dev/null; then
+    echo -e "${GREEN}[OK]${NC} n8n healthy"
+else
+    echo -e "${YELLOW}[WARNUNG]${NC} n8n nicht erreichbar"
 fi
 
 echo ""

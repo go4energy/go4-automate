@@ -51,14 +51,29 @@ if [ ! -f config/.env ]; then
 else
     echo -e "${GREEN}[OK]${NC} config/.env existiert bereits"
 fi
+
+# Tenant-Konfiguration
+mkdir -p config/tenants config/templates/follow-up
+if [ ! -f config/tenants/default.env ]; then
+    echo -e "${YELLOW}[INFO]${NC} Tenant-Config default.env bereits vorhanden"
+fi
 echo ""
 
 echo "5. Docker Services starten..."
 docker compose -f docker/docker-compose.yml up -d
 echo ""
 
-echo "6. Healthcheck..."
+echo "6. Warte auf Datenbank..."
 sleep 10
+
+echo "7. Alembic Migration..."
+cd backend
+source .venv/bin/activate
+alembic upgrade head 2>/dev/null && echo -e "${GREEN}[OK]${NC} Migrationen ausgeführt" || echo -e "${YELLOW}[INFO]${NC} Migrationen übersprungen (DB nicht erreichbar)"
+cd ..
+echo ""
+
+echo "8. Healthcheck..."
 if curl -sf http://localhost:8000/health > /dev/null; then
     echo -e "${GREEN}[OK]${NC} Backend ist healthy"
 else
@@ -70,3 +85,4 @@ echo "=== Setup abgeschlossen ==="
 echo "Backend:  http://localhost:8000"
 echo "API Docs: http://localhost:8000/docs"
 echo "Frontend: http://localhost:5173 (dev) / http://localhost:80 (docker)"
+echo "n8n:      http://localhost:5678"

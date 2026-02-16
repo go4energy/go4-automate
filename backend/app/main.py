@@ -1,7 +1,6 @@
-"""go4-automate – FastAPI Application."""
+"""go4-automate - FastAPI Application."""
 
 import sys
-
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -11,6 +10,7 @@ from loguru import logger
 
 from app.config import settings
 from app.exceptions import AppError
+from app.routers import leads_router, llm_router, templates_router, tenants_router
 
 # Loguru Konfiguration
 logger.remove()
@@ -72,6 +72,8 @@ async def health_check() -> dict:
     return {"status": "healthy", "version": "0.1.0"}
 
 
-# Router includes – hier neue Router registrieren:
-# from app.routers import leads
-# app.include_router(leads.router, prefix="/api/v1")
+# Router includes
+app.include_router(leads_router, prefix="/api/v1")
+app.include_router(tenants_router, prefix="/api/v1")
+app.include_router(templates_router, prefix="/api/v1")
+app.include_router(llm_router, prefix="/api/v1")

@@ -17,6 +17,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Application code
 COPY app/ ./app/
 COPY alembic.ini .
+COPY alembic/ ./alembic/
 
 # Logs directory
 RUN mkdir -p logs && chown -R appuser:appuser /app

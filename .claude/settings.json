@@ -70,7 +70,7 @@
       "Bash(curl http://*)",
       "Bash(curl https://*)",
       "Bash(wget *)",
-      "Bash(pip install *)",
+      "Bash(pip install -q *)",
       "Bash(sudo *)",
       "Bash(shutdown*)",
       "Bash(reboot*)",

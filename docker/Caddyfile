@@ -25,6 +25,14 @@
         reverse_proxy backend:8000
     }
 
+    # n8n webhooks → n8n
+    handle /webhook/* {
+        reverse_proxy n8n:5678
+    }
+    handle /webhook-test/* {
+        reverse_proxy n8n:5678
+    }
+
     # Everything else → Frontend
     handle {
         root * /srv

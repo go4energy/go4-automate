@@ -9,24 +9,38 @@ class Settings(BaseSettings):
     # App
     app_name: str = "go4-automate"
     debug: bool = False
+    platform_name: str = "go4-automate"
+    domain: str = "localhost"
+    timezone: str = "Europe/Vienna"
 
     # Database
-    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/go4automate"
+    database_url: str = (
+        "postgresql+asyncpg://postgres:postgres@localhost:5432/go4automate"
+    )
 
     # Redis
     redis_url: str = "redis://localhost:6379/0"
 
     # Security
     secret_key: str = "change-me-in-production"
+    backend_secret: str = ""
     allowed_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]
 
     # API Keys
     anthropic_api_key: str = ""
     openai_api_key: str = ""
 
+    # LLM Model Routing
+    llm_model_content: str = "claude-sonnet-4-5-20250929"
+    llm_model_analysis: str = "gpt-4o-mini"
+    llm_model_classification: str = "gpt-4o-mini"
+    llm_model_scoring: str = "gpt-4o-mini"
+
     # n8n
     n8n_url: str = "http://localhost:5678"
     n8n_api_key: str = ""
+    n8n_basic_auth_user: str = ""
+    n8n_basic_auth_password: str = ""
 
     # SMTP
     smtp_host: str = ""
@@ -37,6 +51,9 @@ class Settings(BaseSettings):
 
     # Tenant
     default_tenant_id: str = "default"
+    active_tenant: str = "go4energy"
+    tenant_config_dir: str = "config/tenants"
+    template_dir: str = "config/templates"
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 

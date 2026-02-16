@@ -5,6 +5,11 @@ const routes = [
     path: '/',
     name: 'dashboard',
     component: () => import('@/views/DashboardView.vue')
+  },
+  {
+    path: '/leads',
+    name: 'leads',
+    component: () => import('@/views/LeadsView.vue')
   }
 ]
 

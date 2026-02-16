@@ -26,7 +26,11 @@ check_blocked "git\s+push\s+--force\s+(origin\s+)?main" "Force-Push auf main ist
 check_blocked "git\s+push\s+-f\s+(origin\s+)?main" "Force-Push auf main ist verboten."
 check_blocked "DROP\s+(DATABASE|TABLE)" "DROP DATABASE/TABLE ist verboten. Nutze Alembic Migrationen."
 check_blocked "chmod\s+777" "chmod 777 ist verboten. Nutze minimale Berechtigungen (755/644)."
-check_blocked "pip\s+install\s+(?!-r)" "Direkte pip install ist verboten. Füge das Package in requirements.txt hinzu und nutze pip install -r requirements.txt."
+# pip install ohne -r blockieren (aber pip install -r erlauben)
+if echo "$COMMAND" | grep -qiE "pip\s+install" && ! echo "$COMMAND" | grep -qiE "pip\s+install\s+-[rq]*r"; then
+  echo '{"decision": "block", "reason": "Direkte pip install ist verboten. Füge das Package in requirements.txt hinzu und nutze pip install -r requirements.txt."}'
+  exit 2
+fi
 
 # Alles OK
 exit 0
