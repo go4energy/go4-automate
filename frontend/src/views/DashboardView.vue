@@ -12,7 +12,7 @@ onMounted(() => {
 <template>
   <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
     <h1 class="text-3xl font-bold text-go4-secondary">
-      go4.automate Dashboard
+      go4-automate Dashboard
     </h1>
     <p class="mt-2 text-go4-muted">
       Marketing Automation Platform

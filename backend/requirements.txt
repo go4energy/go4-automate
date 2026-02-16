@@ -1,4 +1,4 @@
-# go4.automate – Python Dependencies
+# go4-automate – Python Dependencies
 # Version policy: ^major.minor.0 (neueste major, feste minor)
 
 # Web Framework

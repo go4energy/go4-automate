@@ -1,8 +1,8 @@
 #!/bin/bash
-# go4.automate – Project Setup Script
+# go4-automate – Project Setup Script
 set -euo pipefail
 
-echo "=== go4.automate Setup ==="
+echo "=== go4-automate Setup ==="
 echo ""
 
 # Colors

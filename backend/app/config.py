@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     # App
-    app_name: str = "go4.automate"
+    app_name: str = "go4-automate"
     debug: bool = False
 
     # Database

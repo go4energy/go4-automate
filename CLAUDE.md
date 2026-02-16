@@ -1,30 +1,6 @@
-# go4 Stack Template
+# go4-automate
 
-> **Du arbeitest in einem Projekt, das aus dem go4-Stack-Template erstellt wurde.**
-> Template-Repo: https://github.com/go4energy/go4-project-template.git
-
-## Erstes Setup nach Clone
-
-Dieses Repo ist ein **Template**. Nach dem Klonen müssen folgende Dinge angepasst werden:
-
-1. **Projektname** – Ersetze `go4.automate` überall durch den echten Projektnamen:
-   - `CLAUDE.md` (dieser Abschnitt hier oben)
-   - `README.md` (Titel + Beschreibung)
-   - `backend/app/main.py` (FastAPI `title`)
-   - `frontend/package.json` (`name`)
-   - `frontend/index.html` (`<title>`)
-   - `frontend/src/views/DashboardView.vue` (Überschrift)
-   - `docker/docker-compose.yml` (Container-Namen `go4-*`)
-   - `backend/app/config.py` (`app_name`)
-2. **Git Remote** – Altes Template-Remote entfernen, eigenes setzen:
-   ```bash
-   git remote remove origin
-   git remote add origin git@github.com:go4energy/NEUES-REPO.git
-   ```
-3. **Environment** – `cp .env.example config/.env` und Werte anpassen
-4. **Diese Box löschen** – Sobald alles angepasst ist, diesen "Erstes Setup"-Block entfernen
-
----
+> Marketing Automation Platform powered by n8n, FastAPI und Vue 3.
 
 ## Stack
 Python 3.12 / FastAPI / Vue 3 (Composition API, JS) / Tailwind CSS / PostgreSQL 16 / Redis 7 / Docker + Caddy / n8n

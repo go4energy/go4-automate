@@ -1,4 +1,4 @@
-"""go4.automate – FastAPI Application."""
+"""go4-automate – FastAPI Application."""
 
 import sys
 
@@ -31,13 +31,13 @@ logger.add(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
-    logger.info("Starting go4.automate API")
+    logger.info("Starting go4-automate API")
     yield
-    logger.info("Shutting down go4.automate API")
+    logger.info("Shutting down go4-automate API")
 
 
 app = FastAPI(
-    title="go4.automate API",
+    title="go4-automate API",
     version="0.1.0",
     docs_url="/docs",
     redoc_url="/redoc",

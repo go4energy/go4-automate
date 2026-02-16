@@ -1,8 +1,8 @@
 #!/bin/bash
-# go4.automate – Update/Deploy Script
+# go4-automate – Update/Deploy Script
 set -euo pipefail
 
-echo "=== go4.automate Update ==="
+echo "=== go4-automate Update ==="
 echo ""
 
 RED='\033[0;31m'

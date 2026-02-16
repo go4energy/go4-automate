@@ -1,4 +1,4 @@
-# go4.automate
+# go4-automate
 
 Marketing Automation Platform powered by n8n, FastAPI und Vue 3.
 
@@ -6,8 +6,8 @@ Marketing Automation Platform powered by n8n, FastAPI und Vue 3.
 
 ```bash
 # 1. Repository klonen
-git clone <repo-url> go4.automate
-cd go4.automate
+git clone git@github.com:go4energy/go4-automate.git
+cd go4-automate
 
 # 2. Environment konfigurieren
 cp .env.example config/.env

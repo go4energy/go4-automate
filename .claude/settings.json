@@ -91,7 +91,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "branch=$(cd /opt/go4.automate && git rev-parse --abbrev-ref HEAD 2>/dev/null); if [ \"$branch\" = \"main\" ] || [ \"$branch\" = \"master\" ]; then echo '{\"decision\": \"block\", \"reason\": \"Arbeite NIEMALS direkt auf main/master. Erstelle einen feature/ oder fix/ Branch.\"}'; exit 2; fi"
+            "command": "branch=$(cd /opt/go4-automate && git rev-parse --abbrev-ref HEAD 2>/dev/null); if [ \"$branch\" = \"main\" ] || [ \"$branch\" = \"master\" ]; then echo '{\"decision\": \"block\", \"reason\": \"Arbeite NIEMALS direkt auf main/master. Erstelle einen feature/ oder fix/ Branch.\"}'; exit 2; fi"
           }
         ]
       },
@@ -100,7 +100,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash /opt/go4.automate/.claude/hooks/pre-bash-firewall.sh"
+            "command": "bash /opt/go4-automate/.claude/hooks/pre-bash-firewall.sh"
           }
         ]
       }
@@ -111,7 +111,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash /opt/go4.automate/.claude/hooks/post-edit-quality.sh"
+            "command": "bash /opt/go4-automate/.claude/hooks/post-edit-quality.sh"
           }
         ]
       }

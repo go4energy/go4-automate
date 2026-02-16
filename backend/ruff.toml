@@ -1,4 +1,4 @@
-# Ruff configuration for go4.automate
+# Ruff configuration for go4-automate
 line-length = 88
 target-version = "py312"
 

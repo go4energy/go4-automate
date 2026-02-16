@@ -1,5 +1,5 @@
 #!/bin/bash
-# go4.automate – Database Backup Script
+# go4-automate – Database Backup Script
 set -euo pipefail
 
 BACKUP_DIR="./backups"
@@ -8,7 +8,7 @@ BACKUP_FILE="${BACKUP_DIR}/go4automate_${TIMESTAMP}.sql.gz"
 
 mkdir -p "$BACKUP_DIR"
 
-echo "=== go4.automate Backup ==="
+echo "=== go4-automate Backup ==="
 echo "Zeitstempel: $TIMESTAMP"
 
 # PostgreSQL Backup
