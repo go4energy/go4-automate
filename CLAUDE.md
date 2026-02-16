@@ -1,7 +1,7 @@
 # go4 Stack Template
 
 > **Du arbeitest in einem Projekt, das aus dem go4-Stack-Template erstellt wurde.**
-> Template-Repo: https://github.com/go4energy/go4-stack-template.git
+> Template-Repo: https://github.com/go4energy/go4-project-template.git
 
 ## Erstes Setup nach Clone
 
