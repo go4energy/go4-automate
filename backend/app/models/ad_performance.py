@@ -29,9 +29,13 @@ class AdPerformance(TimestampMixin, Base):
     leads: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     cpl: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=0, nullable=False)
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB, default=dict)
+    ad_campaign_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("ad_campaigns.id", ondelete="SET NULL")
+    )
 
     # Relationships
     tenant = relationship("Tenant", back_populates="ad_performances")
+    ad_campaign = relationship("AdCampaign", back_populates="performances")
 
     __table_args__ = (Index("ix_ad_performance_tenant_date", "tenant_id", "date"),)
 

@@ -10,7 +10,14 @@ from loguru import logger
 
 from app.config import settings
 from app.exceptions import AppError
-from app.routers import leads_router, llm_router, templates_router, tenants_router
+from app.routers import (
+    ad_campaigns_router,
+    content_router,
+    leads_router,
+    llm_router,
+    templates_router,
+    tenants_router,
+)
 
 # Loguru Konfiguration
 logger.remove()
@@ -77,3 +84,5 @@ app.include_router(leads_router, prefix="/api/v1")
 app.include_router(tenants_router, prefix="/api/v1")
 app.include_router(templates_router, prefix="/api/v1")
 app.include_router(llm_router, prefix="/api/v1")
+app.include_router(content_router, prefix="/api/v1")
+app.include_router(ad_campaigns_router, prefix="/api/v1")

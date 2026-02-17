@@ -23,13 +23,17 @@ class Tenant(TimestampMixin, Base):
 
     # Relationships
     leads = relationship("Lead", back_populates="tenant", lazy="selectin")
-    content_queue = relationship(
-        "ContentQueue", back_populates="tenant", lazy="selectin"
+    content_pieces = relationship(
+        "ContentPiece", back_populates="tenant", lazy="selectin"
+    )
+    content_calendar = relationship(
+        "ContentCalendar", back_populates="tenant", lazy="selectin"
     )
     email_logs = relationship("EmailLog", back_populates="tenant", lazy="selectin")
     ad_performances = relationship(
         "AdPerformance", back_populates="tenant", lazy="selectin"
     )
+    ad_campaigns = relationship("AdCampaign", back_populates="tenant", lazy="selectin")
 
     def __repr__(self) -> str:
         return f"<Tenant {self.tenant_id}>"
