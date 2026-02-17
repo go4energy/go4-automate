@@ -10,6 +10,17 @@ const routes = [
     path: '/leads',
     name: 'leads',
     component: () => import('@/views/LeadsView.vue')
+  },
+  {
+    path: '/content',
+    name: 'content',
+    component: () => import('@/views/ContentDashboardView.vue')
+  },
+  {
+    path: '/content/:id',
+    name: 'content-edit',
+    component: () => import('@/views/ContentEditView.vue'),
+    props: true
   }
 ]
 

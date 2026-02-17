@@ -42,8 +42,12 @@ onMounted(() => {
   <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-3xl font-bold text-go4-secondary">Leads</h1>
-        <p class="mt-1 text-go4-muted">{{ store.totalLeads }} Leads gesamt</p>
+        <h1 class="text-3xl font-bold text-go4-secondary">
+          Leads
+        </h1>
+        <p class="mt-1 text-go4-muted">
+          {{ store.totalLeads }} Leads gesamt
+        </p>
       </div>
     </div>
 
@@ -54,22 +58,40 @@ onMounted(() => {
         class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
         @change="applyFilter"
       >
-        <option value="">Alle Status</option>
-        <option value="new">Neu</option>
-        <option value="contacted">Kontaktiert</option>
-        <option value="qualified">Qualifiziert</option>
-        <option value="converted">Konvertiert</option>
-        <option value="lost">Verloren</option>
+        <option value="">
+          Alle Status
+        </option>
+        <option value="new">
+          Neu
+        </option>
+        <option value="contacted">
+          Kontaktiert
+        </option>
+        <option value="qualified">
+          Qualifiziert
+        </option>
+        <option value="converted">
+          Konvertiert
+        </option>
+        <option value="lost">
+          Verloren
+        </option>
       </select>
     </div>
 
     <!-- Loading -->
-    <div v-if="store.loading" class="mt-8 flex items-center justify-center p-8">
+    <div
+      v-if="store.loading"
+      class="mt-8 flex items-center justify-center p-8"
+    >
       <span class="text-go4-muted">Laden...</span>
     </div>
 
     <!-- Error -->
-    <div v-else-if="store.error" class="mt-8 rounded-lg bg-red-50 p-4 text-red-700">
+    <div
+      v-else-if="store.error"
+      class="mt-8 rounded-lg bg-red-50 p-4 text-red-700"
+    >
       {{ store.error }}
     </div>
 
@@ -78,11 +100,16 @@ onMounted(() => {
       v-else-if="store.leads.length === 0"
       class="mt-8 rounded-lg bg-white p-8 text-center shadow-sm"
     >
-      <p class="text-go4-muted">Keine Leads gefunden</p>
+      <p class="text-go4-muted">
+        Keine Leads gefunden
+      </p>
     </div>
 
     <!-- Table -->
-    <div v-else class="mt-6 overflow-hidden rounded-lg bg-white shadow-sm">
+    <div
+      v-else
+      class="mt-6 overflow-hidden rounded-lg bg-white shadow-sm"
+    >
       <table class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
           <tr>
@@ -124,7 +151,11 @@ onMounted(() => {
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-200 bg-white">
-          <tr v-for="lead in store.leads" :key="lead.id" class="hover:bg-gray-50">
+          <tr
+            v-for="lead in store.leads"
+            :key="lead.id"
+            class="hover:bg-gray-50"
+          >
             <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-go4-secondary">
               {{ lead.name }}
             </td>
@@ -152,11 +183,21 @@ onMounted(() => {
                 class="rounded border border-gray-300 px-2 py-1 text-xs focus:border-go4-primary focus:outline-none"
                 @change="changeStatus(lead.id, $event.target.value)"
               >
-                <option value="new">Neu</option>
-                <option value="contacted">Kontaktiert</option>
-                <option value="qualified">Qualifiziert</option>
-                <option value="converted">Konvertiert</option>
-                <option value="lost">Verloren</option>
+                <option value="new">
+                  Neu
+                </option>
+                <option value="contacted">
+                  Kontaktiert
+                </option>
+                <option value="qualified">
+                  Qualifiziert
+                </option>
+                <option value="converted">
+                  Konvertiert
+                </option>
+                <option value="lost">
+                  Verloren
+                </option>
               </select>
             </td>
             <td class="whitespace-nowrap px-6 py-4 text-sm">

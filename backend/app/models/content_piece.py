@@ -42,6 +42,10 @@ class ContentPiece(TimestampMixin, Base):
     leads_generated: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     created_by: Mapped[str | None] = mapped_column(String(100))
     ai_model: Mapped[str | None] = mapped_column(String(100))
+    meta_post_id: Mapped[str | None] = mapped_column(String(100))
+    approved_by: Mapped[str | None] = mapped_column(String(100))
+    approved_at: Mapped[datetime | None] = mapped_column()
+    error_message: Mapped[str | None] = mapped_column(Text)
 
     # Relationships
     tenant = relationship("Tenant", back_populates="content_pieces")

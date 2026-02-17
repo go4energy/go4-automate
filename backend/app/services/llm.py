@@ -108,3 +108,18 @@ class LLMService:
             max_tokens=2048,
         )
         return response.choices[0].message.content
+
+    async def generate_json(self, task: str, prompt: str) -> dict:
+        """Generate text and parse as JSON. Strips markdown fences."""
+        import json
+        import re
+
+        raw = await self.generate(task, prompt)
+        # Strip markdown code fences (```json ... ``` or ``` ... ```)
+        cleaned = re.sub(r"^```(?:json)?\s*\n?", "", raw.strip())
+        cleaned = re.sub(r"\n?```\s*$", "", cleaned.strip())
+        try:
+            return json.loads(cleaned)
+        except json.JSONDecodeError as e:
+            logger.error("LLM JSON Parse-Fehler: {err}", err=str(e))
+            raise ExternalServiceError("LLM", f"Ungültiges JSON: {e}") from e

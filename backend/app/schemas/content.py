@@ -50,6 +50,10 @@ class ContentPieceUpdate(BaseModel):
     engagement_rate: float | None = None
     link_clicks: int | None = None
     leads_generated: int | None = None
+    meta_post_id: str | None = None
+    approved_by: str | None = None
+    approved_at: datetime | None = None
+    error_message: str | None = None
 
 
 class ContentPieceResponse(BaseModel):
@@ -80,10 +84,53 @@ class ContentPieceResponse(BaseModel):
     leads_generated: int
     created_by: str | None = None
     ai_model: str | None = None
+    meta_post_id: str | None = None
+    approved_by: str | None = None
+    approved_at: datetime | None = None
+    error_message: str | None = None
     created_at: datetime
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ContentGenerate(BaseModel):
+    """Schema for AI content generation request."""
+
+    topic: str
+    platform: str
+    content_type: str
+    funnel_stage: str | None = None
+    buyer_persona: str | None = None
+    additional_instructions: str | None = None
+
+
+class ContentApprove(BaseModel):
+    """Schema for approving a content piece."""
+
+    approved_by: str
+    scheduled_at: datetime
+
+
+class ContentPublishResult(BaseModel):
+    """Schema for content publish result."""
+
+    id: int
+    platform: str
+    status: str
+    meta_post_id: str | None = None
+    error_message: str | None = None
+    posted_at: datetime | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ThemeRotation(BaseModel):
+    """Schema for theme rotation response."""
+
+    next_topic: str
+    topics: list[str]
+    last_used_index: int
 
 
 class ContentCalendarCreate(BaseModel):

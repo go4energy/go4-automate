@@ -1,0 +1,313 @@
+[
+  {
+    "name": "Content Pipeline - Tägliche Generierung",
+    "nodes": [
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "triggerAtHour": 8,
+                "triggerAtMinute": 0
+              }
+            ]
+          }
+        },
+        "name": "Schedule Mo-Fr 08:00",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [250, 300],
+        "id": "schedule-generate"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{$env.API_BASE_URL}}/api/v1/content/themes/rotation",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "X-Tenant-ID",
+                "value": "={{$env.TENANT_ID}}"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "",
+                "value": "=[\"Energieeffizienz\", \"Photovoltaik\", \"Wärmepumpe\", \"E-Mobilität\", \"Smart Home\"]"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "name": "Theme Rotation",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [470, 300],
+        "id": "theme-rotation"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{$env.API_BASE_URL}}/api/v1/content/pieces/generate",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "X-Tenant-ID",
+                "value": "={{$env.TENANT_ID}}"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={\"topic\": \"{{$json.next_topic}}\", \"platform\": \"facebook\", \"content_type\": \"post\"}",
+          "options": {}
+        },
+        "name": "Generate Content",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [690, 300],
+        "id": "generate-content"
+      }
+    ],
+    "connections": {
+      "Schedule Mo-Fr 08:00": {
+        "main": [
+          [
+            {
+              "node": "Theme Rotation",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Theme Rotation": {
+        "main": [
+          [
+            {
+              "node": "Generate Content",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "active": false,
+    "settings": {
+      "executionOrder": "v1"
+    },
+    "tags": [
+      {
+        "name": "content-pipeline"
+      }
+    ]
+  },
+  {
+    "name": "Content Pipeline - Scheduled Publishing",
+    "nodes": [
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "minutes",
+                "minutesInterval": 15
+              }
+            ]
+          }
+        },
+        "name": "Schedule Every 15min",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [250, 300],
+        "id": "schedule-publish"
+      },
+      {
+        "parameters": {
+          "method": "GET",
+          "url": "={{$env.API_BASE_URL}}/api/v1/content/pieces?status=scheduled&due=true",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "X-Tenant-ID",
+                "value": "={{$env.TENANT_ID}}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "name": "Get Due Pieces",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [470, 300],
+        "id": "get-due-pieces"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{$env.API_BASE_URL}}/api/v1/content/pieces/{{$json.id}}/publish",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "X-Tenant-ID",
+                "value": "={{$env.TENANT_ID}}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "name": "Publish Piece",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [690, 300],
+        "id": "publish-piece"
+      }
+    ],
+    "connections": {
+      "Schedule Every 15min": {
+        "main": [
+          [
+            {
+              "node": "Get Due Pieces",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Get Due Pieces": {
+        "main": [
+          [
+            {
+              "node": "Publish Piece",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "active": false,
+    "settings": {
+      "executionOrder": "v1"
+    },
+    "tags": [
+      {
+        "name": "content-pipeline"
+      }
+    ]
+  },
+  {
+    "name": "Content Pipeline - Engagement Tracking",
+    "nodes": [
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "triggerAtHour": 20,
+                "triggerAtMinute": 0
+              }
+            ]
+          }
+        },
+        "name": "Schedule Täglich 20:00",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [250, 300],
+        "id": "schedule-engagement"
+      },
+      {
+        "parameters": {
+          "method": "GET",
+          "url": "={{$env.API_BASE_URL}}/api/v1/content/pieces?status=published&published_last_days=7",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "X-Tenant-ID",
+                "value": "={{$env.TENANT_ID}}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "name": "Get Published Pieces",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [470, 300],
+        "id": "get-published"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{$env.API_BASE_URL}}/api/v1/content/pieces/{{$json.id}}/engagement",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "X-Tenant-ID",
+                "value": "={{$env.TENANT_ID}}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "name": "Update Engagement",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [690, 300],
+        "id": "update-engagement"
+      }
+    ],
+    "connections": {
+      "Schedule Täglich 20:00": {
+        "main": [
+          [
+            {
+              "node": "Get Published Pieces",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Get Published Pieces": {
+        "main": [
+          [
+            {
+              "node": "Update Engagement",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "active": false,
+    "settings": {
+      "executionOrder": "v1"
+    },
+    "tags": [
+      {
+        "name": "content-pipeline"
+      }
+    ]
+  }
+]

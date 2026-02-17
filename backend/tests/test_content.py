@@ -1,5 +1,7 @@
 """Content API tests."""
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 
 HEADERS = {"X-Tenant-ID": "test-tenant"}
@@ -167,3 +169,139 @@ async def test_list_calendar(client, test_tenant):
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
+
+
+# === Content Pipeline Tests ===
+
+
+@pytest.mark.anyio
+async def test_generate_content(client, test_tenant):
+    """POST /api/v1/content/pieces/generate should create an AI-generated draft."""
+    mock_json = {
+        "title": "KI-generierter Titel",
+        "caption": "Toller Post über Energie",
+        "short": "Kurz und knapp",
+        "hashtags": "#energie #solar",
+        "hook": "Wussten Sie schon?",
+        "cta": "Jetzt mehr erfahren!",
+    }
+
+    with patch(
+        "app.services.content.LLMService.generate_json",
+        new_callable=AsyncMock,
+        return_value=mock_json,
+    ):
+        response = await client.post(
+            "/api/v1/content/pieces/generate",
+            json={
+                "topic": "Energieeffizienz",
+                "platform": "facebook",
+                "content_type": "post",
+            },
+            headers=HEADERS,
+        )
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["status"] == "draft"
+    assert data["title"] == "KI-generierter Titel"
+    assert data["caption"] == "Toller Post über Energie"
+    assert data["created_by"] == "ai"
+    assert data["ai_model"] is not None
+
+
+@pytest.mark.anyio
+async def test_approve_content(client, test_tenant):
+    """PATCH /api/v1/content/pieces/{id}/approve should set scheduled status."""
+    create_resp = await client.post(
+        "/api/v1/content/pieces", json=PIECE_PAYLOAD, headers=HEADERS
+    )
+    piece_id = create_resp.json()["id"]
+
+    response = await client.patch(
+        f"/api/v1/content/pieces/{piece_id}/approve",
+        json={
+            "approved_by": "tester",
+            "scheduled_at": "2026-03-15T10:00:00",
+        },
+        headers=HEADERS,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "scheduled"
+    assert data["approved_by"] == "tester"
+    assert data["approved_at"] is not None
+    assert data["scheduled_at"] is not None
+
+
+@pytest.mark.anyio
+async def test_approve_published_fails(client, test_tenant):
+    """PATCH approve on a published piece should fail with 400."""
+    create_resp = await client.post(
+        "/api/v1/content/pieces",
+        json={**PIECE_PAYLOAD, "status": "published"},
+        headers=HEADERS,
+    )
+    piece_id = create_resp.json()["id"]
+
+    response = await client.patch(
+        f"/api/v1/content/pieces/{piece_id}/approve",
+        json={
+            "approved_by": "tester",
+            "scheduled_at": "2026-03-15T10:00:00",
+        },
+        headers=HEADERS,
+    )
+    assert response.status_code == 400
+
+
+@pytest.mark.anyio
+async def test_publish_requires_scheduled(client, test_tenant):
+    """POST publish on a draft piece should fail with 400."""
+    create_resp = await client.post(
+        "/api/v1/content/pieces", json=PIECE_PAYLOAD, headers=HEADERS
+    )
+    piece_id = create_resp.json()["id"]
+
+    response = await client.post(
+        f"/api/v1/content/pieces/{piece_id}/publish",
+        headers=HEADERS,
+    )
+    assert response.status_code == 400
+
+
+@pytest.mark.anyio
+async def test_theme_rotation(client, test_tenant):
+    """POST /api/v1/content/themes/rotation should return first topic when no history."""
+    topics = ["Energie", "Solar", "Wärme"]
+    response = await client.post(
+        "/api/v1/content/themes/rotation",
+        json=topics,
+        headers=HEADERS,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["next_topic"] == "Energie"
+    assert data["topics"] == topics
+
+
+@pytest.mark.anyio
+async def test_theme_rotation_after_usage(client, test_tenant):
+    """Theme rotation should return the next topic after one was used."""
+    topics = ["Energie", "Solar", "Wärme"]
+
+    # Create a piece with topic "Energie"
+    await client.post(
+        "/api/v1/content/pieces",
+        json={**PIECE_PAYLOAD, "topic": "Energie"},
+        headers=HEADERS,
+    )
+
+    response = await client.post(
+        "/api/v1/content/themes/rotation",
+        json=topics,
+        headers=HEADERS,
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["next_topic"] == "Solar"
