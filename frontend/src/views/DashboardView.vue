@@ -2,13 +2,16 @@
 import { onMounted } from 'vue'
 import { useLeadStore } from '@/stores/leads'
 import { useContentStore } from '@/stores/content'
+import { useAdStore } from '@/stores/ads'
 
 const leadStore = useLeadStore()
 const contentStore = useContentStore()
+const adStore = useAdStore()
 
 onMounted(() => {
   leadStore.fetchLeads()
   contentStore.fetchPieces()
+  adStore.fetchDashboard()
 })
 </script>
 
@@ -67,14 +70,23 @@ onMounted(() => {
           {{ contentStore.stats.published }} veröffentlicht
         </p>
       </router-link>
-      <div class="rounded-lg bg-white p-6 shadow-sm">
+      <router-link
+        to="/ads"
+        class="rounded-lg bg-white p-6 shadow-sm transition hover:shadow-md"
+      >
         <h2 class="text-sm font-medium text-go4-muted">
-          Workflows
+          Ad Management
         </h2>
         <p class="mt-2 text-3xl font-semibold text-go4-secondary">
-          0
+          {{ adStore.totalSpendToday }} EUR
         </p>
-      </div>
+        <p
+          v-if="adStore.totalLeadsToday > 0"
+          class="mt-1 text-xs text-go4-muted"
+        >
+          {{ adStore.totalLeadsToday }} Leads heute
+        </p>
+      </router-link>
     </div>
   </div>
 </template>

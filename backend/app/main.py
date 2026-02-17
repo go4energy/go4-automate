@@ -86,3 +86,8 @@ app.include_router(templates_router, prefix="/api/v1")
 app.include_router(llm_router, prefix="/api/v1")
 app.include_router(content_router, prefix="/api/v1")
 app.include_router(ad_campaigns_router, prefix="/api/v1")
+
+# Ads pipeline (domain-based module)
+from app.ads.router import router as ads_router  # noqa: E402
+
+app.include_router(ads_router, prefix="/api/v1")

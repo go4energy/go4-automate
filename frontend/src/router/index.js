@@ -21,6 +21,17 @@ const routes = [
     name: 'content-edit',
     component: () => import('@/views/ContentEditView.vue'),
     props: true
+  },
+  {
+    path: '/ads',
+    name: 'ads',
+    component: () => import('@/views/AdDashboardView.vue')
+  },
+  {
+    path: '/ads/campaigns/:id/config',
+    name: 'ad-campaign-config',
+    component: () => import('@/views/AdCampaignConfigView.vue'),
+    props: true
   }
 ]
 

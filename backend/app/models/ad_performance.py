@@ -3,7 +3,7 @@
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import Date, ForeignKey, Index, Integer, Numeric, String
+from sqlalchemy import Boolean, Date, ForeignKey, Index, Integer, Numeric, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -32,6 +32,25 @@ class AdPerformance(TimestampMixin, Base):
     ad_campaign_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("ad_campaigns.id", ondelete="SET NULL")
     )
+    # Extended fields for ad pipeline
+    campaign_name: Mapped[str | None] = mapped_column(String(200))
+    adset_id: Mapped[str | None] = mapped_column(String(100))
+    adset_name: Mapped[str | None] = mapped_column(String(200))
+    ad_id: Mapped[str | None] = mapped_column(String(100))
+    ad_name: Mapped[str | None] = mapped_column(String(200))
+    conversions: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    conversion_value: Mapped[Decimal] = mapped_column(
+        Numeric(10, 2), default=0, nullable=False
+    )
+    cpc: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
+    ctr: Mapped[Decimal | None] = mapped_column(Numeric(5, 4))
+    frequency: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+    reach: Mapped[int | None] = mapped_column(Integer)
+    budget_applied: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
+    weather_boosted: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    optimization_action: Mapped[str | None] = mapped_column(String(50))
 
     # Relationships
     tenant = relationship("Tenant", back_populates="ad_performances")

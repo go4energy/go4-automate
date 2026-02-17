@@ -1,0 +1,1 @@
+"""Ad management pipeline module."""

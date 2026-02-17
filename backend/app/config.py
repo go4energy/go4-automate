@@ -40,7 +40,12 @@ class Settings(BaseSettings):
     meta_system_user_token: str = ""
     meta_page_id: str = ""
     meta_instagram_business_id: str = ""
+    meta_ad_account_id: str = ""
+    meta_pixel_id: str = ""
     meta_api_version: str = "v21.0"
+
+    # OpenWeather
+    openweather_api_key: str = ""
 
     # n8n
     n8n_url: str = "http://localhost:5678"
