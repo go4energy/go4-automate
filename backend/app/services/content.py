@@ -1,6 +1,6 @@
 """Content service - CRUD and business logic for content pieces and calendar."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 
 from loguru import logger
 from sqlalchemy import select
@@ -89,13 +89,13 @@ class ContentService:
         if platform:
             query = query.where(ContentPiece.platform == platform)
         if due:
-            now = datetime.now(tz=UTC)
+            now = datetime.utcnow()
             query = query.where(
                 ContentPiece.scheduled_at <= now,
                 ContentPiece.status == "scheduled",
             )
         if published_last_days is not None:
-            cutoff = datetime.now(tz=UTC) - timedelta(days=published_last_days)
+            cutoff = datetime.utcnow() - timedelta(days=published_last_days)
             query = query.where(
                 ContentPiece.posted_at >= cutoff,
                 ContentPiece.status == "published",
@@ -152,24 +152,9 @@ class ContentService:
         tenant_config: dict,
     ) -> ContentPiece:
         """Generate content via LLM and save as draft."""
-        company = tenant_config.get("COMPANY_NAME", "")
-        tone = tenant_config.get("CONTENT_TONE", "professional")
-        audience = tenant_config.get("TARGET_AUDIENCE", "B2B Entscheider")
-
-        prompt = CONTENT_PROMPT_TEMPLATE.format(
-            platform=data.platform,
-            topic=data.topic,
-            company=company,
-            tone=tone,
-            audience=audience,
-            content_type=data.content_type,
-            funnel_stage=data.funnel_stage or "awareness",
-            additional_instructions=data.additional_instructions or "",
+        result, model_id = await self._generate_via_registry_or_legacy(
+            tenant_id, data, tenant_config
         )
-
-        llm = LLMService(tenant_config=tenant_config)
-        result = await llm.generate_json("content", prompt)
-        _, model_id = _get_content_model()
 
         piece = ContentPiece(
             tenant_id=tenant_id,
@@ -209,7 +194,7 @@ class ContentService:
             )
         piece.status = "scheduled"
         piece.approved_by = data.approved_by
-        piece.approved_at = datetime.now(tz=UTC)
+        piece.approved_at = datetime.utcnow()
         piece.scheduled_at = data.scheduled_at
         await self.db.flush()
         await self.db.refresh(piece)
@@ -245,7 +230,7 @@ class ContentService:
 
             piece.status = "published"
             piece.meta_post_id = post_id
-            piece.posted_at = datetime.now(tz=UTC)
+            piece.posted_at = datetime.utcnow()
             piece.error_message = None
         except ExternalServiceError as e:
             piece.status = "failed"
@@ -343,6 +328,73 @@ class ContentService:
         )
         result = await self.db.execute(query)
         return list(result.scalars().all())
+
+    async def _generate_via_registry_or_legacy(
+        self,
+        tenant_id: str,
+        data: ContentGenerate,
+        tenant_config: dict,
+    ) -> tuple[dict, str]:
+        """Try prompt registry first, fallback to legacy template."""
+        from app.exceptions import NotFoundError as _NotFoundError
+        from app.schemas.prompt import PromptExecuteRequest
+        from app.services.prompt import PromptService
+
+        try:
+            prompt_service = PromptService(self.db)
+            variables = {
+                "platform": data.platform,
+                "topic": data.topic,
+                "content_type": data.content_type,
+                "funnel_stage": data.funnel_stage or "awareness",
+                "additional_instructions": data.additional_instructions or "",
+            }
+            exec_result = await prompt_service.execute(
+                tenant_id,
+                PromptExecuteRequest(
+                    prompt_slug="social-media-post", variables=variables
+                ),
+                tenant_config,
+            )
+            result = exec_result["result"]
+            if isinstance(result, str):
+                import json
+
+                result = json.loads(result)
+            model_id = exec_result["model"]
+            logger.info("Content via Prompt Registry generiert")
+            return result, model_id
+        except _NotFoundError:
+            logger.info(
+                "Prompt 'social-media-post' nicht gefunden, nutze Legacy-Template"
+            )
+            return await self._generate_legacy(data, tenant_config)
+
+    async def _generate_legacy(
+        self,
+        data: ContentGenerate,
+        tenant_config: dict,
+    ) -> tuple[dict, str]:
+        """Generate content using the legacy hardcoded template."""
+        company = tenant_config.get("COMPANY_NAME", "")
+        tone = tenant_config.get("CONTENT_TONE", "professional")
+        audience = tenant_config.get("TARGET_AUDIENCE", "B2B Entscheider")
+
+        prompt = CONTENT_PROMPT_TEMPLATE.format(
+            platform=data.platform,
+            topic=data.topic,
+            company=company,
+            tone=tone,
+            audience=audience,
+            content_type=data.content_type,
+            funnel_stage=data.funnel_stage or "awareness",
+            additional_instructions=data.additional_instructions or "",
+        )
+
+        llm = LLMService(tenant_config=tenant_config)
+        result = await llm.generate_json("content", prompt)
+        _, model_id = _get_content_model()
+        return result, model_id
 
 
 def _get_content_model() -> tuple[str, str]:

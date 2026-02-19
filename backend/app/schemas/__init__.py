@@ -19,6 +19,14 @@ from app.schemas.lead import (
     LeadStatusUpdate,
 )
 from app.schemas.llm import LLMGenerateRequest, LLMGenerateResponse
+from app.schemas.prompt import (
+    PromptCreate,
+    PromptExecuteRequest,
+    PromptExecuteResponse,
+    PromptListItem,
+    PromptResponse,
+    PromptUpdate,
+)
 from app.schemas.template import TemplateListItem, TemplateResponse, TemplateUpdate
 from app.schemas.tenant import TenantCreate, TenantResponse
 
@@ -37,6 +45,12 @@ __all__ = [
     "LeadFollowupPause",
     "LeadResponse",
     "LeadStatusUpdate",
+    "PromptCreate",
+    "PromptExecuteRequest",
+    "PromptExecuteResponse",
+    "PromptListItem",
+    "PromptResponse",
+    "PromptUpdate",
     "TemplateListItem",
     "TemplateResponse",
     "TemplateUpdate",

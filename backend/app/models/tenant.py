@@ -34,6 +34,7 @@ class Tenant(TimestampMixin, Base):
         "AdPerformance", back_populates="tenant", lazy="selectin"
     )
     ad_campaigns = relationship("AdCampaign", back_populates="tenant", lazy="selectin")
+    prompts = relationship("Prompt", back_populates="tenant", lazy="selectin")
 
     def __repr__(self) -> str:
         return f"<Tenant {self.tenant_id}>"

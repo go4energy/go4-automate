@@ -6,6 +6,7 @@ from app.models.content_calendar import ContentCalendar
 from app.models.content_piece import ContentPiece
 from app.models.email_log import EmailLog
 from app.models.lead import Lead
+from app.models.prompt import Prompt
 from app.models.tenant import Tenant
 
 __all__ = [
@@ -15,5 +16,6 @@ __all__ = [
     "ContentPiece",
     "EmailLog",
     "Lead",
+    "Prompt",
     "Tenant",
 ]

@@ -15,6 +15,7 @@ from app.routers import (
     content_router,
     leads_router,
     llm_router,
+    prompts_router,
     templates_router,
     tenants_router,
 )
@@ -39,6 +40,22 @@ logger.add(
 async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
     logger.info("Starting go4-automate API")
+    # Auto-seed prompts for active tenant
+    try:
+        from app.database import async_session
+        from app.services.prompt_seed import seed_prompts
+
+        async with async_session() as db:
+            created = await seed_prompts(db, settings.active_tenant)
+            if created > 0:
+                await db.commit()
+                logger.info(
+                    "Seeded {count} prompts for {tenant}",
+                    count=created,
+                    tenant=settings.active_tenant,
+                )
+    except Exception as e:
+        logger.warning("Prompt seeding übersprungen: {err}", err=str(e))
     yield
     logger.info("Shutting down go4-automate API")
 
@@ -85,6 +102,7 @@ app.include_router(tenants_router, prefix="/api/v1")
 app.include_router(templates_router, prefix="/api/v1")
 app.include_router(llm_router, prefix="/api/v1")
 app.include_router(content_router, prefix="/api/v1")
+app.include_router(prompts_router, prefix="/api/v1")
 app.include_router(ad_campaigns_router, prefix="/api/v1")
 
 # Ads pipeline (domain-based module)

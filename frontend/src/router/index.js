@@ -32,6 +32,22 @@ const routes = [
     name: 'ad-campaign-config',
     component: () => import('@/views/AdCampaignConfigView.vue'),
     props: true
+  },
+  {
+    path: '/prompts',
+    name: 'prompts',
+    component: () => import('@/views/PromptsView.vue')
+  },
+  {
+    path: '/prompts/new',
+    name: 'prompt-new',
+    component: () => import('@/views/PromptEditorView.vue')
+  },
+  {
+    path: '/prompts/:id',
+    name: 'prompt-edit',
+    component: () => import('@/views/PromptEditorView.vue'),
+    props: true
   }
 ]
 
