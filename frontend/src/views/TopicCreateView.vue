@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useResearchStore } from '@/stores/research'
+import PageHeader from '@/components/ui/PageHeader.vue'
 
 const router = useRouter()
 const store = useResearchStore()
@@ -80,16 +81,17 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:px-8">
-    <h1 class="text-2xl font-bold text-go4-secondary">Eigenes Thema erstellen</h1>
-    <p class="mt-1 text-go4-muted">Beschreibe ein Thema und generiere sofort Content daraus.</p>
+  <div class="mx-auto max-w-2xl">
+    <PageHeader
+      title="Eigenes Thema erstellen"
+      subtitle="Beschreibe ein Thema und generiere sofort Content daraus."
+    />
 
     <div v-if="error" class="mt-4 rounded-lg bg-red-50 p-4 text-sm text-red-700">
       {{ error }}
     </div>
 
     <form class="mt-6 space-y-6" @submit.prevent="handleSubmit">
-      <!-- Title -->
       <div>
         <label class="block text-sm font-medium text-go4-secondary">Titel</label>
         <input
@@ -101,7 +103,6 @@ async function handleSubmit() {
         />
       </div>
 
-      <!-- Description -->
       <div>
         <label class="block text-sm font-medium text-go4-secondary">Beschreibung</label>
         <textarea
@@ -113,7 +114,6 @@ async function handleSubmit() {
         />
       </div>
 
-      <!-- Category -->
       <div>
         <label class="block text-sm font-medium text-go4-secondary">Kategorie</label>
         <select
@@ -127,7 +127,6 @@ async function handleSubmit() {
         </select>
       </div>
 
-      <!-- Platforms -->
       <div>
         <label class="block text-sm font-medium text-go4-secondary">Plattformen</label>
         <div class="mt-2 flex flex-wrap gap-3">
@@ -152,10 +151,9 @@ async function handleSubmit() {
         </div>
       </div>
 
-      <!-- Priority -->
       <div>
         <label class="block text-sm font-medium text-go4-secondary">
-          Priorität: {{ form.priority }}
+          Prioritaet: {{ form.priority }}
           <span class="font-normal text-go4-muted">
             ({{ ['', 'Sehr hoch', 'Hoch', 'Normal', 'Niedrig', 'Sehr niedrig'][form.priority] }})
           </span>
@@ -163,7 +161,6 @@ async function handleSubmit() {
         <input v-model.number="form.priority" type="range" min="1" max="5" class="mt-2 w-full" />
       </div>
 
-      <!-- Image Upload -->
       <div>
         <label class="block text-sm font-medium text-go4-secondary">Bild (optional)</label>
         <div v-if="form.image_url" class="mt-2">
@@ -187,12 +184,11 @@ async function handleSubmit() {
               :disabled="uploadingImage"
               @change="handleImageUpload"
             />
-            {{ uploadingImage ? 'Hochladen...' : 'Bild auswählen oder hierher ziehen' }}
+            {{ uploadingImage ? 'Hochladen...' : 'Bild auswaehlen oder hierher ziehen' }}
           </label>
         </div>
       </div>
 
-      <!-- Generate Options -->
       <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
         <label class="flex items-center gap-2">
           <input v-model="generateAfterSave" type="checkbox" class="rounded" />
@@ -226,7 +222,6 @@ async function handleSubmit() {
         </div>
       </div>
 
-      <!-- Actions -->
       <div class="flex gap-3">
         <button
           type="submit"

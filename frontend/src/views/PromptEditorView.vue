@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { usePromptStore } from '@/stores/prompts'
+import PageHeader from '@/components/ui/PageHeader.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -110,7 +111,7 @@ async function save() {
 }
 
 async function handleDelete() {
-  if (!confirm('Prompt wirklich löschen?')) return
+  if (!confirm('Prompt wirklich loeschen?')) return
   try {
     await store.removePrompt(Number(route.params.id))
     router.push('/prompts')
@@ -148,41 +149,32 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+  <div>
     <!-- Header -->
-    <div class="flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <button
-          class="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-go4-muted transition hover:bg-gray-50"
-          @click="router.push('/prompts')"
-        >
-          &larr; Zurück
-        </button>
-        <h1 class="text-2xl font-bold text-go4-secondary">
-          {{ isNew ? 'Neuer Prompt' : form.name || 'Prompt bearbeiten' }}
-        </h1>
+    <PageHeader :title="isNew ? 'Neuer Prompt' : form.name || 'Prompt bearbeiten'">
+      <template #actions>
         <span
           v-if="!isNew && store.currentPrompt"
           class="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-go4-muted"
         >
           v{{ store.currentPrompt.version }}
         </span>
-      </div>
-      <div v-if="!isNew" class="flex items-center gap-2">
-        <button
-          class="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-go4-muted transition hover:bg-gray-50"
-          @click="handleNewVersion"
-        >
-          Neue Version
-        </button>
-        <button
-          class="rounded-lg border border-red-300 px-3 py-1.5 text-sm text-red-600 transition hover:bg-red-50"
-          @click="handleDelete"
-        >
-          Löschen
-        </button>
-      </div>
-    </div>
+        <template v-if="!isNew">
+          <button
+            class="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-go4-muted transition hover:bg-gray-50"
+            @click="handleNewVersion"
+          >
+            Neue Version
+          </button>
+          <button
+            class="rounded-lg border border-red-300 px-3 py-1.5 text-sm text-red-600 transition hover:bg-red-50"
+            @click="handleDelete"
+          >
+            Loeschen
+          </button>
+        </template>
+      </template>
+    </PageHeader>
 
     <!-- Loading -->
     <div v-if="loading" class="mt-8 flex items-center justify-center p-8">
@@ -243,6 +235,8 @@ onMounted(() => {
                   <option value="content">Content</option>
                   <option value="analysis">Analysis</option>
                   <option value="email">Email</option>
+                  <option value="chat">Chat</option>
+                  <option value="research">Research</option>
                 </select>
               </div>
               <div>
@@ -268,7 +262,7 @@ onMounted(() => {
               <textarea
                 v-model="form.system_prompt"
                 rows="4"
-                placeholder="Du bist ein {{ROLE}} für {{COMPANY_NAME}}..."
+                placeholder="Du bist ein {{ROLE}} fuer {{COMPANY_NAME}}..."
                 class="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm focus:border-go4-primary focus:outline-none"
               />
             </div>
@@ -277,7 +271,7 @@ onMounted(() => {
               <textarea
                 v-model="form.user_prompt"
                 rows="8"
-                placeholder="Erstelle einen {{content_type}} über {{topic}}..."
+                placeholder="Erstelle einen {{content_type}} ueber {{topic}}..."
                 class="w-full rounded-lg border border-gray-300 px-3 py-2 font-mono text-sm focus:border-go4-primary focus:outline-none"
               />
             </div>

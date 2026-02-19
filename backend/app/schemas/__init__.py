@@ -1,9 +1,17 @@
 """Pydantic schemas."""
 
+from app.schemas.activity import ActivityLogResponse, ActivityStatsResponse
 from app.schemas.ad_campaign import (
     AdCampaignCreate,
     AdCampaignResponse,
     AdCampaignUpdate,
+)
+from app.schemas.chat import (
+    ChatMessageCreate,
+    ChatMessageResponse,
+    ConversationCreate,
+    ConversationListItem,
+    ConversationResponse,
 )
 from app.schemas.content import (
     ContentCalendarCreate,
@@ -46,14 +54,21 @@ from app.schemas.template import TemplateListItem, TemplateResponse, TemplateUpd
 from app.schemas.tenant import TenantCreate, TenantResponse
 
 __all__ = [
+    "ActivityLogResponse",
+    "ActivityStatsResponse",
     "AdCampaignCreate",
     "AdCampaignResponse",
     "AdCampaignUpdate",
+    "ChatMessageCreate",
+    "ChatMessageResponse",
     "ContentCalendarCreate",
     "ContentCalendarResponse",
     "ContentPieceCreate",
     "ContentPieceResponse",
     "ContentPieceUpdate",
+    "ConversationCreate",
+    "ConversationListItem",
+    "ConversationResponse",
     "LLMGenerateRequest",
     "LLMGenerateResponse",
     "LeadCreate",

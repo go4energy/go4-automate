@@ -44,6 +44,9 @@ class Tenant(TimestampMixin, Base):
     topic_suggestions = relationship(
         "TopicSuggestion", back_populates="tenant", lazy="selectin"
     )
+    conversations = relationship(
+        "Conversation", back_populates="tenant", lazy="selectin"
+    )
 
     def __repr__(self) -> str:
         return f"<Tenant {self.tenant_id}>"

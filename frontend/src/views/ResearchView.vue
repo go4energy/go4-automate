@@ -2,6 +2,9 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useResearchStore } from '@/stores/research'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import StatusBadge from '@/components/ui/StatusBadge.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
 
 const router = useRouter()
 const store = useResearchStore()
@@ -23,18 +26,6 @@ const sourceTypeBadge = {
   rss: 'bg-orange-100 text-orange-800',
   website: 'bg-blue-100 text-blue-800',
   websearch: 'bg-purple-100 text-purple-800'
-}
-
-const statusBadge = {
-  suggested: 'bg-yellow-100 text-yellow-800',
-  approved: 'bg-green-100 text-green-800',
-  rejected: 'bg-red-100 text-red-800',
-  generating: 'bg-blue-100 text-blue-800',
-  generated: 'bg-emerald-100 text-emerald-800',
-  new: 'bg-gray-100 text-gray-800',
-  reviewed: 'bg-blue-100 text-blue-800',
-  used: 'bg-green-100 text-green-800',
-  dismissed: 'bg-red-100 text-red-800'
 }
 
 const priorityLabels = ['', 'Sehr hoch', 'Hoch', 'Normal', 'Niedrig', 'Sehr niedrig']
@@ -101,19 +92,18 @@ function formatDate(dateStr) {
 </script>
 
 <template>
-  <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-3xl font-bold text-go4-secondary">Research Agent</h1>
-        <p class="mt-1 text-go4-muted">Themen entdecken, analysieren und Content generieren</p>
-      </div>
-      <div class="flex gap-3">
+  <div>
+    <PageHeader
+      title="Research Agent"
+      subtitle="Themen entdecken, analysieren und Content generieren"
+    >
+      <template #actions>
         <button
           class="rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-go4-primary/90 disabled:opacity-50"
           :disabled="store.loading"
           @click="handleRunResearch()"
         >
-          {{ store.loading ? 'Suche läuft...' : 'Research starten' }}
+          {{ store.loading ? 'Suche laeuft...' : 'Research starten' }}
         </button>
         <router-link
           to="/research/topics/new"
@@ -121,16 +111,37 @@ function formatDate(dateStr) {
         >
           Eigenes Thema
         </router-link>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <!-- Run Result -->
-    <div v-if="store.runResult" class="mt-4 rounded-lg bg-green-50 p-4 text-sm text-green-800">
-      Research abgeschlossen: {{ store.runResult.findings_count }} neue Findings,
-      {{ store.runResult.suggestions_count }} Topic-Vorschläge
-      <span v-if="store.runResult.errors.length > 0" class="ml-2 text-red-600">
-        ({{ store.runResult.errors.length }} Fehler)
-      </span>
+    <div
+      v-if="store.runResult"
+      class="mt-4 rounded-lg p-4 text-sm"
+      :class="
+        store.runResult.findings_count === 0 && store.runResult.suggestions_count === 0
+          ? 'bg-amber-50 text-amber-800'
+          : 'bg-green-50 text-green-800'
+      "
+    >
+      <template
+        v-if="
+          store.runResult.findings_count === 0 &&
+          store.runResult.suggestions_count === 0 &&
+          store.sources.length === 0
+        "
+      >
+        Keine Quellen konfiguriert. Lege zuerst unter
+        <button class="font-medium underline" @click="activeTab = 'sources'">Quellen</button>
+        eine RSS-, Website- oder Websearch-Quelle an.
+      </template>
+      <template v-else>
+        Research abgeschlossen: {{ store.runResult.findings_count }} neue Findings,
+        {{ store.runResult.suggestions_count }} Topic-Vorschlaege
+        <span v-if="store.runResult.errors.length > 0" class="ml-2 text-red-600">
+          ({{ store.runResult.errors.length }} Fehler)
+        </span>
+      </template>
     </div>
 
     <!-- Error -->
@@ -182,9 +193,11 @@ function formatDate(dateStr) {
 
     <!-- Topics Tab -->
     <div v-else-if="activeTab === 'topics'" class="mt-6">
-      <div v-if="store.topics.length === 0" class="py-12 text-center text-go4-muted">
-        Noch keine Themen vorhanden. Starte eine Recherche oder erstelle ein eigenes Thema.
-      </div>
+      <EmptyState
+        v-if="store.topics.length === 0"
+        title="Noch keine Themen vorhanden"
+        description="Starte eine Recherche oder erstelle ein eigenes Thema."
+      />
       <div v-else class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         <div
           v-for="topic in store.topics"
@@ -193,12 +206,7 @@ function formatDate(dateStr) {
         >
           <div class="flex items-start justify-between">
             <h3 class="font-medium text-go4-secondary">{{ topic.title }}</h3>
-            <span
-              class="ml-2 shrink-0 rounded-full px-2 py-0.5 text-xs font-medium"
-              :class="statusBadge[topic.status] || 'bg-gray-100 text-gray-800'"
-            >
-              {{ topic.status }}
-            </span>
+            <StatusBadge :status="topic.status" />
           </div>
           <p class="mt-2 line-clamp-3 text-sm text-go4-muted">{{ topic.description }}</p>
           <div class="mt-3 flex flex-wrap items-center gap-2">
@@ -258,9 +266,11 @@ function formatDate(dateStr) {
 
     <!-- Findings Tab -->
     <div v-else-if="activeTab === 'findings'" class="mt-6">
-      <div v-if="store.findings.length === 0" class="py-12 text-center text-go4-muted">
-        Noch keine Findings vorhanden. Starte eine Recherche.
-      </div>
+      <EmptyState
+        v-if="store.findings.length === 0"
+        title="Noch keine Findings vorhanden"
+        description="Starte eine Recherche."
+      />
       <div v-else class="space-y-3">
         <div
           v-for="finding in store.findings"
@@ -276,12 +286,7 @@ function formatDate(dateStr) {
               >
                 {{ finding.title }}
               </a>
-              <span
-                class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium"
-                :class="statusBadge[finding.status] || 'bg-gray-100 text-gray-800'"
-              >
-                {{ finding.status }}
-              </span>
+              <StatusBadge :status="finding.status" />
             </div>
             <p v-if="finding.summary" class="mt-1 line-clamp-1 text-sm text-go4-muted">
               {{ finding.summary }}
@@ -315,12 +320,10 @@ function formatDate(dateStr) {
           to="/research/sources/new"
           class="rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-go4-primary/90"
         >
-          Quelle hinzufügen
+          Quelle hinzufuegen
         </router-link>
       </div>
-      <div v-if="store.sources.length === 0" class="py-12 text-center text-go4-muted">
-        Noch keine Quellen konfiguriert.
-      </div>
+      <EmptyState v-if="store.sources.length === 0" title="Noch keine Quellen konfiguriert" />
       <div v-else class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         <div
           v-for="source in store.sources"
@@ -378,7 +381,7 @@ function formatDate(dateStr) {
                 class="rounded bg-red-100 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-200"
                 @click="handleDeleteSource(source.id)"
               >
-                Löschen
+                Loeschen
               </button>
             </div>
           </div>

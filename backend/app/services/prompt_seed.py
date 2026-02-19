@@ -362,6 +362,113 @@ SEED_PROMPTS = [
         "temperature": 0.7,
         "max_tokens": 2048,
     },
+    {
+        "slug": "chat-onboarding",
+        "name": "Chat: Onboarding-Berater",
+        "description": (
+            "System-Prompt fuer den Onboarding-Chat. "
+            "Stellt Fragen zu Branche, Zielgruppe und Themen."
+        ),
+        "category": "chat",
+        "system_prompt": (
+            "Du bist ein freundlicher Marketing-Berater fuer {{COMPANY_NAME}}. "
+            "Stelle Onboarding-Fragen: 1) Branche 2) Zielgruppe 3) Wichtige Themen "
+            "4) Wettbewerber 5) Bevorzugte Plattformen. "
+            "Gib konkrete Empfehlungen basierend auf den Antworten."
+        ),
+        "user_prompt": "{{user_message}}",
+        "variables": [
+            {
+                "name": "user_message",
+                "type": "string",
+                "required": True,
+                "default": None,
+                "description": "Nachricht des Nutzers",
+            },
+            {
+                "name": "COMPANY_NAME",
+                "type": "string",
+                "required": False,
+                "default": "",
+                "description": "Firmenname (aus Tenant-Config)",
+            },
+        ],
+        "output_format": "text",
+        "provider": "anthropic",
+        "model": "claude-sonnet-4-5-20250929",
+        "temperature": 0.7,
+        "max_tokens": 2048,
+    },
+    {
+        "slug": "chat-research",
+        "name": "Chat: Research-Assistent",
+        "description": (
+            "System-Prompt fuer den Research-Chat. " "Hilft bei der Quellensuche."
+        ),
+        "category": "chat",
+        "system_prompt": (
+            "Du hilfst {{COMPANY_NAME}} relevante Informationsquellen zu finden. "
+            "Schlage RSS-Feeds, Branchenportale und Keywords vor "
+            "basierend auf der Branche."
+        ),
+        "user_prompt": "{{user_message}}",
+        "variables": [
+            {
+                "name": "user_message",
+                "type": "string",
+                "required": True,
+                "default": None,
+                "description": "Nachricht des Nutzers",
+            },
+            {
+                "name": "COMPANY_NAME",
+                "type": "string",
+                "required": False,
+                "default": "",
+                "description": "Firmenname (aus Tenant-Config)",
+            },
+        ],
+        "output_format": "text",
+        "provider": "anthropic",
+        "model": "claude-sonnet-4-5-20250929",
+        "temperature": 0.6,
+        "max_tokens": 2048,
+    },
+    {
+        "slug": "chat-general",
+        "name": "Chat: Marketing-Assistent",
+        "description": (
+            "System-Prompt fuer den allgemeinen Chat. "
+            "Hilft bei Content-Ideen und Strategie."
+        ),
+        "category": "chat",
+        "system_prompt": (
+            "Du bist ein Marketing-Assistent fuer {{COMPANY_NAME}}. "
+            "Hilf bei Content-Ideen, Strategie und Konfiguration."
+        ),
+        "user_prompt": "{{user_message}}",
+        "variables": [
+            {
+                "name": "user_message",
+                "type": "string",
+                "required": True,
+                "default": None,
+                "description": "Nachricht des Nutzers",
+            },
+            {
+                "name": "COMPANY_NAME",
+                "type": "string",
+                "required": False,
+                "default": "",
+                "description": "Firmenname (aus Tenant-Config)",
+            },
+        ],
+        "output_format": "text",
+        "provider": "anthropic",
+        "model": "claude-sonnet-4-5-20250929",
+        "temperature": 0.7,
+        "max_tokens": 2048,
+    },
 ]
 
 

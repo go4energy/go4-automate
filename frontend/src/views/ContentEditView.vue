@@ -2,6 +2,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useContentStore } from '@/stores/content'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import StatusBadge from '@/components/ui/StatusBadge.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -91,62 +93,30 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-    <div class="flex items-center justify-between">
-      <div>
-        <button
-          class="text-sm text-go4-muted hover:text-go4-secondary"
-          @click="goBack"
-        >
-          &larr; Zurück zur Übersicht
-        </button>
-        <h1 class="mt-2 text-2xl font-bold text-go4-secondary">
-          Content bearbeiten
-        </h1>
-      </div>
-      <div
-        v-if="piece"
-        class="flex items-center gap-2"
-      >
-        <span
-          class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
-          :class="{
-            'bg-yellow-100 text-yellow-800': piece.status === 'draft',
-            'bg-blue-100 text-blue-800': piece.status === 'scheduled',
-            'bg-green-100 text-green-800': piece.status === 'published',
-            'bg-red-100 text-red-800': piece.status === 'failed'
-          }"
-        >
-          {{ piece.status }}
-        </span>
-        <span
-          v-if="piece.ai_model"
-          class="text-xs text-go4-muted"
-        > AI: {{ piece.ai_model }} </span>
-      </div>
-    </div>
+  <div>
+    <PageHeader title="Content bearbeiten">
+      <template #actions>
+        <div v-if="piece" class="flex items-center gap-2">
+          <StatusBadge :status="piece.status" />
+          <span v-if="piece.ai_model" class="text-xs text-go4-muted">
+            AI: {{ piece.ai_model }}
+          </span>
+        </div>
+      </template>
+    </PageHeader>
 
     <!-- Loading -->
-    <div
-      v-if="store.loading && !piece"
-      class="mt-8 flex items-center justify-center p-8"
-    >
+    <div v-if="store.loading && !piece" class="mt-8 flex items-center justify-center p-8">
       <span class="text-go4-muted">Laden...</span>
     </div>
 
     <!-- Error -->
-    <div
-      v-else-if="store.error && !piece"
-      class="mt-8 rounded-lg bg-red-50 p-4 text-red-700"
-    >
+    <div v-else-if="store.error && !piece" class="mt-8 rounded-lg bg-red-50 p-4 text-red-700">
       {{ store.error }}
     </div>
 
     <!-- Content -->
-    <div
-      v-else-if="piece"
-      class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2"
-    >
+    <div v-else-if="piece" class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
       <!-- Left: Form -->
       <div class="space-y-4">
         <div>
@@ -155,7 +125,7 @@ onMounted(() => {
             v-model="form.title"
             type="text"
             class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
-          >
+          />
         </div>
 
         <div>
@@ -178,7 +148,7 @@ onMounted(() => {
               v-model="form.hook"
               type="text"
               class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
-            >
+            />
           </div>
           <div>
             <label class="block text-xs font-medium text-go4-muted">CTA</label>
@@ -186,7 +156,7 @@ onMounted(() => {
               v-model="form.cta"
               type="text"
               class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
-            >
+            />
           </div>
         </div>
 
@@ -196,7 +166,7 @@ onMounted(() => {
             v-model="form.hashtags"
             type="text"
             class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
-          >
+          />
         </div>
 
         <div>
@@ -216,15 +186,9 @@ onMounted(() => {
               v-model="form.platform"
               class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
             >
-              <option value="facebook">
-                Facebook
-              </option>
-              <option value="instagram">
-                Instagram
-              </option>
-              <option value="linkedin">
-                LinkedIn
-              </option>
+              <option value="facebook">Facebook</option>
+              <option value="instagram">Instagram</option>
+              <option value="linkedin">LinkedIn</option>
             </select>
           </div>
           <div>
@@ -233,18 +197,10 @@ onMounted(() => {
               v-model="form.content_type"
               class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
             >
-              <option value="post">
-                Post
-              </option>
-              <option value="story">
-                Story
-              </option>
-              <option value="reel">
-                Reel
-              </option>
-              <option value="carousel">
-                Carousel
-              </option>
+              <option value="post">Post</option>
+              <option value="story">Story</option>
+              <option value="reel">Reel</option>
+              <option value="carousel">Carousel</option>
             </select>
           </div>
         </div>
@@ -269,82 +225,53 @@ onMounted(() => {
             class="rounded-lg bg-go4-surface px-4 py-2 text-sm font-medium text-go4-secondary hover:bg-gray-200"
             @click="goBack"
           >
-            Zurück
+            Zurueck
           </button>
         </div>
 
-        <p
-          v-if="store.error"
-          class="text-sm text-red-600"
-        >
+        <p v-if="store.error" class="text-sm text-red-600">
           {{ store.error }}
         </p>
       </div>
 
       <!-- Right: Live Preview -->
       <div class="rounded-lg bg-white p-6 shadow-sm">
-        <h2 class="text-sm font-semibold text-go4-secondary">
-          Vorschau
-        </h2>
+        <h2 class="text-sm font-semibold text-go4-secondary">Vorschau</h2>
         <div class="mt-4 rounded-lg border border-gray-200 p-4">
           <div class="flex items-center gap-2">
             <div class="h-8 w-8 rounded-full bg-go4-primary" />
             <div>
-              <p class="text-xs font-semibold text-go4-secondary">
-                Unternehmen
-              </p>
-              <p class="text-xs text-go4-muted">
-                {{ form.platform }} &middot; Jetzt
-              </p>
+              <p class="text-xs font-semibold text-go4-secondary">Unternehmen</p>
+              <p class="text-xs text-go4-muted">{{ form.platform }} &middot; Jetzt</p>
             </div>
           </div>
-          <p
-            v-if="form.hook"
-            class="mt-3 text-sm font-semibold text-go4-secondary"
-          >
+          <p v-if="form.hook" class="mt-3 text-sm font-semibold text-go4-secondary">
             {{ form.hook }}
           </p>
           <p class="mt-2 whitespace-pre-line text-sm text-go4-secondary">
             {{ form.caption }}
           </p>
-          <p
-            v-if="form.hashtags"
-            class="mt-2 text-sm text-blue-600"
-          >
+          <p v-if="form.hashtags" class="mt-2 text-sm text-blue-600">
             {{ form.hashtags }}
           </p>
-          <p
-            v-if="form.cta"
-            class="mt-3 text-sm font-medium text-go4-primary"
-          >
+          <p v-if="form.cta" class="mt-3 text-sm font-medium text-go4-primary">
             {{ form.cta }}
           </p>
         </div>
 
         <!-- Scheduling Info -->
-        <div
-          v-if="piece.scheduled_at"
-          class="mt-4 rounded-lg bg-blue-50 p-3"
-        >
+        <div v-if="piece.scheduled_at" class="mt-4 rounded-lg bg-blue-50 p-3">
           <p class="text-xs font-medium text-blue-800">
             Geplant: {{ new Date(piece.scheduled_at).toLocaleString('de-DE') }}
           </p>
-          <p
-            v-if="piece.approved_by"
-            class="mt-1 text-xs text-blue-600"
-          >
+          <p v-if="piece.approved_by" class="mt-1 text-xs text-blue-600">
             Genehmigt von: {{ piece.approved_by }}
           </p>
         </div>
 
         <!-- Error Info -->
-        <div
-          v-if="piece.error_message"
-          class="mt-4 rounded-lg bg-red-50 p-3"
-        >
-          <p class="text-xs font-medium text-red-800">
-            Fehler: {{ piece.error_message }}
-          </p>
+        <div v-if="piece.error_message" class="mt-4 rounded-lg bg-red-50 p-3">
+          <p class="text-xs font-medium text-red-800">Fehler: {{ piece.error_message }}</p>
         </div>
       </div>
     </div>
@@ -355,11 +282,9 @@ onMounted(() => {
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
     >
       <div class="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-        <h2 class="text-lg font-semibold text-go4-secondary">
-          Post genehmigen
-        </h2>
+        <h2 class="text-lg font-semibold text-go4-secondary">Post genehmigen</h2>
         <p class="mt-1 text-sm text-go4-muted">
-          Wähle Datum und Uhrzeit für die Veröffentlichung.
+          Waehle Datum und Uhrzeit fuer die Veroeffentlichung.
         </p>
         <div class="mt-4 grid grid-cols-2 gap-4">
           <div>
@@ -368,7 +293,7 @@ onMounted(() => {
               v-model="scheduledDate"
               type="date"
               class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
-            >
+            />
           </div>
           <div>
             <label class="block text-xs font-medium text-go4-muted">Uhrzeit</label>
@@ -376,7 +301,7 @@ onMounted(() => {
               v-model="scheduledTime"
               type="time"
               class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
-            >
+            />
           </div>
         </div>
         <div class="mt-6 flex items-center justify-end gap-3">
@@ -393,10 +318,7 @@ onMounted(() => {
             Genehmigen
           </button>
         </div>
-        <p
-          v-if="store.error"
-          class="mt-2 text-sm text-red-600"
-        >
+        <p v-if="store.error" class="mt-2 text-sm text-red-600">
           {{ store.error }}
         </p>
       </div>

@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useAdStore } from '@/stores/ads'
+import PageHeader from '@/components/ui/PageHeader.vue'
 import KpiCard from '@/components/ads/KpiCard.vue'
 import PerformanceChart from '@/components/ads/PerformanceChart.vue'
 import WeatherWidget from '@/components/ads/WeatherWidget.vue'
@@ -27,42 +28,30 @@ async function runOptimizer() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-3xl font-bold text-go4-secondary">
-          Ad Management
-        </h1>
-        <p class="mt-1 text-go4-muted">
-          Meta Ads Performance & Optimierung
-        </p>
-      </div>
-      <button
-        class="rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-go4-primary/90 disabled:opacity-50"
-        :disabled="optimizing"
-        @click="runOptimizer"
-      >
-        {{ optimizing ? 'Optimiert...' : 'Jetzt optimieren' }}
-      </button>
-    </div>
+  <div>
+    <PageHeader title="Ad Management" subtitle="Meta Ads Performance & Optimierung">
+      <template #actions>
+        <button
+          class="rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-go4-primary/90 disabled:opacity-50"
+          :disabled="optimizing"
+          @click="runOptimizer"
+        >
+          {{ optimizing ? 'Optimiert...' : 'Jetzt optimieren' }}
+        </button>
+      </template>
+    </PageHeader>
 
-    <div
-      v-if="store.loading"
-      class="mt-8 flex items-center justify-center p-12"
-    >
+    <div v-if="store.loading" class="mt-8 flex items-center justify-center p-12">
       <span class="text-go4-muted">Laden...</span>
     </div>
 
-    <div
-      v-else-if="store.error"
-      class="mt-8 rounded-lg bg-red-50 p-4 text-red-700"
-    >
+    <div v-else-if="store.error" class="mt-8 rounded-lg bg-red-50 p-4 text-red-700">
       {{ store.error }}
     </div>
 
     <template v-else>
       <!-- KPI Cards -->
-      <div class="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           title="Ausgaben heute"
           :value="`${store.totalSpendToday} EUR`"
@@ -96,40 +85,20 @@ async function runOptimizer() {
       <div class="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <!-- Campaigns Table -->
         <div class="rounded-lg bg-white p-6 shadow-sm lg:col-span-2">
-          <h3 class="mb-4 text-sm font-medium text-go4-muted">
-            Kampagnen
-          </h3>
-          <div
-            v-if="store.campaigns.length === 0"
-            class="py-8 text-center text-go4-muted"
-          >
+          <h3 class="mb-4 text-sm font-medium text-go4-muted">Kampagnen</h3>
+          <div v-if="store.campaigns.length === 0" class="py-8 text-center text-go4-muted">
             Keine Kampagnen konfiguriert
           </div>
-          <div
-            v-else
-            class="overflow-x-auto"
-          >
+          <div v-else class="overflow-x-auto">
             <table class="min-w-full text-sm">
               <thead>
                 <tr class="border-b text-left text-xs font-medium uppercase text-go4-muted">
-                  <th class="py-3 pr-4">
-                    Kampagne
-                  </th>
-                  <th class="py-3 pr-4">
-                    Status
-                  </th>
-                  <th class="py-3 pr-4 text-right">
-                    Ziel-CPL
-                  </th>
-                  <th class="py-3 pr-4 text-right">
-                    Max-CPL
-                  </th>
-                  <th class="py-3 pr-4">
-                    Boost
-                  </th>
-                  <th class="py-3">
-                    Aktionen
-                  </th>
+                  <th class="py-3 pr-4">Kampagne</th>
+                  <th class="py-3 pr-4">Status</th>
+                  <th class="py-3 pr-4 text-right">Ziel-CPL</th>
+                  <th class="py-3 pr-4 text-right">Max-CPL</th>
+                  <th class="py-3 pr-4">Boost</th>
+                  <th class="py-3">Aktionen</th>
                 </tr>
               </thead>
               <tbody>
@@ -196,20 +165,12 @@ async function runOptimizer() {
         </div>
 
         <!-- Weather Widget -->
-        <WeatherWidget
-          :weather="store.weather"
-          :loading="store.loading"
-        />
+        <WeatherWidget :weather="store.weather" :loading="store.loading" />
       </div>
 
       <!-- Optimizer Log -->
-      <div
-        v-if="store.optimizerLog.length > 0"
-        class="mt-8 rounded-lg bg-white p-6 shadow-sm"
-      >
-        <h3 class="mb-4 text-sm font-medium text-go4-muted">
-          Letzte Optimierung
-        </h3>
+      <div v-if="store.optimizerLog.length > 0" class="mt-8 rounded-lg bg-white p-6 shadow-sm">
+        <h3 class="mb-4 text-sm font-medium text-go4-muted">Letzte Optimierung</h3>
         <div class="space-y-2">
           <div
             v-for="(entry, idx) in store.optimizerLog"

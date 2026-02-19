@@ -152,6 +152,16 @@ class ResearchService:
                 errors.append(msg)
 
         await self.db.flush()
+
+        from app.services.activity import ActivityService
+
+        await ActivityService(self.db).log(
+            tenant_id,
+            "research",
+            "research.run",
+            f"Research abgeschlossen: {len(all_new_findings)} Findings, {len(suggestions)} Topics",
+            severity="success" if not errors else "warning",
+        )
         return {
             "findings_count": len(all_new_findings),
             "suggestions_count": len(suggestions),
@@ -564,6 +574,18 @@ class ResearchService:
             "Content aus Topic generiert: topic={tid} piece={pid}",
             tid=topic_id,
             pid=piece.id,
+        )
+
+        from app.services.activity import ActivityService
+
+        await ActivityService(self.db).log(
+            tenant_id,
+            "research",
+            "research.generated",
+            f"Content aus Topic '{topic.title}' generiert",
+            entity_type="topic_suggestion",
+            entity_id=topic_id,
+            severity="success",
         )
         return piece
 

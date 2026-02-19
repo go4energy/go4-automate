@@ -2,6 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useResearchStore } from '@/stores/research'
+import PageHeader from '@/components/ui/PageHeader.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -71,7 +72,7 @@ async function handleSubmit() {
       form.value.config = null
     }
   } catch {
-    error.value = 'Ungültiges JSON in Config'
+    error.value = 'Ungueltiges JSON in Config'
     saving.value = false
     return
   }
@@ -92,10 +93,8 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:px-8">
-    <h1 class="text-2xl font-bold text-go4-secondary">
-      {{ isEdit ? 'Quelle bearbeiten' : 'Neue Quelle' }}
-    </h1>
+  <div class="mx-auto max-w-2xl">
+    <PageHeader :title="isEdit ? 'Quelle bearbeiten' : 'Neue Quelle'" />
 
     <div v-if="loading" class="mt-8 text-center text-go4-muted">Laden...</div>
 
@@ -104,7 +103,6 @@ async function handleSubmit() {
     </div>
 
     <form v-if="!loading" class="mt-6 space-y-6" @submit.prevent="handleSubmit">
-      <!-- Name -->
       <div>
         <label class="block text-sm font-medium text-go4-secondary">Name</label>
         <input
@@ -116,7 +114,6 @@ async function handleSubmit() {
         />
       </div>
 
-      <!-- URL -->
       <div>
         <label class="block text-sm font-medium text-go4-secondary">URL</label>
         <input
@@ -128,7 +125,6 @@ async function handleSubmit() {
         />
       </div>
 
-      <!-- Source Type -->
       <div>
         <label class="block text-sm font-medium text-go4-secondary">Typ</label>
         <select
@@ -141,7 +137,6 @@ async function handleSubmit() {
         </select>
       </div>
 
-      <!-- Keywords -->
       <div>
         <label class="block text-sm font-medium text-go4-secondary">Keywords</label>
         <div class="mt-1 flex gap-2">
@@ -178,7 +173,6 @@ async function handleSubmit() {
         </div>
       </div>
 
-      <!-- Interval -->
       <div>
         <label class="block text-sm font-medium text-go4-secondary">
           Abruf-Intervall (Stunden)
@@ -192,7 +186,6 @@ async function handleSubmit() {
         />
       </div>
 
-      <!-- Config (optional) -->
       <div>
         <label class="block text-sm font-medium text-go4-secondary">
           Config (optional, JSON)
@@ -205,7 +198,6 @@ async function handleSubmit() {
         />
       </div>
 
-      <!-- Actions -->
       <div class="flex gap-3">
         <button
           type="submit"

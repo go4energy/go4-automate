@@ -2,6 +2,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePromptStore } from '@/stores/prompts'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
 
 const router = useRouter()
 const store = usePromptStore()
@@ -23,7 +25,9 @@ const categoryColors = {
   content: 'bg-blue-100 text-blue-700',
   analysis: 'bg-purple-100 text-purple-700',
   email: 'bg-green-100 text-green-700',
-  general: 'bg-gray-100 text-gray-700'
+  general: 'bg-gray-100 text-gray-700',
+  chat: 'bg-indigo-100 text-indigo-700',
+  research: 'bg-orange-100 text-orange-700'
 }
 
 function getCategoryColor(category) {
@@ -52,19 +56,17 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-3xl font-bold text-go4-secondary">Prompt Registry</h1>
-        <p class="mt-1 text-go4-muted">KI-Prompts verwalten und testen</p>
-      </div>
-      <button
-        class="rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-go4-primary/90"
-        @click="goToNew"
-      >
-        + Neuer Prompt
-      </button>
-    </div>
+  <div>
+    <PageHeader title="Prompt Registry" subtitle="KI-Prompts verwalten und testen">
+      <template #actions>
+        <button
+          class="rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-go4-primary/90"
+          @click="goToNew"
+        >
+          + Neuer Prompt
+        </button>
+      </template>
+    </PageHeader>
 
     <!-- Filters -->
     <div class="mt-6 flex flex-wrap items-center gap-4">
@@ -107,17 +109,17 @@ onMounted(() => {
     </div>
 
     <!-- Empty State -->
-    <div
-      v-else-if="filteredPrompts.length === 0"
-      class="mt-8 rounded-lg border-2 border-dashed border-gray-300 p-12 text-center"
-    >
-      <p class="text-go4-muted">Keine Prompts gefunden.</p>
-      <button
-        class="mt-4 rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-go4-primary/90"
-        @click="goToNew"
-      >
-        Ersten Prompt erstellen
-      </button>
+    <div v-else-if="filteredPrompts.length === 0" class="mt-8">
+      <EmptyState title="Keine Prompts gefunden">
+        <template #action>
+          <button
+            class="rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-go4-primary/90"
+            @click="goToNew"
+          >
+            Ersten Prompt erstellen
+          </button>
+        </template>
+      </EmptyState>
     </div>
 
     <!-- Grid -->

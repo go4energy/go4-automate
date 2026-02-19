@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAdStore } from '@/stores/ads'
+import PageHeader from '@/components/ui/PageHeader.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -88,42 +89,20 @@ async function save() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
-    <div class="flex items-center gap-4">
-      <button
-        class="text-go4-muted hover:text-go4-secondary"
-        @click="router.push('/ads')"
-      >
-        &#8592; Zurueck
-      </button>
-      <h1 class="text-2xl font-bold text-go4-secondary">
-        {{ isEdit ? 'Kampagne bearbeiten' : 'Neue Kampagne konfigurieren' }}
-      </h1>
-    </div>
+  <div class="mx-auto max-w-3xl">
+    <PageHeader :title="isEdit ? 'Kampagne bearbeiten' : 'Neue Kampagne konfigurieren'" />
 
-    <div
-      v-if="loading"
-      class="mt-8 flex items-center justify-center p-12"
-    >
+    <div v-if="loading" class="mt-8 flex items-center justify-center p-12">
       <span class="text-go4-muted">Laden...</span>
     </div>
 
-    <div
-      v-else-if="error"
-      class="mt-4 rounded-lg bg-red-50 p-4 text-red-700"
-    >
+    <div v-else-if="error" class="mt-4 rounded-lg bg-red-50 p-4 text-red-700">
       {{ error }}
     </div>
 
-    <form
-      v-else
-      class="mt-8 space-y-6"
-      @submit.prevent="save"
-    >
+    <form v-else class="mt-8 space-y-6" @submit.prevent="save">
       <div class="rounded-lg bg-white p-6 shadow-sm">
-        <h2 class="mb-4 text-lg font-medium text-go4-secondary">
-          Grunddaten
-        </h2>
+        <h2 class="mb-4 text-lg font-medium text-go4-secondary">Grunddaten</h2>
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label class="block text-sm font-medium text-go4-muted">Meta Campaign ID</label>
@@ -134,7 +113,7 @@ async function save() {
               :disabled="isEdit"
               class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary disabled:bg-gray-100"
               placeholder="z.B. 23456789012345"
-            >
+            />
           </div>
           <div>
             <label class="block text-sm font-medium text-go4-muted">Kampagnenname</label>
@@ -143,15 +122,13 @@ async function save() {
               type="text"
               class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
               placeholder="z.B. Solar-Leads Wien"
-            >
+            />
           </div>
         </div>
       </div>
 
       <div class="rounded-lg bg-white p-6 shadow-sm">
-        <h2 class="mb-4 text-lg font-medium text-go4-secondary">
-          Budget & CPL
-        </h2>
+        <h2 class="mb-4 text-lg font-medium text-go4-secondary">Budget & CPL</h2>
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label class="block text-sm font-medium text-go4-muted">Ziel-CPL (EUR)</label>
@@ -162,7 +139,7 @@ async function save() {
               min="0"
               class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
               placeholder="z.B. 15.00"
-            >
+            />
           </div>
           <div>
             <label class="block text-sm font-medium text-go4-muted">Max-CPL (EUR)</label>
@@ -173,7 +150,7 @@ async function save() {
               min="0"
               class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
               placeholder="z.B. 30.00"
-            >
+            />
           </div>
           <div>
             <label class="block text-sm font-medium text-go4-muted">Min. Tagesbudget (EUR)</label>
@@ -184,7 +161,7 @@ async function save() {
               min="0"
               class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
               placeholder="z.B. 10.00"
-            >
+            />
           </div>
           <div>
             <label class="block text-sm font-medium text-go4-muted">Max. Tagesbudget (EUR)</label>
@@ -195,22 +172,20 @@ async function save() {
               min="0"
               class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
               placeholder="z.B. 100.00"
-            >
+            />
           </div>
         </div>
       </div>
 
       <div class="rounded-lg bg-white p-6 shadow-sm">
-        <h2 class="mb-4 text-lg font-medium text-go4-secondary">
-          Optimierung
-        </h2>
+        <h2 class="mb-4 text-lg font-medium text-go4-secondary">Optimierung</h2>
         <div class="space-y-4">
           <label class="flex items-center gap-3">
             <input
               v-model="form.auto_optimize"
               type="checkbox"
               class="h-4 w-4 rounded border-gray-300 text-go4-primary focus:ring-go4-primary"
-            >
+            />
             <span class="text-sm text-go4-secondary">Automatische Budget-Optimierung</span>
           </label>
           <label class="flex items-center gap-3">
@@ -218,13 +193,10 @@ async function save() {
               v-model="form.weather_boost_enabled"
               type="checkbox"
               class="h-4 w-4 rounded border-gray-300 text-go4-primary focus:ring-go4-primary"
-            >
+            />
             <span class="text-sm text-go4-secondary">Wetter-Boost aktivieren</span>
           </label>
-          <div
-            v-if="form.weather_boost_enabled"
-            class="ml-7"
-          >
+          <div v-if="form.weather_boost_enabled" class="ml-7">
             <label class="block text-sm font-medium text-go4-muted">Boost-Faktor</label>
             <input
               v-model="form.weather_boost_factor"
@@ -233,8 +205,10 @@ async function save() {
               min="1"
               max="3"
               class="mt-1 w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
+            />
+            <span class="ml-2 text-xs text-go4-muted"
+              >z.B. 1.5 = 50% mehr Budget bei Sonnenschein</span
             >
-            <span class="ml-2 text-xs text-go4-muted">z.B. 1.5 = 50% mehr Budget bei Sonnenschein</span>
           </div>
         </div>
       </div>

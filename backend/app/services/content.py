@@ -181,6 +181,14 @@ class ContentService:
             title=piece.title,
             tenant=tenant_id,
         )
+        await self._log_activity(
+            tenant_id,
+            "content.generated",
+            f"Post '{piece.title}' generiert",
+            entity_type="content_piece",
+            entity_id=piece.id,
+            severity="success",
+        )
         return piece
 
     async def approve_content(
@@ -203,6 +211,14 @@ class ContentService:
             id=piece_id,
             by=data.approved_by,
             tenant=tenant_id,
+        )
+        await self._log_activity(
+            tenant_id,
+            "content.approved",
+            f"Post '{piece.title}' genehmigt",
+            entity_type="content_piece",
+            entity_id=piece.id,
+            severity="success",
         )
         return piece
 
@@ -243,7 +259,50 @@ class ContentService:
 
         await self.db.flush()
         await self.db.refresh(piece)
+        if piece.status == "published":
+            await self._log_activity(
+                tenant_id,
+                "content.published",
+                f"Post '{piece.title}' veroeffentlicht",
+                entity_type="content_piece",
+                entity_id=piece.id,
+                severity="success",
+            )
+        elif piece.status == "failed":
+            await self._log_activity(
+                tenant_id,
+                "content.failed",
+                f"Post '{piece.title}' fehlgeschlagen",
+                detail=piece.error_message,
+                entity_type="content_piece",
+                entity_id=piece.id,
+                severity="error",
+            )
         return piece
+
+    async def _log_activity(
+        self,
+        tenant_id: str,
+        action: str,
+        title: str,
+        detail: str | None = None,
+        entity_type: str | None = None,
+        entity_id: int | None = None,
+        severity: str = "info",
+    ) -> None:
+        """Log an activity event."""
+        from app.services.activity import ActivityService
+
+        await ActivityService(self.db).log(
+            tenant_id,
+            "content",
+            action,
+            title,
+            detail=detail,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            severity=severity,
+        )
 
     async def get_next_topic(self, tenant_id: str, topics: list[str]) -> dict:
         """Round-robin: return the next topic based on the last used topic."""

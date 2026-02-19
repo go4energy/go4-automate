@@ -1,5 +1,7 @@
 """LLM service - task-based model routing with tenant context."""
 
+from collections.abc import AsyncGenerator
+
 from loguru import logger
 
 from app.config import settings
@@ -188,6 +190,70 @@ class LLMService:
             temperature=temperature,
         )
         return response.choices[0].message.content
+
+    async def stream_generate(
+        self,
+        system: str,
+        messages: list[dict],
+        provider: str = "anthropic",
+    ) -> AsyncGenerator[str, None]:
+        """Stream text generation from LLM. Yields text chunks."""
+        logger.info(
+            "LLM stream request: provider={provider}",
+            provider=provider,
+        )
+        try:
+            if provider == "anthropic":
+                async for chunk in self._stream_anthropic(system, messages):
+                    yield chunk
+            else:
+                async for chunk in self._stream_openai(system, messages):
+                    yield chunk
+        except ExternalServiceError:
+            raise
+        except Exception as e:
+            logger.exception("LLM Stream-Fehler: {err}", err=str(e))
+            raise ExternalServiceError("LLM", str(e)) from e
+
+    async def _stream_anthropic(
+        self, system: str, messages: list[dict]
+    ) -> AsyncGenerator[str, None]:
+        """Stream from Anthropic Claude API."""
+        if not settings.anthropic_api_key:
+            raise ExternalServiceError("Anthropic", "API Key nicht konfiguriert")
+
+        from anthropic import AsyncAnthropic
+
+        client = AsyncAnthropic(api_key=settings.anthropic_api_key)
+        async with client.messages.stream(
+            model=settings.llm_model_content,
+            max_tokens=2048,
+            system=system,
+            messages=messages,
+        ) as stream:
+            async for text in stream.text_stream:
+                yield text
+
+    async def _stream_openai(
+        self, system: str, messages: list[dict]
+    ) -> AsyncGenerator[str, None]:
+        """Stream from OpenAI API."""
+        if not settings.openai_api_key:
+            raise ExternalServiceError("OpenAI", "API Key nicht konfiguriert")
+
+        from openai import AsyncOpenAI
+
+        client = AsyncOpenAI(api_key=settings.openai_api_key)
+        stream = await client.chat.completions.create(
+            model=settings.llm_model_analysis,
+            messages=[{"role": "system", "content": system}, *messages],
+            max_tokens=2048,
+            stream=True,
+        )
+        async for chunk in stream:
+            delta = chunk.choices[0].delta.content
+            if delta:
+                yield delta
 
     async def generate_json(self, task: str, prompt: str) -> dict:
         """Generate text and parse as JSON. Strips markdown fences."""
