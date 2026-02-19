@@ -13,7 +13,9 @@ from loguru import logger
 from app.config import settings
 from app.exceptions import AppError
 from app.routers import (
+    activity_router,
     ad_campaigns_router,
+    chat_router,
     content_router,
     leads_router,
     llm_router,
@@ -113,6 +115,13 @@ app.include_router(content_router, prefix="/api/v1")
 app.include_router(prompts_router, prefix="/api/v1")
 app.include_router(ad_campaigns_router, prefix="/api/v1")
 app.include_router(research_router, prefix="/api/v1")
+app.include_router(chat_router, prefix="/api/v1")
+app.include_router(activity_router, prefix="/api/v1")
+
+# Setup wizard (domain-based module)
+from app.setup.router import router as setup_router  # noqa: E402
+
+app.include_router(setup_router, prefix="/api/v1")
 
 # Ads pipeline (domain-based module)
 from app.ads.router import router as ads_router  # noqa: E402
