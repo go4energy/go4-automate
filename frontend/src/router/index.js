@@ -34,6 +34,27 @@ const routes = [
     props: true
   },
   {
+    path: '/research',
+    name: 'research',
+    component: () => import('@/views/ResearchView.vue')
+  },
+  {
+    path: '/research/sources/new',
+    name: 'research-source-new',
+    component: () => import('@/views/ResearchSourceEditView.vue')
+  },
+  {
+    path: '/research/sources/:id',
+    name: 'research-source-edit',
+    component: () => import('@/views/ResearchSourceEditView.vue'),
+    props: true
+  },
+  {
+    path: '/research/topics/new',
+    name: 'research-topic-new',
+    component: () => import('@/views/TopicCreateView.vue')
+  },
+  {
     path: '/prompts',
     name: 'prompts',
     component: () => import('@/views/PromptsView.vue')

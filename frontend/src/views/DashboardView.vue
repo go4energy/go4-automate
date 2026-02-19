@@ -4,17 +4,21 @@ import { useLeadStore } from '@/stores/leads'
 import { useContentStore } from '@/stores/content'
 import { useAdStore } from '@/stores/ads'
 import { usePromptStore } from '@/stores/prompts'
+import { useResearchStore } from '@/stores/research'
 
 const leadStore = useLeadStore()
 const contentStore = useContentStore()
 const adStore = useAdStore()
 const promptStore = usePromptStore()
+const researchStore = useResearchStore()
 
 onMounted(() => {
   leadStore.fetchLeads()
   contentStore.fetchPieces()
   adStore.fetchDashboard()
   promptStore.fetchPrompts()
+  researchStore.fetchTopics()
+  researchStore.fetchSources()
 })
 </script>
 
@@ -57,6 +61,18 @@ onMounted(() => {
         </p>
         <p v-if="adStore.totalLeadsToday > 0" class="mt-1 text-xs text-go4-muted">
           {{ adStore.totalLeadsToday }} Leads heute
+        </p>
+      </router-link>
+      <router-link
+        to="/research"
+        class="rounded-lg bg-white p-6 shadow-sm transition hover:shadow-md"
+      >
+        <h2 class="text-sm font-medium text-go4-muted">Research Agent</h2>
+        <p class="mt-2 text-3xl font-semibold text-go4-secondary">
+          {{ researchStore.suggestedTopics.length }}
+        </p>
+        <p class="mt-1 text-xs text-go4-muted">
+          {{ researchStore.activeSources.length }} Quellen aktiv
         </p>
       </router-link>
       <router-link

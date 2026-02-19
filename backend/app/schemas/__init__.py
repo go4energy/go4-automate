@@ -27,6 +27,21 @@ from app.schemas.prompt import (
     PromptResponse,
     PromptUpdate,
 )
+from app.schemas.research import (
+    ResearchFindingListItem,
+    ResearchFindingResponse,
+    ResearchFindingStatusUpdate,
+    ResearchRunRequest,
+    ResearchRunResponse,
+    ResearchSourceCreate,
+    ResearchSourceResponse,
+    ResearchSourceUpdate,
+    TopicGenerateRequest,
+    TopicSuggestionCreate,
+    TopicSuggestionListItem,
+    TopicSuggestionResponse,
+    TopicSuggestionUpdate,
+)
 from app.schemas.template import TemplateListItem, TemplateResponse, TemplateUpdate
 from app.schemas.tenant import TenantCreate, TenantResponse
 
@@ -51,9 +66,22 @@ __all__ = [
     "PromptListItem",
     "PromptResponse",
     "PromptUpdate",
+    "ResearchFindingListItem",
+    "ResearchFindingResponse",
+    "ResearchFindingStatusUpdate",
+    "ResearchRunRequest",
+    "ResearchRunResponse",
+    "ResearchSourceCreate",
+    "ResearchSourceResponse",
+    "ResearchSourceUpdate",
     "TemplateListItem",
     "TemplateResponse",
     "TemplateUpdate",
     "TenantCreate",
     "TenantResponse",
+    "TopicGenerateRequest",
+    "TopicSuggestionCreate",
+    "TopicSuggestionListItem",
+    "TopicSuggestionResponse",
+    "TopicSuggestionUpdate",
 ]

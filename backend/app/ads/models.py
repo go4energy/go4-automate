@@ -1,6 +1,6 @@
 """Ad management models."""
 
-from datetime import UTC, datetime
+from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import (
@@ -20,7 +20,7 @@ from app.models.base import TimestampMixin
 
 
 def _utcnow() -> datetime:
-    return datetime.now(tz=UTC)
+    return datetime.utcnow()
 
 
 class AdCampaignConfig(TimestampMixin, Base):

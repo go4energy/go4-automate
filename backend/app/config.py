@@ -60,6 +60,13 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_from: str = "noreply@go4.energy"
 
+    # Uploads
+    upload_dir: str = "uploads"
+    max_upload_size_mb: int = 10
+
+    # Search API
+    serper_api_key: str = ""
+
     # Tenant
     default_tenant_id: str = "default"
     active_tenant: str = "go4energy"

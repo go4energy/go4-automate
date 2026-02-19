@@ -35,6 +35,15 @@ class Tenant(TimestampMixin, Base):
     )
     ad_campaigns = relationship("AdCampaign", back_populates="tenant", lazy="selectin")
     prompts = relationship("Prompt", back_populates="tenant", lazy="selectin")
+    research_sources = relationship(
+        "ResearchSource", back_populates="tenant", lazy="selectin"
+    )
+    research_findings = relationship(
+        "ResearchFinding", back_populates="tenant", lazy="selectin"
+    )
+    topic_suggestions = relationship(
+        "TopicSuggestion", back_populates="tenant", lazy="selectin"
+    )
 
     def __repr__(self) -> str:
         return f"<Tenant {self.tenant_id}>"

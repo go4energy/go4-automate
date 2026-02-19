@@ -248,6 +248,120 @@ SEED_PROMPTS = [
         "temperature": 0.6,
         "max_tokens": 2048,
     },
+    {
+        "slug": "research-topic-analyzer",
+        "name": "Research Topic Analyzer",
+        "description": "Analysiert Research-Findings und schlägt Content-Themen vor.",
+        "category": "research",
+        "system_prompt": (
+            "Du bist ein Content-Stratege für {{COMPANY_NAME}}. "
+            "Deine Aufgabe ist es, aus aktuellen Branchennachrichten "
+            "relevante Content-Themen für Social Media und E-Mail-Marketing abzuleiten."
+        ),
+        "user_prompt": (
+            "Analysiere die folgenden Research-Findings und schlage 3-5 Content-Themen vor:\n\n"
+            "{{findings_json}}\n\n"
+            "Keywords: {{keywords}}\n\n"
+            "Antworte als JSON-Array: "
+            '[{{"title": "...", "description": "...", "category": "content|email|social", '
+            '"platforms": ["facebook", "instagram", "email"], "priority": 1-5}}]'
+        ),
+        "variables": [
+            {
+                "name": "findings_json",
+                "type": "string",
+                "required": True,
+                "default": None,
+                "description": "JSON-Array der Research-Findings",
+            },
+            {
+                "name": "keywords",
+                "type": "string",
+                "required": False,
+                "default": "allgemein",
+                "description": "Komma-separierte Keywords",
+            },
+            {
+                "name": "COMPANY_NAME",
+                "type": "string",
+                "required": False,
+                "default": "",
+                "description": "Firmenname (aus Tenant-Config)",
+            },
+        ],
+        "output_format": "json",
+        "provider": "anthropic",
+        "model": "claude-sonnet-4-5-20250929",
+        "temperature": 0.5,
+        "max_tokens": 2048,
+    },
+    {
+        "slug": "custom-topic-content",
+        "name": "Custom Topic Content Generator",
+        "description": "Generiert Content basierend auf einem benutzerdefinierten Thema.",
+        "category": "content",
+        "system_prompt": (
+            "Du bist ein Social-Media- und E-Mail-Marketing-Experte für {{COMPANY_NAME}}. "
+            "Tonalität: {{CONTENT_TONE}}."
+        ),
+        "user_prompt": (
+            "Erstelle {{content_type}} Content für {{platform}} basierend auf:\n\n"
+            "Thema: {{topic_title}}\n"
+            "Beschreibung: {{topic_description}}\n\n"
+            "Antworte als JSON: "
+            '{{"title": "...", "caption": "...", "short": "...", '
+            '"hashtags": "...", "hook": "...", "cta": "..."}}'
+        ),
+        "variables": [
+            {
+                "name": "platform",
+                "type": "string",
+                "required": True,
+                "default": None,
+                "description": "Ziel-Plattform (facebook, instagram, email)",
+            },
+            {
+                "name": "content_type",
+                "type": "string",
+                "required": False,
+                "default": "post",
+                "description": "Art des Contents (post, story, email)",
+            },
+            {
+                "name": "topic_title",
+                "type": "string",
+                "required": True,
+                "default": None,
+                "description": "Titel des Themas",
+            },
+            {
+                "name": "topic_description",
+                "type": "string",
+                "required": True,
+                "default": None,
+                "description": "Beschreibung des Themas",
+            },
+            {
+                "name": "COMPANY_NAME",
+                "type": "string",
+                "required": False,
+                "default": "",
+                "description": "Firmenname (aus Tenant-Config)",
+            },
+            {
+                "name": "CONTENT_TONE",
+                "type": "string",
+                "required": False,
+                "default": "professional",
+                "description": "Tonalität (aus Tenant-Config)",
+            },
+        ],
+        "output_format": "json",
+        "provider": "anthropic",
+        "model": "claude-sonnet-4-5-20250929",
+        "temperature": 0.7,
+        "max_tokens": 2048,
+    },
 ]
 
 

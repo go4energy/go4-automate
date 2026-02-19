@@ -10,7 +10,7 @@ const api = axios.create({
 
 // Request Interceptor – Tenant Header
 api.interceptors.request.use((config) => {
-  const tenantId = localStorage.getItem('tenant_id') || 'default'
+  const tenantId = localStorage.getItem('tenant_id') || 'go4energy'
   config.headers['X-Tenant-ID'] = tenantId
   return config
 })

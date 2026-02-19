@@ -2,10 +2,12 @@
 
 import sys
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from loguru import logger
 
 from app.config import settings
@@ -16,6 +18,7 @@ from app.routers import (
     leads_router,
     llm_router,
     prompts_router,
+    research_router,
     templates_router,
     tenants_router,
 )
@@ -96,6 +99,11 @@ async def health_check() -> dict:
     return {"status": "healthy", "version": "0.1.0"}
 
 
+# Static files for uploads
+upload_path = Path(settings.upload_dir)
+upload_path.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(upload_path)), name="uploads")
+
 # Router includes
 app.include_router(leads_router, prefix="/api/v1")
 app.include_router(tenants_router, prefix="/api/v1")
@@ -104,6 +112,7 @@ app.include_router(llm_router, prefix="/api/v1")
 app.include_router(content_router, prefix="/api/v1")
 app.include_router(prompts_router, prefix="/api/v1")
 app.include_router(ad_campaigns_router, prefix="/api/v1")
+app.include_router(research_router, prefix="/api/v1")
 
 # Ads pipeline (domain-based module)
 from app.ads.router import router as ads_router  # noqa: E402
