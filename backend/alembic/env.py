@@ -10,17 +10,20 @@ from alembic import context
 from app.config import settings
 from app.database import Base
 from app.models import (  # noqa: F401 - ensure models are registered
-    AdCampaign,
-    AdPerformance,
-    ContentCalendar,
-    ContentPiece,
-    EmailLog,
-    Lead,
+    CollectorFinding,
+    CollectorSource,
+    CollectorTopic,
+    CreatorCalendar,
+    CreatorPiece,
+    CrmContact,
+    CrmEmailLog,
+    DistributorCampaign,
+    DistributorCampaignConfig,
+    DistributorConversion,
+    DistributorPerformance,
+    PageSnapshot,
     Prompt,
-    ResearchFinding,
-    ResearchSource,
     Tenant,
-    TopicSuggestion,
 )
 
 config = context.config

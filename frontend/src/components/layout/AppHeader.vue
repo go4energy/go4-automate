@@ -8,15 +8,15 @@ const layout = useLayoutStore()
 
 const routeTitles = {
   dashboard: 'Dashboard',
-  leads: 'Leads',
-  content: 'Content',
-  'content-edit': 'Content bearbeiten',
-  ads: 'Ad Management',
-  'ad-campaign-config': 'Kampagne konfigurieren',
-  research: 'Research Agent',
-  'research-source-new': 'Neue Quelle',
-  'research-source-edit': 'Quelle bearbeiten',
-  'research-topic-new': 'Eigenes Thema',
+  collector: 'Collector',
+  'collector-source-new': 'Neue Quelle',
+  'collector-source-edit': 'Quelle bearbeiten',
+  'collector-topic-new': 'Eigenes Thema',
+  creator: 'Creator',
+  'creator-edit': 'Content bearbeiten',
+  distributor: 'Distributor',
+  'distributor-campaign-config': 'Kampagne konfigurieren',
+  crm: 'CRM',
   prompts: 'Prompt Registry',
   'prompt-new': 'Neuer Prompt',
   'prompt-edit': 'Prompt bearbeiten',
@@ -30,11 +30,11 @@ const breadcrumbs = computed(() => {
   if (name === 'dashboard') return crumbs
 
   const parentMap = {
-    'content-edit': { label: 'Content', to: '/content' },
-    'ad-campaign-config': { label: 'Ads', to: '/ads' },
-    'research-source-new': { label: 'Research', to: '/research' },
-    'research-source-edit': { label: 'Research', to: '/research' },
-    'research-topic-new': { label: 'Research', to: '/research' },
+    'collector-source-new': { label: 'Collector', to: '/collector' },
+    'collector-source-edit': { label: 'Collector', to: '/collector' },
+    'collector-topic-new': { label: 'Collector', to: '/collector' },
+    'creator-edit': { label: 'Creator', to: '/creator' },
+    'distributor-campaign-config': { label: 'Distributor', to: '/distributor' },
     'prompt-new': { label: 'Prompts', to: '/prompts' },
     'prompt-edit': { label: 'Prompts', to: '/prompts' }
   }

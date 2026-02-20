@@ -1,13 +1,13 @@
-"""Lead API tests."""
+"""CRM API tests."""
 
 import pytest
 
 
 @pytest.mark.anyio
 async def test_create_lead(client, test_tenant):
-    """POST /api/v1/leads should create a lead."""
+    """POST /api/v1/crm should create a lead."""
     response = await client.post(
-        "/api/v1/leads",
+        "/api/v1/crm",
         json={
             "email": "test@example.com",
             "name": "Max Mustermann",
@@ -27,35 +27,35 @@ async def test_create_lead(client, test_tenant):
 
 @pytest.mark.anyio
 async def test_create_duplicate_lead(client, test_tenant):
-    """POST /api/v1/leads with duplicate email should return 409."""
+    """POST /api/v1/crm with duplicate email should return 409."""
     payload = {
         "email": "dup@example.com",
         "name": "Erster Lead",
     }
     headers = {"X-Tenant-ID": "test-tenant"}
-    response1 = await client.post("/api/v1/leads", json=payload, headers=headers)
+    response1 = await client.post("/api/v1/crm", json=payload, headers=headers)
     assert response1.status_code == 201
 
-    response2 = await client.post("/api/v1/leads", json=payload, headers=headers)
+    response2 = await client.post("/api/v1/crm", json=payload, headers=headers)
     assert response2.status_code == 409
 
 
 @pytest.mark.anyio
 async def test_list_leads(client, test_tenant):
-    """GET /api/v1/leads should list leads for tenant."""
+    """GET /api/v1/crm should list leads for tenant."""
     headers = {"X-Tenant-ID": "test-tenant"}
     await client.post(
-        "/api/v1/leads",
+        "/api/v1/crm",
         json={"email": "a@example.com", "name": "A"},
         headers=headers,
     )
     await client.post(
-        "/api/v1/leads",
+        "/api/v1/crm",
         json={"email": "b@example.com", "name": "B"},
         headers=headers,
     )
 
-    response = await client.get("/api/v1/leads", headers=headers)
+    response = await client.get("/api/v1/crm", headers=headers)
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 2
@@ -63,15 +63,15 @@ async def test_list_leads(client, test_tenant):
 
 @pytest.mark.anyio
 async def test_list_leads_filter_status(client, test_tenant):
-    """GET /api/v1/leads?status=new should filter by status."""
+    """GET /api/v1/crm?status=new should filter by status."""
     headers = {"X-Tenant-ID": "test-tenant"}
     await client.post(
-        "/api/v1/leads",
+        "/api/v1/crm",
         json={"email": "c@example.com", "name": "C"},
         headers=headers,
     )
 
-    response = await client.get("/api/v1/leads?status=new", headers=headers)
+    response = await client.get("/api/v1/crm?status=new", headers=headers)
     assert response.status_code == 200
     data = response.json()
     assert all(lead["status"] == "new" for lead in data)
@@ -79,17 +79,17 @@ async def test_list_leads_filter_status(client, test_tenant):
 
 @pytest.mark.anyio
 async def test_update_lead_status(client, test_tenant):
-    """PATCH /api/v1/leads/{id}/status should update status."""
+    """PATCH /api/v1/crm/{id}/status should update status."""
     headers = {"X-Tenant-ID": "test-tenant"}
     create_resp = await client.post(
-        "/api/v1/leads",
+        "/api/v1/crm",
         json={"email": "d@example.com", "name": "D"},
         headers=headers,
     )
     lead_id = create_resp.json()["id"]
 
     response = await client.patch(
-        f"/api/v1/leads/{lead_id}/status",
+        f"/api/v1/crm/{lead_id}/status",
         json={"status": "contacted"},
         headers=headers,
     )
@@ -99,17 +99,17 @@ async def test_update_lead_status(client, test_tenant):
 
 @pytest.mark.anyio
 async def test_pause_followup(client, test_tenant):
-    """PATCH /api/v1/leads/{id}/pause-followup should toggle pause."""
+    """PATCH /api/v1/crm/{id}/pause-followup should toggle pause."""
     headers = {"X-Tenant-ID": "test-tenant"}
     create_resp = await client.post(
-        "/api/v1/leads",
+        "/api/v1/crm",
         json={"email": "e@example.com", "name": "E"},
         headers=headers,
     )
     lead_id = create_resp.json()["id"]
 
     response = await client.patch(
-        f"/api/v1/leads/{lead_id}/pause-followup",
+        f"/api/v1/crm/{lead_id}/pause-followup",
         json={"paused": True},
         headers=headers,
     )

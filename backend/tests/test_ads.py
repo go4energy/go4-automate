@@ -1,12 +1,12 @@
-"""Ad management pipeline tests."""
+"""Distributor pipeline tests."""
 
 from decimal import Decimal
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from app.ads.hashing import hash_for_meta, hash_phone
-from app.ads.optimizer import (
+from app.distributor.hashing import hash_for_meta, hash_phone
+from app.distributor.optimizer import (
     _calc_reduced_budget,
     _calc_scaled_budget,
     _calc_weather_budget,
@@ -97,7 +97,7 @@ def test_calc_weather_budget_respects_maximum():
 
 @pytest.mark.anyio
 async def test_track_conversion(client, test_tenant):
-    """POST /api/v1/ads/conversions should track a conversion event."""
+    """POST /api/v1/distributor/conversions should track a conversion event."""
     payload = {
         "event_name": "Lead",
         "event_time": "2026-02-17T10:00:00",
@@ -108,7 +108,7 @@ async def test_track_conversion(client, test_tenant):
         },
     }
     response = await client.post(
-        "/api/v1/ads/conversions", json=payload, headers=HEADERS
+        "/api/v1/distributor/conversions", json=payload, headers=HEADERS
     )
     assert response.status_code == 201
     data = response.json()
@@ -119,8 +119,8 @@ async def test_track_conversion(client, test_tenant):
 
 @pytest.mark.anyio
 async def test_get_dashboard(client, test_tenant):
-    """GET /api/v1/ads/dashboard should return dashboard stats."""
-    response = await client.get("/api/v1/ads/dashboard", headers=HEADERS)
+    """GET /api/v1/distributor/dashboard should return dashboard stats."""
+    response = await client.get("/api/v1/distributor/dashboard", headers=HEADERS)
     assert response.status_code == 200
     data = response.json()
     assert "today" in data
@@ -132,15 +132,15 @@ async def test_get_dashboard(client, test_tenant):
 
 @pytest.mark.anyio
 async def test_get_performance_empty(client, test_tenant):
-    """GET /api/v1/ads/performance should return empty list when no data."""
-    response = await client.get("/api/v1/ads/performance", headers=HEADERS)
+    """GET /api/v1/distributor/performance should return empty list when no data."""
+    response = await client.get("/api/v1/distributor/performance", headers=HEADERS)
     assert response.status_code == 200
     assert response.json() == []
 
 
 @pytest.mark.anyio
 async def test_create_campaign_config(client, test_tenant):
-    """POST /api/v1/ads/campaigns/config should create a campaign config."""
+    """POST /api/v1/distributor/campaigns/config should create a campaign config."""
     payload = {
         "campaign_id": "23456789012345",
         "campaign_name": "Solar-Leads Wien",
@@ -153,7 +153,7 @@ async def test_create_campaign_config(client, test_tenant):
         "auto_optimize": True,
     }
     response = await client.post(
-        "/api/v1/ads/campaigns/config", json=payload, headers=HEADERS
+        "/api/v1/distributor/campaigns/config", json=payload, headers=HEADERS
     )
     assert response.status_code == 201
     data = response.json()
@@ -164,16 +164,16 @@ async def test_create_campaign_config(client, test_tenant):
 
 @pytest.mark.anyio
 async def test_list_campaigns(client, test_tenant):
-    """GET /api/v1/ads/campaigns should list campaign configs."""
+    """GET /api/v1/distributor/campaigns should list campaign configs."""
     # Create two configs
     for name in ["Kampagne A", "Kampagne B"]:
         await client.post(
-            "/api/v1/ads/campaigns/config",
+            "/api/v1/distributor/campaigns/config",
             json={"campaign_id": f"camp_{name}", "campaign_name": name},
             headers=HEADERS,
         )
 
-    response = await client.get("/api/v1/ads/campaigns", headers=HEADERS)
+    response = await client.get("/api/v1/distributor/campaigns", headers=HEADERS)
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 2
@@ -181,16 +181,16 @@ async def test_list_campaigns(client, test_tenant):
 
 @pytest.mark.anyio
 async def test_update_campaign_config(client, test_tenant):
-    """PATCH /api/v1/ads/campaigns/{id}/config should update a config."""
+    """PATCH /api/v1/distributor/campaigns/{id}/config should update a config."""
     create_resp = await client.post(
-        "/api/v1/ads/campaigns/config",
+        "/api/v1/distributor/campaigns/config",
         json={"campaign_id": "camp_123", "campaign_name": "Original"},
         headers=HEADERS,
     )
     config_id = create_resp.json()["id"]
 
     response = await client.patch(
-        f"/api/v1/ads/campaigns/{config_id}/config",
+        f"/api/v1/distributor/campaigns/{config_id}/config",
         json={"campaign_name": "Updated", "target_cpl": "20.00"},
         headers=HEADERS,
     )
@@ -202,20 +202,20 @@ async def test_update_campaign_config(client, test_tenant):
 async def test_duplicate_campaign_config(client, test_tenant):
     """Creating duplicate campaign config should return 400."""
     payload = {"campaign_id": "camp_dup", "campaign_name": "Test"}
-    await client.post("/api/v1/ads/campaigns/config", json=payload, headers=HEADERS)
+    await client.post("/api/v1/distributor/campaigns/config", json=payload, headers=HEADERS)
     response = await client.post(
-        "/api/v1/ads/campaigns/config", json=payload, headers=HEADERS
+        "/api/v1/distributor/campaigns/config", json=payload, headers=HEADERS
     )
     assert response.status_code == 400
 
 
 @pytest.mark.anyio
 async def test_pixel_snippet(client):
-    """GET /api/v1/ads/pixel-snippet should return pixel snippet."""
-    with patch("app.ads.router.settings") as mock_settings:
+    """GET /api/v1/distributor/pixel-snippet should return pixel snippet."""
+    with patch("app.distributor.router.settings") as mock_settings:
         mock_settings.meta_pixel_id = "123456789"
         mock_settings.domain = "example.com"
-        response = await client.get("/api/v1/ads/pixel-snippet")
+        response = await client.get("/api/v1/distributor/pixel-snippet")
         assert response.status_code == 200
         data = response.json()
         assert data["pixel_id"] == "123456789"
@@ -224,9 +224,9 @@ async def test_pixel_snippet(client):
 
 
 @pytest.mark.anyio
-@patch("app.ads.service.get_current_weather", new_callable=AsyncMock)
+@patch("app.distributor.service.get_current_weather", new_callable=AsyncMock)
 async def test_weather_endpoint_no_key(mock_weather, client, test_tenant):
-    """GET /api/v1/ads/weather should fail when no API key configured."""
-    response = await client.get("/api/v1/ads/weather", headers=HEADERS)
+    """GET /api/v1/distributor/weather should fail when no API key configured."""
+    response = await client.get("/api/v1/distributor/weather", headers=HEADERS)
     # No openweather_api_key configured -> 400
     assert response.status_code == 400

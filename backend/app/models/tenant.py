@@ -21,29 +21,35 @@ class Tenant(TimestampMixin, Base):
     config: Mapped[dict | None] = mapped_column(JSONB, default=dict)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
-    # Relationships
-    leads = relationship("Lead", back_populates="tenant", lazy="selectin")
-    content_pieces = relationship(
-        "ContentPiece", back_populates="tenant", lazy="selectin"
+    # Relationships - Domain Modules
+    crm_contacts = relationship("CrmContact", back_populates="tenant", lazy="selectin")
+    crm_email_logs = relationship(
+        "CrmEmailLog", back_populates="tenant", lazy="selectin"
     )
-    content_calendar = relationship(
-        "ContentCalendar", back_populates="tenant", lazy="selectin"
+    creator_pieces = relationship(
+        "CreatorPiece", back_populates="tenant", lazy="selectin"
     )
-    email_logs = relationship("EmailLog", back_populates="tenant", lazy="selectin")
-    ad_performances = relationship(
-        "AdPerformance", back_populates="tenant", lazy="selectin"
+    creator_calendar = relationship(
+        "CreatorCalendar", back_populates="tenant", lazy="selectin"
     )
-    ad_campaigns = relationship("AdCampaign", back_populates="tenant", lazy="selectin")
+    distributor_campaigns = relationship(
+        "DistributorCampaign", back_populates="tenant", lazy="selectin"
+    )
+    distributor_performances = relationship(
+        "DistributorPerformance", back_populates="tenant", lazy="selectin"
+    )
+    collector_sources = relationship(
+        "CollectorSource", back_populates="tenant", lazy="selectin"
+    )
+    collector_findings = relationship(
+        "CollectorFinding", back_populates="tenant", lazy="selectin"
+    )
+    collector_topics = relationship(
+        "CollectorTopic", back_populates="tenant", lazy="selectin"
+    )
+
+    # Shared
     prompts = relationship("Prompt", back_populates="tenant", lazy="selectin")
-    research_sources = relationship(
-        "ResearchSource", back_populates="tenant", lazy="selectin"
-    )
-    research_findings = relationship(
-        "ResearchFinding", back_populates="tenant", lazy="selectin"
-    )
-    topic_suggestions = relationship(
-        "TopicSuggestion", back_populates="tenant", lazy="selectin"
-    )
     conversations = relationship(
         "Conversation", back_populates="tenant", lazy="selectin"
     )

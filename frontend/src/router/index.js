@@ -12,61 +12,61 @@ const routes = [
         meta: { title: 'Dashboard' }
       },
       {
-        path: 'leads',
-        name: 'leads',
-        component: () => import('@/views/LeadsView.vue'),
-        meta: { title: 'Leads' }
+        path: 'collector',
+        name: 'collector',
+        component: () => import('@/views/CollectorView.vue'),
+        meta: { title: 'Collector' }
       },
       {
-        path: 'content',
-        name: 'content',
-        component: () => import('@/views/ContentDashboardView.vue'),
-        meta: { title: 'Content' }
+        path: 'collector/sources/new',
+        name: 'collector-source-new',
+        component: () => import('@/views/CollectorSourceEditView.vue'),
+        meta: { title: 'Neue Quelle', parent: 'collector' }
       },
       {
-        path: 'content/:id',
-        name: 'content-edit',
-        component: () => import('@/views/ContentEditView.vue'),
+        path: 'collector/sources/:id',
+        name: 'collector-source-edit',
+        component: () => import('@/views/CollectorSourceEditView.vue'),
         props: true,
-        meta: { title: 'Bearbeiten', parent: 'content' }
+        meta: { title: 'Quelle bearbeiten', parent: 'collector' }
       },
       {
-        path: 'ads',
-        name: 'ads',
-        component: () => import('@/views/AdDashboardView.vue'),
-        meta: { title: 'Ad Management' }
+        path: 'collector/topics/new',
+        name: 'collector-topic-new',
+        component: () => import('@/views/CollectorTopicCreateView.vue'),
+        meta: { title: 'Eigenes Thema', parent: 'collector' }
       },
       {
-        path: 'ads/campaigns/:id/config',
-        name: 'ad-campaign-config',
-        component: () => import('@/views/AdCampaignConfigView.vue'),
+        path: 'creator',
+        name: 'creator',
+        component: () => import('@/views/CreatorDashboardView.vue'),
+        meta: { title: 'Creator' }
+      },
+      {
+        path: 'creator/:id',
+        name: 'creator-edit',
+        component: () => import('@/views/CreatorEditView.vue'),
         props: true,
-        meta: { title: 'Kampagne konfigurieren', parent: 'ads' }
+        meta: { title: 'Bearbeiten', parent: 'creator' }
       },
       {
-        path: 'research',
-        name: 'research',
-        component: () => import('@/views/ResearchView.vue'),
-        meta: { title: 'Research Agent' }
+        path: 'distributor',
+        name: 'distributor',
+        component: () => import('@/views/DistributorDashboardView.vue'),
+        meta: { title: 'Distributor' }
       },
       {
-        path: 'research/sources/new',
-        name: 'research-source-new',
-        component: () => import('@/views/ResearchSourceEditView.vue'),
-        meta: { title: 'Neue Quelle', parent: 'research' }
-      },
-      {
-        path: 'research/sources/:id',
-        name: 'research-source-edit',
-        component: () => import('@/views/ResearchSourceEditView.vue'),
+        path: 'distributor/campaigns/:id/config',
+        name: 'distributor-campaign-config',
+        component: () => import('@/views/DistributorCampaignConfigView.vue'),
         props: true,
-        meta: { title: 'Quelle bearbeiten', parent: 'research' }
+        meta: { title: 'Kampagne konfigurieren', parent: 'distributor' }
       },
       {
-        path: 'research/topics/new',
-        name: 'research-topic-new',
-        component: () => import('@/views/TopicCreateView.vue'),
-        meta: { title: 'Eigenes Thema', parent: 'research' }
+        path: 'crm',
+        name: 'crm',
+        component: () => import('@/views/CrmView.vue'),
+        meta: { title: 'CRM' }
       },
       {
         path: 'prompts',

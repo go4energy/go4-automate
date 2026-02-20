@@ -1,4 +1,4 @@
-"""Research API tests."""
+"""Collector API tests."""
 
 import io
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -30,9 +30,9 @@ TOPIC_PAYLOAD = {
 
 @pytest.mark.anyio
 async def test_create_source(client, test_tenant):
-    """POST /api/v1/research/sources should create a source."""
+    """POST /api/v1/collector/sources should create a source."""
     response = await client.post(
-        "/api/v1/research/sources", json=SOURCE_PAYLOAD, headers=HEADERS
+        "/api/v1/collector/sources", json=SOURCE_PAYLOAD, headers=HEADERS
     )
     assert response.status_code == 201
     data = response.json()
@@ -44,26 +44,26 @@ async def test_create_source(client, test_tenant):
 
 @pytest.mark.anyio
 async def test_list_sources(client, test_tenant):
-    """GET /api/v1/research/sources should list sources."""
-    await client.post("/api/v1/research/sources", json=SOURCE_PAYLOAD, headers=HEADERS)
+    """GET /api/v1/collector/sources should list sources."""
+    await client.post("/api/v1/collector/sources", json=SOURCE_PAYLOAD, headers=HEADERS)
     second = {**SOURCE_PAYLOAD, "name": "Website", "source_type": "website"}
-    await client.post("/api/v1/research/sources", json=second, headers=HEADERS)
+    await client.post("/api/v1/collector/sources", json=second, headers=HEADERS)
 
-    response = await client.get("/api/v1/research/sources", headers=HEADERS)
+    response = await client.get("/api/v1/collector/sources", headers=HEADERS)
     assert response.status_code == 200
     assert len(response.json()) == 2
 
 
 @pytest.mark.anyio
 async def test_get_source(client, test_tenant):
-    """GET /api/v1/research/sources/{id} should return a source."""
+    """GET /api/v1/collector/sources/{id} should return a source."""
     create = await client.post(
-        "/api/v1/research/sources", json=SOURCE_PAYLOAD, headers=HEADERS
+        "/api/v1/collector/sources", json=SOURCE_PAYLOAD, headers=HEADERS
     )
     source_id = create.json()["id"]
 
     response = await client.get(
-        f"/api/v1/research/sources/{source_id}", headers=HEADERS
+        f"/api/v1/collector/sources/{source_id}", headers=HEADERS
     )
     assert response.status_code == 200
     assert response.json()["name"] == "PV Magazine RSS"
@@ -71,14 +71,14 @@ async def test_get_source(client, test_tenant):
 
 @pytest.mark.anyio
 async def test_update_source(client, test_tenant):
-    """PUT /api/v1/research/sources/{id} should update a source."""
+    """PUT /api/v1/collector/sources/{id} should update a source."""
     create = await client.post(
-        "/api/v1/research/sources", json=SOURCE_PAYLOAD, headers=HEADERS
+        "/api/v1/collector/sources", json=SOURCE_PAYLOAD, headers=HEADERS
     )
     source_id = create.json()["id"]
 
     response = await client.put(
-        f"/api/v1/research/sources/{source_id}",
+        f"/api/v1/collector/sources/{source_id}",
         json={"name": "Updated Name", "active": False},
         headers=HEADERS,
     )
@@ -89,19 +89,19 @@ async def test_update_source(client, test_tenant):
 
 @pytest.mark.anyio
 async def test_delete_source(client, test_tenant):
-    """DELETE /api/v1/research/sources/{id} should delete a source."""
+    """DELETE /api/v1/collector/sources/{id} should delete a source."""
     create = await client.post(
-        "/api/v1/research/sources", json=SOURCE_PAYLOAD, headers=HEADERS
+        "/api/v1/collector/sources", json=SOURCE_PAYLOAD, headers=HEADERS
     )
     source_id = create.json()["id"]
 
     response = await client.delete(
-        f"/api/v1/research/sources/{source_id}", headers=HEADERS
+        f"/api/v1/collector/sources/{source_id}", headers=HEADERS
     )
     assert response.status_code == 204
 
     get_resp = await client.get(
-        f"/api/v1/research/sources/{source_id}", headers=HEADERS
+        f"/api/v1/collector/sources/{source_id}", headers=HEADERS
     )
     assert get_resp.status_code == 404
 
@@ -111,9 +111,9 @@ async def test_delete_source(client, test_tenant):
 
 @pytest.mark.anyio
 async def test_create_topic(client, test_tenant):
-    """POST /api/v1/research/topics should create a topic."""
+    """POST /api/v1/collector/topics should create a topic."""
     response = await client.post(
-        "/api/v1/research/topics", json=TOPIC_PAYLOAD, headers=HEADERS
+        "/api/v1/collector/topics", json=TOPIC_PAYLOAD, headers=HEADERS
     )
     assert response.status_code == 201
     data = response.json()
@@ -125,26 +125,26 @@ async def test_create_topic(client, test_tenant):
 
 @pytest.mark.anyio
 async def test_list_topics(client, test_tenant):
-    """GET /api/v1/research/topics should list topics."""
-    await client.post("/api/v1/research/topics", json=TOPIC_PAYLOAD, headers=HEADERS)
+    """GET /api/v1/collector/topics should list topics."""
+    await client.post("/api/v1/collector/topics", json=TOPIC_PAYLOAD, headers=HEADERS)
     second = {**TOPIC_PAYLOAD, "title": "Zweites Thema"}
-    await client.post("/api/v1/research/topics", json=second, headers=HEADERS)
+    await client.post("/api/v1/collector/topics", json=second, headers=HEADERS)
 
-    response = await client.get("/api/v1/research/topics", headers=HEADERS)
+    response = await client.get("/api/v1/collector/topics", headers=HEADERS)
     assert response.status_code == 200
     assert len(response.json()) == 2
 
 
 @pytest.mark.anyio
 async def test_update_topic_status(client, test_tenant):
-    """PUT /api/v1/research/topics/{id} should update status."""
+    """PUT /api/v1/collector/topics/{id} should update status."""
     create = await client.post(
-        "/api/v1/research/topics", json=TOPIC_PAYLOAD, headers=HEADERS
+        "/api/v1/collector/topics", json=TOPIC_PAYLOAD, headers=HEADERS
     )
     topic_id = create.json()["id"]
 
     response = await client.put(
-        f"/api/v1/research/topics/{topic_id}",
+        f"/api/v1/collector/topics/{topic_id}",
         json={"status": "approved"},
         headers=HEADERS,
     )
@@ -154,26 +154,26 @@ async def test_update_topic_status(client, test_tenant):
 
 @pytest.mark.anyio
 async def test_delete_topic(client, test_tenant):
-    """DELETE /api/v1/research/topics/{id} should delete a topic."""
+    """DELETE /api/v1/collector/topics/{id} should delete a topic."""
     create = await client.post(
-        "/api/v1/research/topics", json=TOPIC_PAYLOAD, headers=HEADERS
+        "/api/v1/collector/topics", json=TOPIC_PAYLOAD, headers=HEADERS
     )
     topic_id = create.json()["id"]
 
     response = await client.delete(
-        f"/api/v1/research/topics/{topic_id}", headers=HEADERS
+        f"/api/v1/collector/topics/{topic_id}", headers=HEADERS
     )
     assert response.status_code == 204
 
 
-# --- Research Run ---
+# --- Collector Run ---
 
 
 @pytest.mark.anyio
-async def test_research_run_with_mock(client, test_tenant):
-    """POST /api/v1/research/run should fetch and analyze findings."""
+async def test_collector_run_with_mock(client, test_tenant):
+    """POST /api/v1/collector/run should fetch and analyze findings."""
     # Create source
-    await client.post("/api/v1/research/sources", json=SOURCE_PAYLOAD, headers=HEADERS)
+    await client.post("/api/v1/collector/sources", json=SOURCE_PAYLOAD, headers=HEADERS)
 
     mock_feed = MagicMock()
     mock_feed.entries = [
@@ -192,14 +192,14 @@ async def test_research_run_with_mock(client, test_tenant):
     ]
 
     with (
-        patch("app.services.research.feedparser.parse", return_value=mock_feed),
+        patch("app.collector.service.feedparser.parse", return_value=mock_feed),
         patch(
-            "app.services.research.ResearchService._analyze_findings",
+            "app.collector.service.CollectorService._analyze_findings",
             new_callable=AsyncMock,
             return_value=[],
         ),
     ):
-        response = await client.post("/api/v1/research/run", json={}, headers=HEADERS)
+        response = await client.post("/api/v1/collector/run", json={}, headers=HEADERS)
 
     assert response.status_code == 200
     data = response.json()
@@ -212,8 +212,8 @@ async def test_research_run_with_mock(client, test_tenant):
 
 @pytest.mark.anyio
 async def test_finding_dedup(client, test_tenant):
-    """Running research twice should not create duplicate findings."""
-    await client.post("/api/v1/research/sources", json=SOURCE_PAYLOAD, headers=HEADERS)
+    """Running collector twice should not create duplicate findings."""
+    await client.post("/api/v1/collector/sources", json=SOURCE_PAYLOAD, headers=HEADERS)
 
     mock_feed = MagicMock()
     entry = MagicMock()
@@ -226,17 +226,17 @@ async def test_finding_dedup(client, test_tenant):
     mock_feed.entries = [entry]
 
     with (
-        patch("app.services.research.feedparser.parse", return_value=mock_feed),
+        patch("app.collector.service.feedparser.parse", return_value=mock_feed),
         patch(
-            "app.services.research.ResearchService._analyze_findings",
+            "app.collector.service.CollectorService._analyze_findings",
             new_callable=AsyncMock,
             return_value=[],
         ),
     ):
-        await client.post("/api/v1/research/run", json={}, headers=HEADERS)
-        await client.post("/api/v1/research/run", json={}, headers=HEADERS)
+        await client.post("/api/v1/collector/run", json={}, headers=HEADERS)
+        await client.post("/api/v1/collector/run", json={}, headers=HEADERS)
 
-    findings = await client.get("/api/v1/research/findings", headers=HEADERS)
+    findings = await client.get("/api/v1/collector/findings", headers=HEADERS)
     urls = [f["url"] for f in findings.json()]
     assert urls.count("https://example.com/doppelt") <= 1
 
@@ -246,8 +246,8 @@ async def test_finding_dedup(client, test_tenant):
 
 @pytest.mark.anyio
 async def test_update_finding_status(client, test_tenant):
-    """PATCH /api/v1/research/findings/{id} should update status."""
-    await client.post("/api/v1/research/sources", json=SOURCE_PAYLOAD, headers=HEADERS)
+    """PATCH /api/v1/collector/findings/{id} should update status."""
+    await client.post("/api/v1/collector/sources", json=SOURCE_PAYLOAD, headers=HEADERS)
 
     mock_feed = MagicMock()
     entry = MagicMock()
@@ -260,21 +260,21 @@ async def test_update_finding_status(client, test_tenant):
     mock_feed.entries = [entry]
 
     with (
-        patch("app.services.research.feedparser.parse", return_value=mock_feed),
+        patch("app.collector.service.feedparser.parse", return_value=mock_feed),
         patch(
-            "app.services.research.ResearchService._analyze_findings",
+            "app.collector.service.CollectorService._analyze_findings",
             new_callable=AsyncMock,
             return_value=[],
         ),
     ):
-        await client.post("/api/v1/research/run", json={}, headers=HEADERS)
+        await client.post("/api/v1/collector/run", json={}, headers=HEADERS)
 
-    findings = await client.get("/api/v1/research/findings", headers=HEADERS)
+    findings = await client.get("/api/v1/collector/findings", headers=HEADERS)
     finding_list = findings.json()
     if finding_list:
         finding_id = finding_list[0]["id"]
         response = await client.patch(
-            f"/api/v1/research/findings/{finding_id}",
+            f"/api/v1/collector/findings/{finding_id}",
             json={"status": "reviewed"},
             headers=HEADERS,
         )
@@ -287,9 +287,9 @@ async def test_update_finding_status(client, test_tenant):
 
 @pytest.mark.anyio
 async def test_generate_from_topic(client, test_tenant):
-    """POST /api/v1/research/topics/{id}/generate should create content."""
+    """POST /api/v1/collector/topics/{id}/generate should create content."""
     create = await client.post(
-        "/api/v1/research/topics", json=TOPIC_PAYLOAD, headers=HEADERS
+        "/api/v1/collector/topics", json=TOPIC_PAYLOAD, headers=HEADERS
     )
     topic_id = create.json()["id"]
 
@@ -303,12 +303,12 @@ async def test_generate_from_topic(client, test_tenant):
     }
 
     with patch(
-        "app.services.content.ContentService._generate_via_registry_or_legacy",
+        "app.creator.service.CreatorService._generate_via_registry_or_legacy",
         new_callable=AsyncMock,
         return_value=(mock_result, "claude-sonnet-4-5-20250929"),
     ):
         response = await client.post(
-            f"/api/v1/research/topics/{topic_id}/generate",
+            f"/api/v1/collector/topics/{topic_id}/generate",
             json={"platform": "facebook", "content_type": "post"},
             headers=HEADERS,
         )
@@ -325,14 +325,14 @@ async def test_generate_from_topic(client, test_tenant):
 
 @pytest.mark.anyio
 async def test_upload_image_valid(client, test_tenant, tmp_path):
-    """POST /api/v1/research/upload/image should accept valid images."""
+    """POST /api/v1/collector/upload/image should accept valid images."""
     with patch("app.services.upload.settings") as mock_settings:
         mock_settings.upload_dir = str(tmp_path)
         mock_settings.max_upload_size_mb = 10
 
         fake_image = io.BytesIO(b"\x89PNG\r\n\x1a\n" + b"\x00" * 100)
         response = await client.post(
-            "/api/v1/research/upload/image",
+            "/api/v1/collector/upload/image",
             files={"file": ("test.png", fake_image, "image/png")},
             headers=HEADERS,
         )
@@ -345,10 +345,10 @@ async def test_upload_image_valid(client, test_tenant, tmp_path):
 
 @pytest.mark.anyio
 async def test_upload_image_invalid_type(client, test_tenant):
-    """POST /api/v1/research/upload/image should reject invalid types."""
+    """POST /api/v1/collector/upload/image should reject invalid types."""
     fake_file = io.BytesIO(b"not an image")
     response = await client.post(
-        "/api/v1/research/upload/image",
+        "/api/v1/collector/upload/image",
         files={"file": ("test.txt", fake_file, "text/plain")},
         headers=HEADERS,
     )

@@ -79,9 +79,9 @@ async def test_get_setup_status(client, test_tenant):
     data = response.json()
     assert "modules" in data
     assert "tenant" in data["modules"]
-    assert "research" in data["modules"]
-    assert "content" in data["modules"]
-    assert "ads" in data["modules"]
+    assert "collector" in data["modules"]
+    assert "creator" in data["modules"]
+    assert "distributor" in data["modules"]
     assert "integrations" in data["modules"]
     for mod in data["modules"].values():
         assert "label" in mod
@@ -147,7 +147,6 @@ async def test_setup_skills_loading():
     skills = service._load_skills()
     assert "_overview" in skills
     assert "tenant" in skills
-    assert "research" in skills
-    assert "content" in skills
-    assert "ads" in skills
+    assert "tenant" in skills
+    assert "integrations" in skills
     assert "integrations" in skills

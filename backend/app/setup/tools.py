@@ -3,8 +3,8 @@
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.collector.service import CollectorService
 from app.config import settings
-from app.services.research import ResearchService
 from app.services.tenant import TenantService
 
 # Anthropic tool definitions
@@ -33,8 +33,8 @@ SETUP_TOOLS = [
         },
     },
     {
-        "name": "list_research_sources",
-        "description": "Listet alle Research-Quellen des Tenants auf. Zeigt Name, Typ, URL, Keywords und Status.",
+        "name": "list_collector_sources",
+        "description": "Listet alle Collector-Quellen des Tenants auf. Zeigt Name, Typ, URL, Keywords, Kategorien und Status.",
         "input_schema": {
             "type": "object",
             "properties": {},
@@ -42,8 +42,8 @@ SETUP_TOOLS = [
         },
     },
     {
-        "name": "create_research_source",
-        "description": "Legt eine neue Research-Quelle an (RSS-Feed, Website oder Web-Suche).",
+        "name": "create_collector_source",
+        "description": "Legt eine neue Collector-Quelle an (RSS-Feed, Website, Web-Suche oder Inbox).",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -57,7 +57,7 @@ SETUP_TOOLS = [
                 },
                 "source_type": {
                     "type": "string",
-                    "enum": ["rss", "website", "websearch"],
+                    "enum": ["rss", "website", "websearch", "inbox"],
                     "description": "Art der Quelle",
                 },
                 "keywords": {
@@ -70,13 +70,19 @@ SETUP_TOOLS = [
                     "description": "Abruf-Intervall in Stunden",
                     "default": 24,
                 },
+                "categories": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Kategorien fuer die Quelle, z.B. ['social_media', 'podcast']",
+                    "default": [],
+                },
             },
             "required": ["name", "source_type"],
         },
     },
     {
-        "name": "delete_research_source",
-        "description": "Loescht eine Research-Quelle anhand ihrer ID.",
+        "name": "delete_collector_source",
+        "description": "Loescht eine Collector-Quelle anhand ihrer ID.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -89,8 +95,8 @@ SETUP_TOOLS = [
         },
     },
     {
-        "name": "update_content_config",
-        "description": "Aktualisiert Content-Pipeline-Konfiguration (Plattformen, Posts/Woche, Themes, etc.).",
+        "name": "update_creator_config",
+        "description": "Aktualisiert Creator-Konfiguration (Plattformen, Posts/Woche, Themes, etc.).",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -103,8 +109,8 @@ SETUP_TOOLS = [
         },
     },
     {
-        "name": "update_ads_config",
-        "description": "Aktualisiert Ad-Management-Konfiguration (Budget, CPL, Weather-Boost, etc.).",
+        "name": "update_distributor_config",
+        "description": "Aktualisiert Distributor-Konfiguration (Budget, CPL, Weather-Boost, etc.).",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -159,11 +165,11 @@ class ToolExecutor:
         handlers = {
             "get_current_config": self._get_current_config,
             "update_tenant_config": self._update_tenant_config,
-            "list_research_sources": self._list_research_sources,
-            "create_research_source": self._create_research_source,
-            "delete_research_source": self._delete_research_source,
-            "update_content_config": self._update_content_config,
-            "update_ads_config": self._update_ads_config,
+            "list_collector_sources": self._list_collector_sources,
+            "create_collector_source": self._create_collector_source,
+            "delete_collector_source": self._delete_collector_source,
+            "update_creator_config": self._update_creator_config,
+            "update_distributor_config": self._update_distributor_config,
             "check_integration_status": self._check_integration_status,
             "list_prompts": self._list_prompts,
             "get_setup_progress": self._get_setup_progress,
@@ -253,9 +259,9 @@ class ToolExecutor:
         lines = [f"{k}={v}" for k, v in sorted(existing.items())]
         env_path.write_text("\n".join(lines) + "\n")
 
-    async def _list_research_sources(self, _input: dict) -> dict:
-        """List all research sources."""
-        service = ResearchService(self.db)
+    async def _list_collector_sources(self, _input: dict) -> dict:
+        """List all collector sources."""
+        service = CollectorService(self.db)
         sources = await service.list_sources(self.tenant_id)
         return {
             "sources": [
@@ -265,6 +271,7 @@ class ToolExecutor:
                     "url": s.url,
                     "source_type": s.source_type,
                     "keywords": s.keywords or [],
+                    "categories": s.categories or [],
                     "active": s.active,
                     "fetch_interval_hours": s.fetch_interval_hours,
                 }
@@ -273,18 +280,19 @@ class ToolExecutor:
             "count": len(sources),
         }
 
-    async def _create_research_source(self, tool_input: dict) -> dict:
-        """Create a new research source."""
-        from app.schemas.research import ResearchSourceCreate
+    async def _create_collector_source(self, tool_input: dict) -> dict:
+        """Create a new collector source."""
+        from app.collector.schemas import CollectorSourceCreate
 
-        data = ResearchSourceCreate(
+        data = CollectorSourceCreate(
             name=tool_input["name"],
             url=tool_input.get("url", ""),
             source_type=tool_input["source_type"],
             keywords=tool_input.get("keywords", []),
             fetch_interval_hours=tool_input.get("fetch_interval_hours", 24),
+            categories=tool_input.get("categories", []),
         )
-        service = ResearchService(self.db)
+        service = CollectorService(self.db)
         source = await service.create_source(self.tenant_id, data)
         return {
             "id": source.id,
@@ -293,19 +301,19 @@ class ToolExecutor:
             "success": True,
         }
 
-    async def _delete_research_source(self, tool_input: dict) -> dict:
-        """Delete a research source."""
-        service = ResearchService(self.db)
+    async def _delete_collector_source(self, tool_input: dict) -> dict:
+        """Delete a collector source."""
+        service = CollectorService(self.db)
         source_id = tool_input["source_id"]
         await service.delete_source(self.tenant_id, source_id)
         return {"deleted": source_id, "success": True}
 
-    async def _update_content_config(self, tool_input: dict) -> dict:
-        """Update content config (delegates to update_tenant_config)."""
+    async def _update_creator_config(self, tool_input: dict) -> dict:
+        """Update creator config (delegates to update_tenant_config)."""
         return await self._update_tenant_config(tool_input)
 
-    async def _update_ads_config(self, tool_input: dict) -> dict:
-        """Update ads config (delegates to update_tenant_config)."""
+    async def _update_distributor_config(self, tool_input: dict) -> dict:
+        """Update distributor config (delegates to update_tenant_config)."""
         return await self._update_tenant_config(tool_input)
 
     async def _check_integration_status(self, _input: dict) -> dict:
@@ -390,17 +398,17 @@ class ToolExecutor:
         tenant_keys = ["COMPANY_NAME", "TENANT_INDUSTRY", "TARGET_AUDIENCE"]
         tenant_set = sum(1 for k in tenant_keys if config.get(k))
 
-        # Research sources
-        service = ResearchService(self.db)
+        # Collector sources
+        service = CollectorService(self.db)
         sources = await service.list_sources(self.tenant_id, active=True)
 
-        # Content config
-        content_keys = ["CONTENT_PLATFORMS", "POSTS_PER_WEEK", "CONTENT_THEMES"]
-        content_set = sum(1 for k in content_keys if config.get(k))
+        # Creator config
+        creator_keys = ["CONTENT_PLATFORMS", "POSTS_PER_WEEK", "CONTENT_THEMES"]
+        creator_set = sum(1 for k in creator_keys if config.get(k))
 
-        # Ads config
-        ads_keys = ["ADS_MONTHLY_BUDGET", "ADS_TARGET_CPL"]
-        ads_set = sum(1 for k in ads_keys if config.get(k))
+        # Distributor config
+        distributor_keys = ["ADS_MONTHLY_BUDGET", "ADS_TARGET_CPL"]
+        distributor_set = sum(1 for k in distributor_keys if config.get(k))
 
         # Integrations
         def is_set(key: str) -> bool:
@@ -423,20 +431,20 @@ class ToolExecutor:
                     "configured": tenant_set >= 2,
                     "details": f"{tenant_set}/{len(tenant_keys)} Felder",
                 },
-                "research": {
-                    "label": "Research",
+                "collector": {
+                    "label": "Collector",
                     "configured": len(sources) > 0,
                     "details": f"{len(sources)} Quellen",
                 },
-                "content": {
-                    "label": "Content",
-                    "configured": content_set >= 2,
-                    "details": f"{content_set}/{len(content_keys)} Felder",
+                "creator": {
+                    "label": "Creator",
+                    "configured": creator_set >= 2,
+                    "details": f"{creator_set}/{len(creator_keys)} Felder",
                 },
-                "ads": {
-                    "label": "Ads",
-                    "configured": ads_set >= 1,
-                    "details": f"{ads_set}/{len(ads_keys)} Felder",
+                "distributor": {
+                    "label": "Distributor",
+                    "configured": distributor_set >= 1,
+                    "details": f"{distributor_set}/{len(distributor_keys)} Felder",
                 },
                 "integrations": {
                     "label": "Integrationen",

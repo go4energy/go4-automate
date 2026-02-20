@@ -12,18 +12,6 @@ from loguru import logger
 
 from app.config import settings
 from app.exceptions import AppError
-from app.routers import (
-    activity_router,
-    ad_campaigns_router,
-    chat_router,
-    content_router,
-    leads_router,
-    llm_router,
-    prompts_router,
-    research_router,
-    templates_router,
-    tenants_router,
-)
 
 # Loguru Konfiguration
 logger.remove()
@@ -60,14 +48,14 @@ async def lifespan(app: FastAPI):
                     tenant=settings.active_tenant,
                 )
     except Exception as e:
-        logger.warning("Prompt seeding übersprungen: {err}", err=str(e))
+        logger.warning("Prompt seeding uebersprungen: {err}", err=str(e))
     yield
     logger.info("Shutting down go4-automate API")
 
 
 app = FastAPI(
     title="go4-automate API",
-    version="0.1.0",
+    version="0.2.0",
     docs_url="/docs",
     redoc_url="/redoc",
     lifespan=lifespan,
@@ -98,7 +86,7 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
 @app.get("/health", tags=["system"])
 async def health_check() -> dict:
     """Health check endpoint for monitoring and Docker healthchecks."""
-    return {"status": "healthy", "version": "0.1.0"}
+    return {"status": "healthy", "version": "0.2.0"}
 
 
 # Static files for uploads
@@ -106,24 +94,32 @@ upload_path = Path(settings.upload_dir)
 upload_path.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(upload_path)), name="uploads")
 
-# Router includes
-app.include_router(leads_router, prefix="/api/v1")
+# Shared routers (remain in routers/)
+from app.routers import (  # noqa: E402
+    activity_router,
+    chat_router,
+    llm_router,
+    prompts_router,
+    templates_router,
+    tenants_router,
+)
+
 app.include_router(tenants_router, prefix="/api/v1")
 app.include_router(templates_router, prefix="/api/v1")
 app.include_router(llm_router, prefix="/api/v1")
-app.include_router(content_router, prefix="/api/v1")
 app.include_router(prompts_router, prefix="/api/v1")
-app.include_router(ad_campaigns_router, prefix="/api/v1")
-app.include_router(research_router, prefix="/api/v1")
 app.include_router(chat_router, prefix="/api/v1")
 app.include_router(activity_router, prefix="/api/v1")
 
-# Setup wizard (domain-based module)
+# Domain module routers
+from app.collector.router import router as collector_router  # noqa: E402
+from app.creator.router import router as creator_router  # noqa: E402
+from app.crm.router import router as crm_router  # noqa: E402
+from app.distributor.router import router as distributor_router  # noqa: E402
 from app.setup.router import router as setup_router  # noqa: E402
 
+app.include_router(collector_router, prefix="/api/v1")
+app.include_router(creator_router, prefix="/api/v1")
+app.include_router(distributor_router, prefix="/api/v1")
+app.include_router(crm_router, prefix="/api/v1")
 app.include_router(setup_router, prefix="/api/v1")
-
-# Ads pipeline (domain-based module)
-from app.ads.router import router as ads_router  # noqa: E402
-
-app.include_router(ads_router, prefix="/api/v1")
