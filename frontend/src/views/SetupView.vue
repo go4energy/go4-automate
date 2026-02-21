@@ -86,11 +86,7 @@ onMounted(() => {
             stroke="currentColor"
             stroke-width="2"
           >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M12 4.5v15m7.5-7.5h-15"
-            />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
           </svg>
           Neue Session
         </button>
@@ -141,11 +137,7 @@ onMounted(() => {
                 stroke="currentColor"
                 stroke-width="2"
               >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M6 18L18 6M6 6l12 12"
-                />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
@@ -161,10 +153,7 @@ onMounted(() => {
     <!-- Right: Chat Area -->
     <div class="flex flex-1 flex-col">
       <!-- Messages -->
-      <div
-        ref="messagesContainer"
-        class="flex-1 overflow-y-auto bg-gray-50 p-6"
-      >
+      <div ref="messagesContainer" class="flex-1 overflow-y-auto bg-gray-50 p-6">
         <!-- Empty state -->
         <div
           v-if="!store.activeConversation || !store.activeConversation.messages?.length"
@@ -190,9 +179,7 @@ onMounted(() => {
               />
             </svg>
           </div>
-          <h2 class="mb-2 text-lg font-semibold text-gray-800">
-            Setup Wizard
-          </h2>
+          <h2 class="mb-2 text-lg font-semibold text-gray-800">Setup Wizard</h2>
           <p class="mb-6 max-w-md text-center text-sm text-gray-500">
             Konfiguriere deine Marketing-Plattform Schritt fuer Schritt. Der Assistent fuehrt dich
             durch alle Module.
@@ -211,14 +198,8 @@ onMounted(() => {
         </div>
 
         <!-- Messages list -->
-        <div
-          v-else
-          class="mx-auto max-w-3xl space-y-4"
-        >
-          <template
-            v-for="msg in store.activeConversation.messages"
-            :key="msg.id"
-          >
+        <div v-else class="mx-auto max-w-3xl space-y-4">
+          <template v-for="msg in store.activeConversation.messages" :key="msg.id">
             <ChatMessage :message="msg" />
             <!-- Tool calls from metadata -->
             <template v-if="msg.metadata_?.toolCalls?.length">
@@ -252,8 +233,8 @@ onMounted(() => {
       <div
         v-if="
           store.activeConversation &&
-            !store.isStreaming &&
-            store.activeConversation.messages?.length
+          !store.isStreaming &&
+          store.activeConversation.messages?.length
         "
         class="flex gap-2 border-t border-gray-100 bg-white px-4 py-2"
       >

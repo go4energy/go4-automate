@@ -15,7 +15,9 @@ select = [
     "RUF", # ruff-specific rules
 ]
 ignore = [
-    "E501", # line too long (handled by formatter)
+    "E501",   # line too long (handled by formatter)
+    "B008",   # Depends() in function defaults (FastAPI pattern)
+    "RUF012", # mutable class attributes (used in module interfaces)
 ]
 
 [lint.isort]

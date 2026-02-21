@@ -5,6 +5,7 @@ import { useCreatorStore } from '@/stores/creator'
 import { useDistributorStore } from '@/stores/distributor'
 import { useCollectorStore } from '@/stores/collector'
 import { useActivityStore } from '@/stores/activity'
+import { useBroadcasterStore } from '@/stores/broadcaster'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import StatCard from '@/components/ui/StatCard.vue'
 import ActivityFeed from '@/components/ui/ActivityFeed.vue'
@@ -14,6 +15,7 @@ const creatorStore = useCreatorStore()
 const distributorStore = useDistributorStore()
 const collectorStore = useCollectorStore()
 const activityStore = useActivityStore()
+const broadcasterStore = useBroadcasterStore()
 
 onMounted(() => {
   crmStore.fetchContacts()
@@ -23,15 +25,13 @@ onMounted(() => {
   collectorStore.fetchSources()
   activityStore.fetchActivities(null, 15)
   activityStore.fetchStats(7)
+  broadcasterStore.fetchChannels()
 })
 </script>
 
 <template>
   <div>
-    <PageHeader
-      title="Dashboard"
-      subtitle="Marketing Automation Platform"
-    />
+    <PageHeader title="Dashboard" subtitle="Marketing Automation Platform" />
 
     <!-- Stats Row -->
     <div class="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -82,9 +82,7 @@ onMounted(() => {
         >
           <div class="flex items-center justify-between">
             <div>
-              <h3 class="text-sm font-semibold text-gray-800">
-                Creator Pipeline
-              </h3>
+              <h3 class="text-sm font-semibold text-gray-800">Creator Pipeline</h3>
               <p class="mt-1 text-xs text-gray-500">
                 {{ creatorStore.stats.draft }} Entwuerfe &middot;
                 {{ creatorStore.stats.scheduled }} geplant &middot;
@@ -115,9 +113,7 @@ onMounted(() => {
         >
           <div class="flex items-center justify-between">
             <div>
-              <h3 class="text-sm font-semibold text-gray-800">
-                Distributor
-              </h3>
+              <h3 class="text-sm font-semibold text-gray-800">Distributor</h3>
               <p class="mt-1 text-xs text-gray-500">
                 {{ distributorStore.activeCampaigns.length }} aktive Kampagnen &middot;
                 {{ distributorStore.totalSpendToday }} EUR Spend heute
@@ -139,9 +135,7 @@ onMounted(() => {
         >
           <div class="flex items-center justify-between">
             <div>
-              <h3 class="text-sm font-semibold text-gray-800">
-                Collector
-              </h3>
+              <h3 class="text-sm font-semibold text-gray-800">Collector</h3>
               <p class="mt-1 text-xs text-gray-500">
                 {{ collectorStore.activeSources.length }} aktive Quellen &middot;
                 {{ collectorStore.suggestedTopics.length }} Topic-Vorschlaege
@@ -156,15 +150,35 @@ onMounted(() => {
           </div>
         </router-link>
 
+        <!-- Broadcaster -->
+        <router-link
+          to="/broadcaster"
+          class="block rounded-lg bg-white p-5 shadow-sm transition hover:shadow-md"
+        >
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-semibold text-gray-800">Broadcaster</h3>
+              <p class="mt-1 text-xs text-gray-500">
+                {{ broadcasterStore.activeChannels.length }} aktive Channels &middot;
+                {{ broadcasterStore.totalEpisodes }} Episoden
+              </p>
+            </div>
+            <span
+              v-if="broadcasterStore.totalListeners > 0"
+              class="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700"
+            >
+              {{ broadcasterStore.totalListeners }} Listener
+            </span>
+          </div>
+        </router-link>
+
         <!-- Quick Links Row -->
         <div class="grid grid-cols-2 gap-4">
           <router-link
             to="/crm"
             class="rounded-lg bg-white p-4 shadow-sm transition hover:shadow-md"
           >
-            <h3 class="text-sm font-semibold text-gray-800">
-              CRM
-            </h3>
+            <h3 class="text-sm font-semibold text-gray-800">CRM</h3>
             <p class="mt-1 text-xs text-gray-500">
               {{ crmStore.activeContacts.length }} aktive Kontakte
             </p>
@@ -173,12 +187,8 @@ onMounted(() => {
             to="/prompts"
             class="rounded-lg bg-white p-4 shadow-sm transition hover:shadow-md"
           >
-            <h3 class="text-sm font-semibold text-gray-800">
-              Prompt Registry
-            </h3>
-            <p class="mt-1 text-xs text-gray-500">
-              Prompts verwalten
-            </p>
+            <h3 class="text-sm font-semibold text-gray-800">Prompt Registry</h3>
+            <p class="mt-1 text-xs text-gray-500">Prompts verwalten</p>
           </router-link>
         </div>
       </div>
@@ -186,14 +196,9 @@ onMounted(() => {
       <!-- Activity Feed (right 1/3) -->
       <div class="rounded-lg bg-white p-4 shadow-sm">
         <div class="mb-3 flex items-center justify-between">
-          <h3 class="text-sm font-semibold text-gray-800">
-            Letzte Aktivitaeten
-          </h3>
+          <h3 class="text-sm font-semibold text-gray-800">Letzte Aktivitaeten</h3>
         </div>
-        <div
-          v-if="activityStore.loading"
-          class="py-6 text-center text-sm text-gray-400"
-        >
+        <div v-if="activityStore.loading" class="py-6 text-center text-sm text-gray-400">
           Laden...
         </div>
         <ActivityFeed

@@ -227,7 +227,9 @@ function formatDate(dateStr) {
 
         <!-- Error -->
         <div v-if="chatStore.error" class="border-t border-red-100 bg-red-50 px-4 py-2">
-          <p class="text-xs text-red-600">{{ chatStore.error }}</p>
+          <p class="text-xs text-red-600">
+            {{ chatStore.error }}
+          </p>
         </div>
 
         <!-- Input -->

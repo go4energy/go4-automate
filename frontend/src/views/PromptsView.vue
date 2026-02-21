@@ -135,7 +135,9 @@ onMounted(() => {
             <h3 class="truncate text-sm font-semibold text-go4-secondary">
               {{ prompt.name }}
             </h3>
-            <p class="mt-0.5 font-mono text-xs text-go4-muted">{{ prompt.slug }}</p>
+            <p class="mt-0.5 font-mono text-xs text-go4-muted">
+              {{ prompt.slug }}
+            </p>
           </div>
           <span
             :class="[

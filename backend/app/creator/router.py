@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.creator.config_schema import creator_interface
 from app.creator.schemas import (
     CreatorApprove,
     CreatorCalendarCreate,
@@ -23,6 +24,9 @@ from app.utils.dependencies import get_current_tenant_id, get_tenant_config
 
 router = APIRouter(prefix="/creator", tags=["creator"])
 
+# Register standardized /config, /config/schema, /status, /metrics endpoints
+creator_interface.register_endpoints(router)
+
 
 @router.post(
     "/pieces/generate",
@@ -32,8 +36,8 @@ router = APIRouter(prefix="/creator", tags=["creator"])
 async def generate_piece(
     data: CreatorGenerate,
     tenant_id: str = Depends(get_current_tenant_id),
-    tenant_config: dict = Depends(get_tenant_config),  # noqa: B008
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    tenant_config: dict = Depends(get_tenant_config),
+    db: AsyncSession = Depends(get_db),
 ) -> CreatorPieceResponse:
     """Generate a new content piece via AI."""
     try:
@@ -55,8 +59,8 @@ async def generate_piece(
 async def generate_from_topic(
     data: CreatorGenerateFromTopic,
     tenant_id: str = Depends(get_current_tenant_id),
-    tenant_config: dict = Depends(get_tenant_config),  # noqa: B008
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    tenant_config: dict = Depends(get_tenant_config),
+    db: AsyncSession = Depends(get_db),
 ) -> CreatorPieceResponse:
     """Generate content from a topic (decoupled endpoint)."""
     try:
@@ -78,7 +82,7 @@ async def generate_from_topic(
 async def create_piece(
     data: CreatorPieceCreate,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> CreatorPieceResponse:
     """Create a new content piece."""
     try:
@@ -95,7 +99,7 @@ async def create_piece(
 @router.get("/pieces", response_model=list[CreatorPieceResponse])
 async def list_pieces(
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
     status_filter: str | None = Query(None, alias="status"),
     platform: str | None = Query(None),
     due: bool = Query(False),
@@ -123,7 +127,7 @@ async def list_pieces(
 async def get_piece(
     piece_id: int,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> CreatorPieceResponse:
     """Get a single content piece."""
     try:
@@ -142,7 +146,7 @@ async def update_piece(
     piece_id: int,
     data: CreatorPieceUpdate,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> CreatorPieceResponse:
     """Update a content piece."""
     try:
@@ -164,7 +168,7 @@ async def approve_piece(
     piece_id: int,
     data: CreatorApprove,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> CreatorPieceResponse:
     """Approve a content piece and set scheduled_at."""
     try:
@@ -185,7 +189,7 @@ async def approve_piece(
 async def publish_piece(
     piece_id: int,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> CreatorPublishResult:
     """Publish a scheduled content piece immediately."""
     try:
@@ -206,7 +210,7 @@ async def publish_piece(
 async def update_engagement(
     piece_id: int,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> CreatorPieceResponse:
     """Update engagement metrics for a published content piece."""
     try:
@@ -224,7 +228,7 @@ async def update_engagement(
 async def delete_piece(
     piece_id: int,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> None:
     """Delete a content piece."""
     try:
@@ -242,7 +246,7 @@ async def delete_piece(
 async def theme_rotation(
     topics: list[str],
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> ThemeRotation:
     """Get the next topic from a round-robin rotation."""
     try:
@@ -264,7 +268,7 @@ async def theme_rotation(
 async def create_calendar_entry(
     data: CreatorCalendarCreate,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> CreatorCalendarResponse:
     """Create a calendar entry."""
     try:
@@ -281,7 +285,7 @@ async def create_calendar_entry(
 @router.get("/calendar", response_model=list[CreatorCalendarResponse])
 async def list_calendar(
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> list[CreatorCalendarResponse]:
     """List calendar entries for the current tenant."""
     try:

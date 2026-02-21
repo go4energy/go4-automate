@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.utils.module_interface import ModuleInterface
+from app.utils.module_registry import register_module
 
 
 class CreatorInterface(ModuleInterface):
@@ -76,7 +77,7 @@ class CreatorInterface(ModuleInterface):
                 if settings.anthropic_api_key
                 else "not_configured",
                 "meta_publisher": "ok"
-                if settings.meta_page_access_token
+                if settings.meta_system_user_token
                 else "not_configured",
             },
             "drafts_pending": pending.scalar() or 0,
@@ -127,3 +128,7 @@ class CreatorInterface(ModuleInterface):
 
 
 creator_interface = CreatorInterface()
+
+# Auto-register for settings discovery
+
+register_module(creator_interface)

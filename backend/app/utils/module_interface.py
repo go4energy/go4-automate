@@ -33,10 +33,13 @@ class ModuleInterface(ABC):
         Default: reads from tenant config JSON, falls back to PARAMS defaults.
         """
         from sqlalchemy import select
+        from sqlalchemy.orm import lazyload
 
         from app.models.tenant import Tenant
 
-        result = await db.execute(select(Tenant).where(Tenant.tenant_id == tenant_id))
+        result = await db.execute(
+            select(Tenant).where(Tenant.tenant_id == tenant_id).options(lazyload("*"))
+        )
         tenant = result.scalar_one_or_none()
         tenant_config = (tenant.config or {}) if tenant else {}
         module_config = tenant_config.get(self.MODULE_NAME, {})
@@ -56,10 +59,13 @@ class ModuleInterface(ABC):
     ) -> dict:
         """Update configuration (partial update)."""
         from sqlalchemy import select
+        from sqlalchemy.orm import lazyload
 
         from app.models.tenant import Tenant
 
-        result = await db.execute(select(Tenant).where(Tenant.tenant_id == tenant_id))
+        result = await db.execute(
+            select(Tenant).where(Tenant.tenant_id == tenant_id).options(lazyload("*"))
+        )
         tenant = result.scalar_one_or_none()
         if not tenant:
             from app.exceptions import NotFoundError

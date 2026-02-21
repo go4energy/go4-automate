@@ -69,6 +69,32 @@ const routes = [
         meta: { title: 'CRM' }
       },
       {
+        path: 'broadcaster',
+        name: 'broadcaster',
+        component: () => import('@/views/BroadcasterView.vue'),
+        meta: { title: 'Broadcaster' }
+      },
+      {
+        path: 'broadcaster/channels/new',
+        name: 'broadcaster-channel-new',
+        component: () => import('@/views/BroadcasterChannelEditView.vue'),
+        meta: { title: 'Neuer Channel', parent: 'broadcaster' }
+      },
+      {
+        path: 'broadcaster/channels/:id',
+        name: 'broadcaster-channel-detail',
+        component: () => import('@/views/BroadcasterChannelDetailView.vue'),
+        props: true,
+        meta: { title: 'Channel Detail', parent: 'broadcaster' }
+      },
+      {
+        path: 'broadcaster/channels/:id/edit',
+        name: 'broadcaster-channel-edit',
+        component: () => import('@/views/BroadcasterChannelEditView.vue'),
+        props: true,
+        meta: { title: 'Channel bearbeiten', parent: 'broadcaster' }
+      },
+      {
         path: 'prompts',
         name: 'prompts',
         component: () => import('@/views/PromptsView.vue'),
@@ -92,6 +118,12 @@ const routes = [
         name: 'setup',
         component: () => import('@/views/SetupView.vue'),
         meta: { title: 'Setup Wizard' }
+      },
+      {
+        path: 'settings',
+        name: 'settings',
+        component: () => import('@/views/SettingsView.vue'),
+        meta: { title: 'Einstellungen' }
       }
     ]
   }

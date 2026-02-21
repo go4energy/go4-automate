@@ -23,7 +23,9 @@ function formatTime(dateStr) {
     <!-- User message -->
     <div v-else-if="props.message.role === 'user'" class="max-w-[80%]">
       <div class="rounded-2xl rounded-br-md bg-[#00865a] px-4 py-2.5 text-white">
-        <p class="whitespace-pre-wrap text-sm">{{ props.message.content }}</p>
+        <p class="whitespace-pre-wrap text-sm">
+          {{ props.message.content }}
+        </p>
       </div>
       <p class="mt-1 text-right text-xs text-gray-400">
         {{ formatTime(props.message.created_at) }}
@@ -33,7 +35,9 @@ function formatTime(dateStr) {
     <!-- Assistant message -->
     <div v-else class="max-w-[80%]">
       <div class="rounded-2xl rounded-bl-md bg-white px-4 py-2.5 shadow-sm ring-1 ring-gray-100">
-        <p class="whitespace-pre-wrap text-sm text-gray-800">{{ props.message.content }}</p>
+        <p class="whitespace-pre-wrap text-sm text-gray-800">
+          {{ props.message.content }}
+        </p>
         <span
           v-if="props.isStreaming"
           class="ml-1 inline-block h-2 w-2 animate-pulse rounded-full bg-[#00865a]"

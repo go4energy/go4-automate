@@ -67,6 +67,23 @@ class Settings(BaseSettings):
     # Search API
     serper_api_key: str = ""
 
+    # LLM — Broadcaster (switchable)
+    llm_model_briefing: str = "anthropic"  # "anthropic" | "ollama"
+    ollama_url: str = "http://localhost:11434"
+    ollama_model: str = "mistral"
+
+    # TTS (Remote Piper Server)
+    tts_engine: str = "piper"  # "piper" | "disabled"
+    tts_url: str = "http://localhost:10200"
+
+    # Broadcaster
+    broadcaster_audio_dir: str = "uploads/broadcaster"
+
+    # Auth (Listener PWA)
+    jwt_secret: str = "change-me-in-production"
+    jwt_expiry_hours: int = 720  # 30 days
+    listener_self_registration: bool = True
+
     # Tenant
     default_tenant_id: str = "default"
     active_tenant: str = "go4energy"

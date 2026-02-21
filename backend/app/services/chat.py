@@ -41,6 +41,15 @@ CONTEXT_PROMPTS = {
         "Hilf bei der Erstellung, Verbesserung und Planung von Social-Media-Content. "
         "Gib konkrete Textvorschlaege, Hashtags und Timing-Empfehlungen."
     ),
+    "broadcaster": (
+        "Du bist ein Audio-Briefing-Experte fuer {{COMPANY_NAME}}. "
+        "Hilf bei der Einrichtung und Verwaltung von Briefing-Channels: "
+        "1) Welche Zielgruppen brauchen Briefings? "
+        "2) Welche Themen/Kategorien sind relevant? "
+        "3) Wie oft sollen Briefings generiert werden? "
+        "4) Soll TTS aktiviert sein oder nur Text? "
+        "Gib branchenspezifische Empfehlungen fuer Channel-Struktur und Inhalte."
+    ),
 }
 
 MAX_HISTORY_MESSAGES = 20

@@ -85,7 +85,9 @@ class DistributorPerformance(TimestampMixin, Base):
     cpl: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=0, nullable=False)
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB, default=dict)
     distributor_campaign_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("distributor_campaigns.id", ondelete="SET NULL")
+        "ad_campaign_id",
+        Integer,
+        ForeignKey("distributor_campaigns.id", ondelete="SET NULL"),
     )
     # Extended fields for ad pipeline
     campaign_name: Mapped[str | None] = mapped_column(String(200))

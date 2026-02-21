@@ -149,6 +149,121 @@ SETUP_TOOLS = [
             "required": [],
         },
     },
+    {
+        "name": "update_broadcaster_config",
+        "description": "Aktualisiert Broadcaster-Konfiguration (LLM-Provider, TTS-Engine, Stimme, Selbstregistrierung).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "updates": {
+                    "type": "object",
+                    "description": 'Key-Value-Paare, z.B. {"LLM_MODEL_BRIEFING": "anthropic", "TTS_ENGINE": "piper", "LISTENER_SELF_REGISTRATION": "true"}',
+                },
+            },
+            "required": ["updates"],
+        },
+    },
+    {
+        "name": "create_briefing_channel",
+        "description": "Erstellt einen neuen Briefing-Channel fuer eine Zielgruppe.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Name des Channels, z.B. 'Management Briefing'",
+                },
+                "slug": {
+                    "type": "string",
+                    "description": "URL-Slug, z.B. 'management-briefing'",
+                },
+                "description": {
+                    "type": "string",
+                    "description": "Beschreibung des Channels",
+                },
+                "target_audience": {
+                    "type": "string",
+                    "description": "Zielgruppe, z.B. 'Geschaeftsfuehrung und Management'",
+                },
+                "categories": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Themen-Kategorien, z.B. ['Strategie', 'Marktentwicklung']",
+                },
+                "schedule": {
+                    "type": "string",
+                    "description": "Zeitplan, z.B. 'Mo-Fr 07:00'",
+                },
+                "voice": {
+                    "type": "string",
+                    "description": "TTS-Stimme, z.B. 'de_DE-thorsten-high'",
+                    "default": "de_DE-thorsten-high",
+                },
+                "language": {
+                    "type": "string",
+                    "description": "Sprache (de, en)",
+                    "default": "de",
+                },
+                "max_items": {
+                    "type": "integer",
+                    "description": "Max. Findings pro Episode",
+                    "default": 5,
+                },
+                "max_duration_minutes": {
+                    "type": "integer",
+                    "description": "Max. Sprechdauer in Minuten",
+                    "default": 5,
+                },
+            },
+            "required": ["name", "slug", "target_audience"],
+        },
+    },
+    {
+        "name": "list_briefing_channels",
+        "description": "Listet alle Briefing-Channels des Tenants auf.",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+    },
+    {
+        "name": "create_listener_user",
+        "description": "Erstellt einen neuen Listener-Benutzer fuer die Briefing-PWA.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "description": "E-Mail-Adresse des Listeners",
+                },
+                "password": {
+                    "type": "string",
+                    "description": "Passwort (min. 8 Zeichen)",
+                },
+                "display_name": {
+                    "type": "string",
+                    "description": "Anzeigename",
+                },
+                "role": {
+                    "type": "string",
+                    "enum": ["employee", "manager", "executive"],
+                    "description": "Rolle des Listeners",
+                    "default": "employee",
+                },
+            },
+            "required": ["email", "password", "display_name"],
+        },
+    },
+    {
+        "name": "list_listener_users",
+        "description": "Listet alle Listener-Benutzer des Tenants auf.",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+    },
 ]
 
 
@@ -173,6 +288,11 @@ class ToolExecutor:
             "check_integration_status": self._check_integration_status,
             "list_prompts": self._list_prompts,
             "get_setup_progress": self._get_setup_progress,
+            "update_broadcaster_config": self._update_broadcaster_config,
+            "create_briefing_channel": self._create_briefing_channel,
+            "list_briefing_channels": self._list_briefing_channels,
+            "create_listener_user": self._create_listener_user,
+            "list_listener_users": self._list_listener_users,
         }
         handler = handlers.get(tool_name)
         if not handler:
@@ -410,6 +530,11 @@ class ToolExecutor:
         distributor_keys = ["ADS_MONTHLY_BUDGET", "ADS_TARGET_CPL"]
         distributor_set = sum(1 for k in distributor_keys if config.get(k))
 
+        # Broadcaster config
+        broadcaster_configured = bool(
+            settings.tts_engine != "disabled" or settings.llm_model_briefing
+        )
+
         # Integrations
         def is_set(key: str) -> bool:
             val = config.get(key, "") or getattr(settings, key.lower(), "")
@@ -423,6 +548,13 @@ class ToolExecutor:
                 is_set("OPENWEATHER_API_KEY"),
             ]
         )
+
+        # Broadcaster channels
+        from app.broadcaster.service import BroadcasterService
+
+        bc_service = BroadcasterService(self.db)
+        bc_channels = await bc_service.list_channels(self.tenant_id)
+        bc_channel_count = len(bc_channels)
 
         return {
             "modules": {
@@ -446,10 +578,113 @@ class ToolExecutor:
                     "configured": distributor_set >= 1,
                     "details": f"{distributor_set}/{len(distributor_keys)} Felder",
                 },
+                "broadcaster": {
+                    "label": "Broadcaster",
+                    "configured": broadcaster_configured and bc_channel_count > 0,
+                    "details": (
+                        f"LLM: {settings.llm_model_briefing}, "
+                        f"TTS: {settings.tts_engine}, "
+                        f"{bc_channel_count} Channels"
+                    ),
+                },
                 "integrations": {
                     "label": "Integrationen",
                     "configured": integrations_configured > 0,
                     "details": f"{integrations_configured}/4 Dienste",
                 },
             }
+        }
+
+    async def _update_broadcaster_config(self, tool_input: dict) -> dict:
+        """Update broadcaster config (delegates to update_tenant_config)."""
+        return await self._update_tenant_config(tool_input)
+
+    async def _create_briefing_channel(self, tool_input: dict) -> dict:
+        """Create a new briefing channel."""
+        from app.broadcaster.schemas import ChannelCreate
+        from app.broadcaster.service import BroadcasterService
+
+        data = ChannelCreate(
+            name=tool_input["name"],
+            slug=tool_input.get("slug", tool_input["name"].lower().replace(" ", "-")),
+            description=tool_input.get("description", ""),
+            target_audience=tool_input["target_audience"],
+            categories=tool_input.get("categories", []),
+            schedule=tool_input.get("schedule", ""),
+            voice=tool_input.get("voice", "de_DE-thorsten-high"),
+            language=tool_input.get("language", "de"),
+            max_items=tool_input.get("max_items", 5),
+            max_duration_minutes=tool_input.get("max_duration_minutes", 5),
+        )
+        service = BroadcasterService(self.db)
+        channel = await service.create_channel(self.tenant_id, data)
+        return {
+            "id": channel.id,
+            "name": channel.name,
+            "slug": channel.slug,
+            "target_audience": channel.target_audience,
+            "success": True,
+        }
+
+    async def _list_briefing_channels(self, _input: dict) -> dict:
+        """List all briefing channels."""
+        from app.broadcaster.service import BroadcasterService
+
+        service = BroadcasterService(self.db)
+        channels = await service.list_channels(self.tenant_id)
+        return {
+            "channels": [
+                {
+                    "id": c.id,
+                    "name": c.name,
+                    "slug": c.slug,
+                    "target_audience": c.target_audience,
+                    "categories": c.categories or [],
+                    "schedule": c.schedule or "",
+                    "active": c.active,
+                }
+                for c in channels
+            ],
+            "count": len(channels),
+        }
+
+    async def _create_listener_user(self, tool_input: dict) -> dict:
+        """Create a new listener user."""
+        from app.broadcaster.schemas import ListenerUserCreate
+        from app.broadcaster.service import BroadcasterService
+
+        data = ListenerUserCreate(
+            email=tool_input["email"],
+            password=tool_input["password"],
+            display_name=tool_input["display_name"],
+            role=tool_input.get("role", "employee"),
+        )
+        service = BroadcasterService(self.db)
+        user = await service.create_user(self.tenant_id, data)
+        return {
+            "id": user.id,
+            "email": user.email,
+            "display_name": user.display_name,
+            "role": user.role,
+            "success": True,
+        }
+
+    async def _list_listener_users(self, _input: dict) -> dict:
+        """List all listener users."""
+        from app.broadcaster.service import BroadcasterService
+
+        service = BroadcasterService(self.db)
+        users = await service.list_users(self.tenant_id)
+        return {
+            "users": [
+                {
+                    "id": u.id,
+                    "email": u.email,
+                    "display_name": u.display_name,
+                    "role": u.role,
+                    "active": u.active,
+                }
+                for u in users
+            ],
+            "count": len(users),
         }

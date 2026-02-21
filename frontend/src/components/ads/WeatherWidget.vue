@@ -7,25 +7,14 @@ const props = defineProps({
 
 <template>
   <div class="rounded-lg bg-white p-6 shadow-sm">
-    <h3 class="text-sm font-medium text-go4-muted">
-      Wetter-Boost
-    </h3>
-    <div
-      v-if="props.loading"
-      class="mt-4 flex items-center justify-center"
-    >
+    <h3 class="text-sm font-medium text-go4-muted">Wetter-Boost</h3>
+    <div v-if="props.loading" class="mt-4 flex items-center justify-center">
       <span class="text-go4-muted">Laden...</span>
     </div>
-    <div
-      v-else-if="!props.weather"
-      class="mt-4 text-sm text-go4-muted"
-    >
+    <div v-else-if="!props.weather" class="mt-4 text-sm text-go4-muted">
       Wetterdaten nicht verfuegbar
     </div>
-    <div
-      v-else
-      class="mt-4 space-y-3"
-    >
+    <div v-else class="mt-4 space-y-3">
       <div class="flex items-center justify-between">
         <span class="text-2xl font-semibold text-go4-secondary">
           {{ props.weather.temp.toFixed(1) }}&#176;C

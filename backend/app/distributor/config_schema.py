@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.utils.module_interface import ModuleInterface
+from app.utils.module_registry import register_module
 
 
 class DistributorInterface(ModuleInterface):
@@ -118,3 +119,7 @@ class DistributorInterface(ModuleInterface):
 
 
 distributor_interface = DistributorInterface()
+
+# Auto-register for settings discovery
+
+register_module(distributor_interface)

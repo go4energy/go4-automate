@@ -112,10 +112,14 @@ app.include_router(chat_router, prefix="/api/v1")
 app.include_router(activity_router, prefix="/api/v1")
 
 # Domain module routers
+# Broadcaster module
+from app.broadcaster.listener_router import router as listener_router  # noqa: E402
+from app.broadcaster.router import router as broadcaster_router  # noqa: E402
 from app.collector.router import router as collector_router  # noqa: E402
 from app.creator.router import router as creator_router  # noqa: E402
 from app.crm.router import router as crm_router  # noqa: E402
 from app.distributor.router import router as distributor_router  # noqa: E402
+from app.settings.router import router as settings_router  # noqa: E402
 from app.setup.router import router as setup_router  # noqa: E402
 
 app.include_router(collector_router, prefix="/api/v1")
@@ -123,3 +127,6 @@ app.include_router(creator_router, prefix="/api/v1")
 app.include_router(distributor_router, prefix="/api/v1")
 app.include_router(crm_router, prefix="/api/v1")
 app.include_router(setup_router, prefix="/api/v1")
+app.include_router(settings_router, prefix="/api/v1")
+app.include_router(broadcaster_router, prefix="/api/v1")
+app.include_router(listener_router, prefix="/api/v1")

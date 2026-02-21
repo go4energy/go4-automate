@@ -435,6 +435,136 @@ SEED_PROMPTS = [
         "max_tokens": 2048,
     },
     {
+        "slug": "broadcaster-script",
+        "name": "Broadcaster Script Generator",
+        "description": "Generiert ein Briefing-Script zum Vorlesen aus Collector-Findings.",
+        "category": "content",
+        "system_prompt": (
+            "Du bist ein professioneller Nachrichtensprecher fuer {{COMPANY_NAME}}. "
+            "Zielgruppe: {{target_audience}}. Sprache: {{language}}. "
+            "Erstelle ein Audio-Briefing-Script zum Vorlesen. "
+            "Schreibe reinen Sprechtext — kein Markdown, keine Aufzaehlungen, "
+            "keine Sonderzeichen. Natuerliche, gesprochene Sprache."
+        ),
+        "user_prompt": (
+            "Erstelle ein Briefing-Script (max. {{max_duration}} Minuten Sprechzeit).\n\n"
+            "Intro: {{intro_text}}\n\n"
+            "Aktuelle Themen:\n{{findings_text}}\n\n"
+            "Outro: {{outro_text}}\n\n"
+            "Fasse die wichtigsten Themen zusammen und verbinde sie fliessend."
+        ),
+        "variables": [
+            {
+                "name": "target_audience",
+                "type": "string",
+                "required": False,
+                "default": "Allgemein",
+                "description": "Zielgruppe des Briefings",
+            },
+            {
+                "name": "language",
+                "type": "string",
+                "required": False,
+                "default": "de",
+                "description": "Sprache des Briefings",
+            },
+            {
+                "name": "max_duration",
+                "type": "string",
+                "required": False,
+                "default": "5",
+                "description": "Maximale Sprechzeit in Minuten",
+            },
+            {
+                "name": "intro_text",
+                "type": "string",
+                "required": False,
+                "default": "Willkommen zum Briefing.",
+                "description": "Intro-Text",
+            },
+            {
+                "name": "findings_text",
+                "type": "string",
+                "required": True,
+                "default": None,
+                "description": "Auflistung der Findings",
+            },
+            {
+                "name": "outro_text",
+                "type": "string",
+                "required": False,
+                "default": "Das war Ihr Briefing fuer heute.",
+                "description": "Outro-Text",
+            },
+            {
+                "name": "COMPANY_NAME",
+                "type": "string",
+                "required": False,
+                "default": "",
+                "description": "Firmenname (aus Tenant-Config)",
+            },
+        ],
+        "output_format": "text",
+        "provider": "anthropic",
+        "model": "claude-sonnet-4-5-20250929",
+        "temperature": 0.6,
+        "max_tokens": 4096,
+    },
+    {
+        "slug": "chat-broadcaster",
+        "name": "Chat: Broadcaster-Assistent",
+        "description": (
+            "System-Prompt fuer den Broadcaster-Setup-Chat. "
+            "Hilft bei der Einrichtung von Audio-Briefing-Channels."
+        ),
+        "category": "chat",
+        "system_prompt": (
+            "Du bist ein Audio-Briefing-Experte fuer {{COMPANY_NAME}}. "
+            "Hilf bei der Einrichtung der Broadcaster-Plattform.\n\n"
+            "## Deine Aufgabe\n"
+            "Fuehre den Benutzer durch die Broadcaster-Konfiguration:\n"
+            "1. Frage nach den Zielgruppen (Management, Pflege, IT, Vertrieb etc.)\n"
+            "2. Schlage passende Channel-Strukturen vor\n"
+            "3. Empfehle Kategorien basierend auf den Collector-Quellen\n"
+            "4. Klaere Zeitplan und Frequenz\n"
+            "5. Konfiguriere TTS und Stimme\n"
+            "6. Lege erste Listener-Benutzer an\n\n"
+            "## Branchenspezifische Empfehlungen\n"
+            "- Krankenhaus: Channels fuer Management, Pflege, IT. Taeglich 06:00.\n"
+            "- Behoerde: Channels nach Abteilung. Woechentlich montags.\n"
+            "- Unternehmen: Channels nach Rolle (GF, Vertrieb, Technik). Mo-Fr 07:00.\n"
+            "- Allgemein: 1 Channel zum Start, dann nach Feedback aufteilen.\n\n"
+            "## Regeln\n"
+            "- Antworte immer auf Deutsch\n"
+            "- Schlage konkrete Channel-Namen und Slugs vor\n"
+            "- Frage nach Bestaetigung bevor du Channels oder User anlegst\n"
+            "- Erklaere kurz den Unterschied zwischen TTS-Engines\n"
+            "- Halte Antworten kompakt und uebersichtlich"
+        ),
+        "user_prompt": "{{user_message}}",
+        "variables": [
+            {
+                "name": "user_message",
+                "type": "string",
+                "required": True,
+                "default": None,
+                "description": "Nachricht des Nutzers",
+            },
+            {
+                "name": "COMPANY_NAME",
+                "type": "string",
+                "required": False,
+                "default": "",
+                "description": "Firmenname (aus Tenant-Config)",
+            },
+        ],
+        "output_format": "text",
+        "provider": "anthropic",
+        "model": "claude-sonnet-4-5-20250929",
+        "temperature": 0.7,
+        "max_tokens": 2048,
+    },
+    {
         "slug": "chat-general",
         "name": "Chat: Marketing-Assistent",
         "description": (

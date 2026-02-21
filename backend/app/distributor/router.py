@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.database import get_db
+from app.distributor.config_schema import distributor_interface
 from app.distributor.schemas import (
     AdDashboardStats,
     AdPerformanceResponse,
@@ -24,6 +25,9 @@ from app.utils.dependencies import get_current_tenant_id
 
 router = APIRouter(prefix="/distributor", tags=["distributor"])
 
+# Register standardized /config, /config/schema, /status, /metrics endpoints
+distributor_interface.register_endpoints(router)
+
 
 # --- Conversion Tracking ---
 
@@ -36,7 +40,7 @@ router = APIRouter(prefix="/distributor", tags=["distributor"])
 async def track_conversion(
     data: ConversionEventCreate,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> ConversionEventResponse:
     """Track a conversion event (from pixel or server-side)."""
     try:
@@ -56,7 +60,7 @@ async def track_conversion(
 @router.get("/dashboard", response_model=AdDashboardStats)
 async def get_dashboard(
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> AdDashboardStats:
     """Get aggregated ad dashboard stats."""
     try:
@@ -76,7 +80,7 @@ async def get_dashboard(
 @router.get("/performance", response_model=list[AdPerformanceResponse])
 async def get_performance(
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
     days: int = Query(30, ge=1, le=365),
     campaign_id: str | None = Query(None),
 ) -> list[AdPerformanceResponse]:
@@ -100,7 +104,7 @@ async def get_performance(
 @router.get("/campaigns", response_model=list[CampaignConfigResponse])
 async def list_campaigns(
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> list[CampaignConfigResponse]:
     """List all configured campaigns."""
     try:
@@ -122,7 +126,7 @@ async def list_campaigns(
 async def create_campaign_config(
     data: CampaignConfigCreate,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> CampaignConfigResponse:
     """Create a new campaign configuration."""
     try:
@@ -144,7 +148,7 @@ async def update_campaign_config(
     config_id: int,
     data: CampaignConfigUpdate,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> CampaignConfigResponse:
     """Update a campaign configuration."""
     try:
@@ -165,7 +169,7 @@ async def update_campaign_config(
 async def pause_campaign_action(
     config_id: int,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Pause a campaign on Meta."""
     try:
@@ -191,7 +195,7 @@ async def pause_campaign_action(
 async def resume_campaign_action(
     config_id: int,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Resume a paused campaign on Meta."""
     try:
@@ -219,7 +223,7 @@ async def resume_campaign_action(
 @router.post("/optimize", response_model=list[OptimizationResult])
 async def run_optimization(
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> list[OptimizationResult]:
     """Run budget optimization for all active campaigns."""
     try:
@@ -239,7 +243,7 @@ async def run_optimization(
 @router.get("/weather", response_model=WeatherData)
 async def get_weather(
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> WeatherData:
     """Get current weather data for budget boost decisions."""
     try:

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.crm.config_schema import crm_interface
 from app.crm.schemas import (
     CrmContactCreate,
     CrmContactResponse,
@@ -17,6 +18,9 @@ from app.utils.dependencies import get_current_tenant_id
 
 router = APIRouter(prefix="/crm", tags=["crm"])
 
+# Register standardized /config, /config/schema, /status, /metrics endpoints
+crm_interface.register_endpoints(router)
+
 
 @router.post(
     "/", response_model=CrmContactResponse, status_code=status.HTTP_201_CREATED
@@ -24,7 +28,7 @@ router = APIRouter(prefix="/crm", tags=["crm"])
 async def create_contact(
     data: CrmContactCreate,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> CrmContactResponse:
     """Create a new contact."""
     try:
@@ -43,7 +47,7 @@ async def create_contact(
 @router.get("/", response_model=list[CrmContactResponse])
 async def list_contacts(
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
     status_filter: str | None = Query(None, alias="status"),
     source: str | None = Query(None),
 ) -> list[CrmContactResponse]:
@@ -66,7 +70,7 @@ async def update_contact_status(
     contact_id: int,
     data: CrmContactStatusUpdate,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> CrmContactResponse:
     """Update a contact's status."""
     try:
@@ -85,7 +89,7 @@ async def pause_followup(
     contact_id: int,
     data: CrmFollowupPause,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> CrmContactResponse:
     """Pause or resume follow-up for a contact."""
     try:

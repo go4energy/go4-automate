@@ -66,20 +66,14 @@ const truncatedCaption = computed(() => {
           {{ statusLabel }}
         </span>
       </div>
-      <span
-        v-if="piece.ai_model"
-        class="text-xs text-go4-muted"
-      >AI</span>
+      <span v-if="piece.ai_model" class="text-xs text-go4-muted">AI</span>
     </div>
 
     <h3 class="mt-3 text-sm font-semibold text-go4-secondary line-clamp-2">
       {{ piece.title }}
     </h3>
 
-    <p
-      v-if="truncatedCaption"
-      class="mt-2 text-xs text-go4-muted line-clamp-3"
-    >
+    <p v-if="truncatedCaption" class="mt-2 text-xs text-go4-muted line-clamp-3">
       {{ truncatedCaption }}
     </p>
 

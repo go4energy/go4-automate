@@ -2,10 +2,11 @@
 
 from datetime import datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import func, literal_column, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.utils.module_interface import ModuleInterface
+from app.utils.module_registry import register_module
 
 
 class CollectorInterface(ModuleInterface):
@@ -76,18 +77,15 @@ class CollectorInterface(ModuleInterface):
 
         # Check due sources
         now = datetime.utcnow()
+        interval_expr = CollectorSource.fetch_interval_hours * literal_column(
+            "INTERVAL '1 hour'"
+        )
         due_result = await db.execute(
             select(func.count(CollectorSource.id)).where(
                 CollectorSource.tenant_id == tenant_id,
                 CollectorSource.active.is_(True),
                 CollectorSource.last_fetched_at.is_(None)
-                | (
-                    CollectorSource.last_fetched_at
-                    + func.make_interval(
-                        secs=CollectorSource.fetch_interval_hours * 3600
-                    )
-                    <= now
-                ),
+                | (CollectorSource.last_fetched_at + interval_expr <= now),
             )
         )
         next_due = due_result.scalar() or 0
@@ -164,3 +162,7 @@ class CollectorInterface(ModuleInterface):
 
 
 collector_interface = CollectorInterface()
+
+# Auto-register for settings discovery
+
+register_module(collector_interface)
