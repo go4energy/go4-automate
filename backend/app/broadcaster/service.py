@@ -306,10 +306,16 @@ class BroadcasterService:
             CollectorFinding.status.in_(["new", "reviewed"]),
         )
 
-        # Filter by channel categories if specified
+        # Filter by channel categories if specified (JSONB ?| text[])
         if channel.categories:
+            from sqlalchemy import cast
+            from sqlalchemy.dialects.postgresql import ARRAY as PG_ARRAY
+            from sqlalchemy.types import String
+
             query = query.where(
-                CollectorFinding.categories.op("&&")(channel.categories)
+                CollectorFinding.categories.op("?|")(
+                    cast(channel.categories, PG_ARRAY(String))
+                )
             )
 
         query = query.order_by(CollectorFinding.created_at.desc()).limit(
