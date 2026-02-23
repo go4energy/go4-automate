@@ -33,9 +33,25 @@ logger.add(
 async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
     logger.info("Starting go4-automate API")
+
+    from app.database import async_session
+
+    # Auto-seed admin user for active tenant
+    try:
+        from app.auth.service import AuthService
+
+        async with async_session() as db:
+            service = AuthService(db)
+            admin = await service.ensure_admin_exists(
+                settings.active_tenant, settings.initial_admin_password
+            )
+            if admin:
+                await db.commit()
+    except Exception as e:
+        logger.warning("Admin seeding uebersprungen: {err}", err=str(e))
+
     # Auto-seed prompts for active tenant
     try:
-        from app.database import async_session
         from app.services.prompt_seed import seed_prompts
 
         async with async_session() as db:
@@ -70,6 +86,43 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Auth paths exempt from JWT check
+AUTH_EXEMPT_PATHS = frozenset({"/health", "/docs", "/redoc", "/openapi.json"})
+AUTH_EXEMPT_PREFIXES = ("/api/v1/auth/login", "/api/v1/listen/", "/uploads/")
+
+
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    """Enforce JWT auth on all /api/v1/ routes (with exemptions)."""
+    path = request.url.path
+
+    # Skip non-API paths and exempt routes
+    needs_auth = path.startswith("/api/v1/")
+    if not needs_auth or path in AUTH_EXEMPT_PATHS:
+        return await call_next(request)
+    for prefix in AUTH_EXEMPT_PREFIXES:
+        if path.startswith(prefix):
+            return await call_next(request)
+
+    # Allow backend-secret for n8n/internal calls
+    backend_secret = request.headers.get("X-Backend-Secret", "")
+    if (
+        backend_secret
+        and settings.backend_secret
+        and backend_secret == settings.backend_secret
+    ):
+        return await call_next(request)
+
+    # Check for Bearer token
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "Nicht authentifiziert"},
+        )
+
+    return await call_next(request)
+
 
 # Global Exception Handler
 @app.exception_handler(AppError)
@@ -94,12 +147,27 @@ upload_path = Path(settings.upload_dir)
 upload_path.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(upload_path)), name="uploads")
 
+# Auto-discover domain modules
+from app.utils.module_discovery import (  # noqa: E402
+    discover_manifests,
+    register_interfaces,
+    register_models,
+    register_routers,
+)
+
+manifests = discover_manifests(Path(__file__).parent)
+register_models(manifests)
+register_interfaces(manifests)
+
 # Shared routers (remain in routers/)
 from app.routers import (  # noqa: E402
     activity_router,
     chat_router,
     llm_router,
+    modules_router,
     prompts_router,
+    streams_router,
+    tags_router,
     templates_router,
     tenants_router,
 )
@@ -110,23 +178,9 @@ app.include_router(llm_router, prefix="/api/v1")
 app.include_router(prompts_router, prefix="/api/v1")
 app.include_router(chat_router, prefix="/api/v1")
 app.include_router(activity_router, prefix="/api/v1")
+app.include_router(modules_router, prefix="/api/v1")
+app.include_router(tags_router, prefix="/api/v1")
+app.include_router(streams_router, prefix="/api/v1")
 
-# Domain module routers
-# Broadcaster module
-from app.broadcaster.listener_router import router as listener_router  # noqa: E402
-from app.broadcaster.router import router as broadcaster_router  # noqa: E402
-from app.collector.router import router as collector_router  # noqa: E402
-from app.creator.router import router as creator_router  # noqa: E402
-from app.crm.router import router as crm_router  # noqa: E402
-from app.distributor.router import router as distributor_router  # noqa: E402
-from app.settings.router import router as settings_router  # noqa: E402
-from app.setup.router import router as setup_router  # noqa: E402
-
-app.include_router(collector_router, prefix="/api/v1")
-app.include_router(creator_router, prefix="/api/v1")
-app.include_router(distributor_router, prefix="/api/v1")
-app.include_router(crm_router, prefix="/api/v1")
-app.include_router(setup_router, prefix="/api/v1")
-app.include_router(settings_router, prefix="/api/v1")
-app.include_router(broadcaster_router, prefix="/api/v1")
-app.include_router(listener_router, prefix="/api/v1")
+# Domain module routers (auto-discovered from __manifest__.py)
+register_routers(app, manifests, prefix="/api/v1")

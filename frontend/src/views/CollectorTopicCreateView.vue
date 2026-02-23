@@ -3,6 +3,8 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCollectorStore } from '@/stores/collector'
 import PageHeader from '@/components/ui/PageHeader.vue'
+import TagSelector from '@/components/ui/TagSelector.vue'
+import StreamSelector from '@/components/ui/StreamSelector.vue'
 
 const router = useRouter()
 const store = useCollectorStore()
@@ -19,7 +21,10 @@ const form = ref({
   platforms: [],
   priority: 3,
   source_type: 'manual',
-  image_url: null
+  image_url: null,
+  tags: [],
+  streams: [],
+  group_id: store.activeGroupId
 })
 
 const generatePlatform = ref('facebook')
@@ -87,38 +92,45 @@ async function handleSubmit() {
       subtitle="Beschreibe ein Thema und generiere sofort Content daraus."
     />
 
-    <div v-if="error" class="mt-4 rounded-lg bg-red-50 p-4 text-sm text-red-700">
+    <div
+      v-if="error"
+      class="mt-4 rounded-lg bg-red-50 dark:bg-red-900/20 p-4 text-sm text-red-700 dark:text-red-400"
+    >
       {{ error }}
     </div>
 
     <form class="mt-6 space-y-6" @submit.prevent="handleSubmit">
       <div>
-        <label class="block text-sm font-medium text-go4-secondary">Titel</label>
+        <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">Titel</label>
         <input
           v-model="form.title"
           type="text"
           required
-          class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
+          class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm dark:bg-gray-700 dark:text-gray-100 focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
           placeholder="z.B. Solar-Carport Vorteile"
         />
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-go4-secondary">Beschreibung</label>
+        <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
+          >Beschreibung</label
+        >
         <textarea
           v-model="form.description"
           rows="4"
           required
-          class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
+          class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm dark:bg-gray-700 dark:text-gray-100 focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
           placeholder="Warum ist dieses Thema relevant? Welche Aspekte sollen beleuchtet werden?"
         />
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-go4-secondary">Kategorie</label>
+        <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
+          >Kategorie</label
+        >
         <select
           v-model="form.category"
-          class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
+          class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm dark:bg-gray-700 dark:text-gray-100 focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
         >
           <option value="content">Content</option>
           <option value="social">Social Media</option>
@@ -128,7 +140,9 @@ async function handleSubmit() {
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-go4-secondary">Plattformen</label>
+        <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
+          >Plattformen</label
+        >
         <div class="mt-2 flex flex-wrap gap-3">
           <label
             v-for="opt in platformOptions"
@@ -137,7 +151,7 @@ async function handleSubmit() {
             :class="
               form.platforms.includes(opt.value)
                 ? 'border-go4-primary bg-go4-primary/5 text-go4-primary'
-                : 'border-gray-300 text-go4-muted hover:border-gray-400'
+                : 'border-gray-300 dark:border-gray-600 text-go4-muted dark:text-gray-400 hover:border-gray-400'
             "
           >
             <input
@@ -152,17 +166,38 @@ async function handleSubmit() {
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-go4-secondary">
+        <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">
           Prioritaet: {{ form.priority }}
-          <span class="font-normal text-go4-muted">
+          <span class="font-normal text-go4-muted dark:text-gray-400">
             ({{ ['', 'Sehr hoch', 'Hoch', 'Normal', 'Niedrig', 'Sehr niedrig'][form.priority] }})
           </span>
         </label>
         <input v-model.number="form.priority" type="range" min="1" max="5" class="mt-2 w-full" />
       </div>
 
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div>
+          <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
+            >Tags</label
+          >
+          <div class="mt-1">
+            <TagSelector v-model="form.tags" placeholder="Tags auswaehlen..." />
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
+            >Streams</label
+          >
+          <div class="mt-1">
+            <StreamSelector v-model="form.streams" placeholder="Streams auswaehlen..." />
+          </div>
+        </div>
+      </div>
+
       <div>
-        <label class="block text-sm font-medium text-go4-secondary">Bild (optional)</label>
+        <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
+          >Bild (optional)</label
+        >
         <div v-if="form.image_url" class="mt-2">
           <img :src="form.image_url" alt="Vorschau" class="h-32 rounded-lg object-cover" />
           <button
@@ -175,7 +210,7 @@ async function handleSubmit() {
         </div>
         <div v-else class="mt-2">
           <label
-            class="flex cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-gray-300 p-6 text-sm text-go4-muted transition hover:border-go4-primary hover:text-go4-primary"
+            class="flex cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 p-6 text-sm text-go4-muted dark:text-gray-400 transition hover:border-go4-primary hover:text-go4-primary"
           >
             <input
               type="file"
@@ -189,17 +224,23 @@ async function handleSubmit() {
         </div>
       </div>
 
-      <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+      <div
+        class="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-4"
+      >
         <label class="flex items-center gap-2">
           <input v-model="generateAfterSave" type="checkbox" class="rounded" />
-          <span class="text-sm font-medium text-go4-secondary"> Sofort Content generieren </span>
+          <span class="text-sm font-medium text-go4-secondary dark:text-gray-100">
+            Sofort Content generieren
+          </span>
         </label>
         <div v-if="generateAfterSave" class="mt-3 flex gap-4">
           <div class="flex-1">
-            <label class="block text-xs font-medium text-go4-muted">Plattform</label>
+            <label class="block text-xs font-medium text-go4-muted dark:text-gray-400"
+              >Plattform</label
+            >
             <select
               v-model="generatePlatform"
-              class="mt-1 block w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+              class="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-gray-100"
             >
               <option value="facebook">Facebook</option>
               <option value="instagram">Instagram</option>
@@ -208,10 +249,12 @@ async function handleSubmit() {
             </select>
           </div>
           <div class="flex-1">
-            <label class="block text-xs font-medium text-go4-muted">Content-Typ</label>
+            <label class="block text-xs font-medium text-go4-muted dark:text-gray-400"
+              >Content-Typ</label
+            >
             <select
               v-model="generateType"
-              class="mt-1 block w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+              class="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-gray-100"
             >
               <option value="post">Post</option>
               <option value="story">Story</option>
@@ -232,7 +275,7 @@ async function handleSubmit() {
         </button>
         <router-link
           to="/collector"
-          class="rounded-lg border border-gray-300 px-6 py-2 text-sm font-medium text-go4-secondary hover:bg-gray-50"
+          class="rounded-lg border border-gray-300 dark:border-gray-600 px-6 py-2 text-sm font-medium text-go4-secondary dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700"
         >
           Abbrechen
         </router-link>

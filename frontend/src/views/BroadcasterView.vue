@@ -37,13 +37,16 @@ async function handleToggle(channel) {
     </PageHeader>
 
     <!-- Error -->
-    <div v-if="store.error" class="mt-4 rounded-lg bg-red-50 p-4 text-sm text-red-700">
+    <div
+      v-if="store.error"
+      class="mt-4 rounded-lg bg-red-50 dark:bg-red-900/20 p-4 text-sm text-red-700 dark:text-red-400"
+    >
       {{ store.error }}
     </div>
 
     <!-- Loading -->
     <div v-if="store.loading" class="mt-8 flex items-center justify-center py-12">
-      <span class="text-go4-muted">Laden...</span>
+      <span class="text-go4-muted dark:text-gray-400">Laden...</span>
     </div>
 
     <!-- Empty -->
@@ -58,17 +61,20 @@ async function handleToggle(channel) {
       <div
         v-for="channel in store.channels"
         :key="channel.id"
-        class="rounded-lg bg-white p-5 shadow-sm transition hover:shadow-md"
+        class="rounded-lg bg-white dark:bg-gray-800 p-5 shadow-sm transition hover:shadow-md"
       >
         <div class="flex items-start justify-between">
           <div class="min-w-0 flex-1">
             <router-link
               :to="`/broadcaster/channels/${channel.id}`"
-              class="text-base font-semibold text-go4-secondary hover:text-go4-primary"
+              class="text-base font-semibold text-go4-secondary dark:text-gray-100 hover:text-go4-primary"
             >
               {{ channel.name }}
             </router-link>
-            <p v-if="channel.target_audience" class="mt-1 text-xs text-go4-muted">
+            <p
+              v-if="channel.target_audience"
+              class="mt-1 text-xs text-go4-muted dark:text-gray-400"
+            >
               Zielgruppe: {{ channel.target_audience }}
             </p>
           </div>
@@ -76,8 +82,8 @@ async function handleToggle(channel) {
             class="ml-2 shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium transition"
             :class="
               channel.active
-                ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-800/40'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
             "
             @click="handleToggle(channel)"
           >
@@ -85,12 +91,15 @@ async function handleToggle(channel) {
           </button>
         </div>
 
-        <p v-if="channel.description" class="mt-2 line-clamp-2 text-sm text-gray-500">
+        <p
+          v-if="channel.description"
+          class="mt-2 line-clamp-2 text-sm text-gray-500 dark:text-gray-400"
+        >
           {{ channel.description }}
         </p>
 
         <!-- Stats -->
-        <div class="mt-4 flex items-center gap-4 text-xs text-go4-muted">
+        <div class="mt-4 flex items-center gap-4 text-xs text-go4-muted dark:text-gray-400">
           <span>{{ channel.episode_count || 0 }} Episoden</span>
           <span>{{ channel.subscriber_count || 0 }} Abonnenten</span>
           <span v-if="channel.schedule">{{ channel.schedule }}</span>
@@ -101,17 +110,22 @@ async function handleToggle(channel) {
           <span
             v-for="cat in channel.categories.slice(0, 4)"
             :key="cat"
-            class="rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-700"
+            class="rounded-full bg-sky-100 dark:bg-sky-900/30 px-2 py-0.5 text-xs text-sky-700 dark:text-sky-400"
           >
             {{ cat }}
           </span>
-          <span v-if="channel.categories.length > 4" class="text-xs text-gray-400">
+          <span
+            v-if="channel.categories.length > 4"
+            class="text-xs text-gray-400 dark:text-gray-500"
+          >
             +{{ channel.categories.length - 4 }}
           </span>
         </div>
 
         <!-- Actions -->
-        <div class="mt-4 flex items-center gap-2 border-t border-gray-100 pt-3">
+        <div
+          class="mt-4 flex items-center gap-2 border-t border-gray-100 dark:border-gray-700 pt-3"
+        >
           <router-link
             :to="`/broadcaster/channels/${channel.id}`"
             class="rounded bg-go4-primary/10 px-2.5 py-1 text-xs font-medium text-go4-primary hover:bg-go4-primary/20"
@@ -120,12 +134,12 @@ async function handleToggle(channel) {
           </router-link>
           <router-link
             :to="`/broadcaster/channels/${channel.id}/edit`"
-            class="rounded bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-200"
+            class="rounded bg-gray-100 dark:bg-gray-700 px-2.5 py-1 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
           >
             Bearbeiten
           </router-link>
           <button
-            class="rounded bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-200"
+            class="rounded bg-red-100 dark:bg-red-900/30 px-2.5 py-1 text-xs font-medium text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-800/40"
             @click="handleDelete(channel.id)"
           >
             Loeschen

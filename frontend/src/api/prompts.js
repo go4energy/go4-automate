@@ -24,6 +24,10 @@ export function createPromptVersion(promptId) {
   return api.post(`/v1/prompts/${promptId}/version`)
 }
 
+export function getPromptBySlug(slug) {
+  return api.get(`/v1/prompts/slug/${slug}`)
+}
+
 export function executePrompt(data) {
   return api.post('/v1/llm/execute', data)
 }

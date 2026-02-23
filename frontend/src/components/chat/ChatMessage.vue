@@ -15,7 +15,9 @@ function formatTime(dateStr) {
   <div class="flex" :class="props.message.role === 'user' ? 'justify-end' : 'justify-start'">
     <!-- System message -->
     <div v-if="props.message.role === 'system'" class="w-full text-center">
-      <span class="inline-block rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-500">
+      <span
+        class="inline-block rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-500 dark:bg-gray-700 dark:text-gray-400"
+      >
         {{ props.message.content }}
       </span>
     </div>
@@ -27,15 +29,17 @@ function formatTime(dateStr) {
           {{ props.message.content }}
         </p>
       </div>
-      <p class="mt-1 text-right text-xs text-gray-400">
+      <p class="mt-1 text-right text-xs text-gray-400 dark:text-gray-500">
         {{ formatTime(props.message.created_at) }}
       </p>
     </div>
 
     <!-- Assistant message -->
     <div v-else class="max-w-[80%]">
-      <div class="rounded-2xl rounded-bl-md bg-white px-4 py-2.5 shadow-sm ring-1 ring-gray-100">
-        <p class="whitespace-pre-wrap text-sm text-gray-800">
+      <div
+        class="rounded-2xl rounded-bl-md bg-white px-4 py-2.5 shadow-sm ring-1 ring-gray-100 dark:bg-gray-800 dark:ring-gray-700"
+      >
+        <p class="whitespace-pre-wrap text-sm text-gray-800 dark:text-gray-200">
           {{ props.message.content }}
         </p>
         <span
@@ -43,7 +47,7 @@ function formatTime(dateStr) {
           class="ml-1 inline-block h-2 w-2 animate-pulse rounded-full bg-[#00865a]"
         />
       </div>
-      <p class="mt-1 text-xs text-gray-400">
+      <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">
         {{ formatTime(props.message.created_at) }}
       </p>
     </div>

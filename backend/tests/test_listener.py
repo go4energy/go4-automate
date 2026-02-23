@@ -16,7 +16,7 @@ CHANNEL_PAYLOAD = {
     "slug": "energie-briefing",
     "description": "Taegliches Energie-Briefing",
     "target_audience": "Techniker",
-    "categories": ["energie"],
+    "tags": ["energie"],
     "schedule": "daily",
     "voice": "de_DE-thorsten-high",
     "language": "de",

@@ -35,14 +35,16 @@ function send() {
 </script>
 
 <template>
-  <div class="flex items-end gap-2 border-t border-gray-200 bg-white p-3">
+  <div
+    class="flex items-end gap-2 border-t border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800"
+  >
     <textarea
       ref="textareaRef"
       v-model="message"
       :placeholder="props.placeholder"
       :disabled="props.disabled"
       rows="1"
-      class="flex-1 resize-none rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 placeholder-gray-400 outline-none transition focus:border-[#00865a] focus:bg-white focus:ring-1 focus:ring-[#00865a] disabled:opacity-50"
+      class="flex-1 resize-none rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 placeholder-gray-400 outline-none transition focus:border-[#00865a] focus:bg-white focus:ring-1 focus:ring-[#00865a] disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:placeholder-gray-500 dark:focus:bg-gray-700"
       @input="autoResize"
       @keydown="handleKeydown"
     />

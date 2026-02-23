@@ -72,9 +72,11 @@ onMounted(() => {
 <template>
   <div class="-m-6 flex h-[calc(100vh-4rem)]">
     <!-- Left Sidebar -->
-    <div class="flex w-72 shrink-0 flex-col border-r border-gray-200 bg-gray-50">
+    <div
+      class="flex w-72 shrink-0 flex-col border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"
+    >
       <!-- New session button -->
-      <div class="border-b border-gray-200 p-4">
+      <div class="border-b border-gray-200 dark:border-gray-700 p-4">
         <button
           class="flex w-full items-center justify-center gap-2 rounded-lg bg-[#00865a] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#006d49]"
           @click="handleStartSetup"
@@ -96,7 +98,7 @@ onMounted(() => {
       <div class="flex-1 overflow-y-auto p-2">
         <p
           v-if="store.conversations.length"
-          class="mb-2 px-2 text-xs font-semibold uppercase tracking-wider text-gray-400"
+          class="mb-2 px-2 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500"
         >
           Sessions
         </p>
@@ -108,7 +110,7 @@ onMounted(() => {
             :class="
               store.activeConversation?.id === conv.id
                 ? 'bg-[#00865a]/10 text-[#00865a]'
-                : 'text-gray-600 hover:bg-gray-100'
+                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
             "
             @click="store.openConversation(conv.id)"
           >
@@ -127,7 +129,7 @@ onMounted(() => {
             </svg>
             <span class="flex-1 truncate">{{ conv.title || 'Neue Session' }}</span>
             <button
-              class="hidden shrink-0 rounded p-0.5 text-gray-400 hover:bg-gray-200 hover:text-red-500 group-hover:block"
+              class="hidden shrink-0 rounded p-0.5 text-gray-400 dark:text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-red-500 group-hover:block"
               @click.stop="handleDeleteConversation(conv.id)"
             >
               <svg
@@ -145,7 +147,7 @@ onMounted(() => {
       </div>
 
       <!-- Setup Progress -->
-      <div class="border-t border-gray-200 p-4">
+      <div class="border-t border-gray-200 dark:border-gray-700 p-4">
         <SetupProgress :status="store.setupStatus" />
       </div>
     </div>
@@ -153,7 +155,10 @@ onMounted(() => {
     <!-- Right: Chat Area -->
     <div class="flex flex-1 flex-col">
       <!-- Messages -->
-      <div ref="messagesContainer" class="flex-1 overflow-y-auto bg-gray-50 p-6">
+      <div
+        ref="messagesContainer"
+        class="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-800/50 p-6"
+      >
         <!-- Empty state -->
         <div
           v-if="!store.activeConversation || !store.activeConversation.messages?.length"
@@ -179,8 +184,8 @@ onMounted(() => {
               />
             </svg>
           </div>
-          <h2 class="mb-2 text-lg font-semibold text-gray-800">Setup Wizard</h2>
-          <p class="mb-6 max-w-md text-center text-sm text-gray-500">
+          <h2 class="mb-2 text-lg font-semibold text-gray-800 dark:text-gray-200">Setup Wizard</h2>
+          <p class="mb-6 max-w-md text-center text-sm text-gray-500 dark:text-gray-400">
             Konfiguriere deine Marketing-Plattform Schritt fuer Schritt. Der Assistent fuehrt dich
             durch alle Module.
           </p>
@@ -189,7 +194,7 @@ onMounted(() => {
             <button
               v-for="action in quickActions"
               :key="action.label"
-              class="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm text-gray-600 shadow-sm transition hover:border-[#00865a] hover:text-[#00865a]"
+              class="rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2 text-sm text-gray-600 dark:text-gray-300 shadow-sm transition hover:border-[#00865a] hover:text-[#00865a]"
               @click="handleQuickAction(action)"
             >
               {{ action.label }}
@@ -236,12 +241,12 @@ onMounted(() => {
           !store.isStreaming &&
           store.activeConversation.messages?.length
         "
-        class="flex gap-2 border-t border-gray-100 bg-white px-4 py-2"
+        class="flex gap-2 border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-2"
       >
         <button
           v-for="action in quickActions"
           :key="action.label"
-          class="rounded-full border border-gray-200 px-3 py-1 text-xs text-gray-500 transition hover:border-[#00865a] hover:text-[#00865a]"
+          class="rounded-full border border-gray-200 dark:border-gray-700 px-3 py-1 text-xs text-gray-500 dark:text-gray-400 transition hover:border-[#00865a] hover:text-[#00865a]"
           @click="handleQuickAction(action)"
         >
           {{ action.label }}
@@ -251,7 +256,7 @@ onMounted(() => {
       <!-- Error -->
       <div
         v-if="store.error"
-        class="border-t border-red-200 bg-red-50 px-4 py-2 text-sm text-red-600"
+        class="border-t border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm text-red-600 dark:text-red-400"
       >
         {{ store.error }}
       </div>

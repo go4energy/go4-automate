@@ -41,7 +41,6 @@ onMounted(() => {
         :trend="
           crmStore.activeContacts.length > 0 ? `${crmStore.activeContacts.length} aktiv` : null
         "
-        color="text-go4-secondary"
       />
       <StatCard
         label="Content"
@@ -51,7 +50,6 @@ onMounted(() => {
             ? `${creatorStore.stats.published} ver\u00f6ffentlicht`
             : null
         "
-        color="text-go4-secondary"
       />
       <StatCard
         label="Ad Spend heute"
@@ -61,13 +59,11 @@ onMounted(() => {
             ? `${distributorStore.totalLeadsToday} Leads heute`
             : null
         "
-        color="text-go4-secondary"
       />
       <StatCard
         label="Collector Topics"
         :value="collectorStore.suggestedTopics.length"
         :trend="`${collectorStore.activeSources.length} Quellen aktiv`"
-        color="text-go4-secondary"
       />
     </div>
 
@@ -78,12 +74,14 @@ onMounted(() => {
         <!-- Creator Pipeline -->
         <router-link
           to="/creator"
-          class="block rounded-lg bg-white p-5 shadow-sm transition hover:shadow-md"
+          class="block rounded-lg bg-white p-5 shadow-sm transition hover:shadow-md dark:bg-gray-800 dark:hover:bg-gray-750"
         >
           <div class="flex items-center justify-between">
             <div>
-              <h3 class="text-sm font-semibold text-gray-800">Creator Pipeline</h3>
-              <p class="mt-1 text-xs text-gray-500">
+              <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                Creator Pipeline
+              </h3>
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {{ creatorStore.stats.draft }} Entwuerfe &middot;
                 {{ creatorStore.stats.scheduled }} geplant &middot;
                 {{ creatorStore.stats.published }} veroeffentlicht
@@ -92,13 +90,13 @@ onMounted(() => {
             <div class="flex gap-2">
               <span
                 v-if="creatorStore.stats.draft > 0"
-                class="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700"
+                class="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
               >
                 {{ creatorStore.stats.draft }} Drafts
               </span>
               <span
                 v-if="creatorStore.stats.failed > 0"
-                class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700"
+                class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400"
               >
                 {{ creatorStore.stats.failed }} fehlgeschlagen
               </span>
@@ -109,19 +107,19 @@ onMounted(() => {
         <!-- Distributor -->
         <router-link
           to="/distributor"
-          class="block rounded-lg bg-white p-5 shadow-sm transition hover:shadow-md"
+          class="block rounded-lg bg-white p-5 shadow-sm transition hover:shadow-md dark:bg-gray-800 dark:hover:bg-gray-750"
         >
           <div class="flex items-center justify-between">
             <div>
-              <h3 class="text-sm font-semibold text-gray-800">Distributor</h3>
-              <p class="mt-1 text-xs text-gray-500">
+              <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Distributor</h3>
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {{ distributorStore.activeCampaigns.length }} aktive Kampagnen &middot;
                 {{ distributorStore.totalSpendToday }} EUR Spend heute
               </p>
             </div>
             <span
               v-if="distributorStore.activeCampaigns.length > 0"
-              class="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700"
+              class="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400"
             >
               {{ distributorStore.activeCampaigns.length }} aktiv
             </span>
@@ -131,19 +129,19 @@ onMounted(() => {
         <!-- Collector -->
         <router-link
           to="/collector"
-          class="block rounded-lg bg-white p-5 shadow-sm transition hover:shadow-md"
+          class="block rounded-lg bg-white p-5 shadow-sm transition hover:shadow-md dark:bg-gray-800 dark:hover:bg-gray-750"
         >
           <div class="flex items-center justify-between">
             <div>
-              <h3 class="text-sm font-semibold text-gray-800">Collector</h3>
-              <p class="mt-1 text-xs text-gray-500">
+              <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Collector</h3>
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {{ collectorStore.activeSources.length }} aktive Quellen &middot;
                 {{ collectorStore.suggestedTopics.length }} Topic-Vorschlaege
               </p>
             </div>
             <span
               v-if="collectorStore.newFindings.length > 0"
-              class="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700"
+              class="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
             >
               {{ collectorStore.newFindings.length }} neue Findings
             </span>
@@ -153,19 +151,19 @@ onMounted(() => {
         <!-- Broadcaster -->
         <router-link
           to="/broadcaster"
-          class="block rounded-lg bg-white p-5 shadow-sm transition hover:shadow-md"
+          class="block rounded-lg bg-white p-5 shadow-sm transition hover:shadow-md dark:bg-gray-800 dark:hover:bg-gray-750"
         >
           <div class="flex items-center justify-between">
             <div>
-              <h3 class="text-sm font-semibold text-gray-800">Broadcaster</h3>
-              <p class="mt-1 text-xs text-gray-500">
+              <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Broadcaster</h3>
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {{ broadcasterStore.activeChannels.length }} aktive Channels &middot;
                 {{ broadcasterStore.totalEpisodes }} Episoden
               </p>
             </div>
             <span
               v-if="broadcasterStore.totalListeners > 0"
-              class="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700"
+              class="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700 dark:bg-sky-900/30 dark:text-sky-400"
             >
               {{ broadcasterStore.totalListeners }} Listener
             </span>
@@ -176,29 +174,34 @@ onMounted(() => {
         <div class="grid grid-cols-2 gap-4">
           <router-link
             to="/crm"
-            class="rounded-lg bg-white p-4 shadow-sm transition hover:shadow-md"
+            class="rounded-lg bg-white p-4 shadow-sm transition hover:shadow-md dark:bg-gray-800 dark:hover:bg-gray-750"
           >
-            <h3 class="text-sm font-semibold text-gray-800">CRM</h3>
-            <p class="mt-1 text-xs text-gray-500">
+            <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">CRM</h3>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ crmStore.activeContacts.length }} aktive Kontakte
             </p>
           </router-link>
           <router-link
-            to="/prompts"
-            class="rounded-lg bg-white p-4 shadow-sm transition hover:shadow-md"
+            to="/settings/prompts"
+            class="rounded-lg bg-white p-4 shadow-sm transition hover:shadow-md dark:bg-gray-800 dark:hover:bg-gray-750"
           >
-            <h3 class="text-sm font-semibold text-gray-800">Prompt Registry</h3>
-            <p class="mt-1 text-xs text-gray-500">Prompts verwalten</p>
+            <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Prompt Registry</h3>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Prompts verwalten</p>
           </router-link>
         </div>
       </div>
 
       <!-- Activity Feed (right 1/3) -->
-      <div class="rounded-lg bg-white p-4 shadow-sm">
+      <div class="rounded-lg bg-white p-4 shadow-sm dark:bg-gray-800">
         <div class="mb-3 flex items-center justify-between">
-          <h3 class="text-sm font-semibold text-gray-800">Letzte Aktivitaeten</h3>
+          <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">
+            Letzte Aktivitaeten
+          </h3>
         </div>
-        <div v-if="activityStore.loading" class="py-6 text-center text-sm text-gray-400">
+        <div
+          v-if="activityStore.loading"
+          class="py-6 text-center text-sm text-gray-400 dark:text-gray-500"
+        >
           Laden...
         </div>
         <ActivityFeed

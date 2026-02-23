@@ -2,6 +2,7 @@
 
 import asyncio
 from logging.config import fileConfig
+from pathlib import Path
 
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
@@ -9,22 +10,18 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 from app.config import settings
 from app.database import Base
-from app.models import (  # noqa: F401 - ensure models are registered
-    CollectorFinding,
-    CollectorSource,
-    CollectorTopic,
-    CreatorCalendar,
-    CreatorPiece,
-    CrmContact,
-    CrmEmailLog,
-    DistributorCampaign,
-    DistributorCampaignConfig,
-    DistributorConversion,
-    DistributorPerformance,
-    PageSnapshot,
-    Prompt,
-    Tenant,
-)
+from app.utils.module_discovery import discover_manifests, register_models
+
+# Auto-discover and register domain module models
+_manifests = discover_manifests(Path(__file__).resolve().parent.parent / "app")
+register_models(_manifests)
+
+# Shared models (no __manifest__.py)
+from app.models.activity_log import ActivityLog  # noqa: E402, F401
+from app.models.chat_message import ChatMessage  # noqa: E402, F401
+from app.models.conversation import Conversation  # noqa: E402, F401
+from app.models.prompt import Prompt  # noqa: E402, F401
+from app.models.tenant import Tenant  # noqa: E402, F401
 
 config = context.config
 

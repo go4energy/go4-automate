@@ -8,6 +8,7 @@ if TYPE_CHECKING:
     from app.utils.module_interface import ModuleInterface
 
 _registry: dict[str, ModuleInterface] = {}
+_manifests: dict[str, dict] = {}
 
 
 def register_module(interface: ModuleInterface) -> None:
@@ -23,3 +24,18 @@ def get_all_modules() -> dict[str, ModuleInterface]:
 def get_module(name: str) -> ModuleInterface | None:
     """Return a single module interface by name."""
     return _registry.get(name)
+
+
+def register_manifest(name: str, manifest: dict) -> None:
+    """Register a module manifest from auto-discovery."""
+    _manifests[name] = manifest
+
+
+def get_all_manifests() -> dict[str, dict]:
+    """Return all registered module manifests."""
+    return dict(_manifests)
+
+
+def get_manifest(name: str) -> dict | None:
+    """Return a single module manifest by name."""
+    return _manifests.get(name)

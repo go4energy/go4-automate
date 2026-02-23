@@ -53,6 +53,8 @@ class DistributorCampaign(TimestampMixin, Base):
         Numeric(10, 2), default=0, nullable=False
     )
     roas: Mapped[Decimal] = mapped_column(Numeric(10, 4), default=0, nullable=False)
+    tags: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
+    streams: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
 
     # Relationships
     tenant = relationship("Tenant", back_populates="distributor_campaigns")
@@ -149,6 +151,8 @@ class DistributorCampaignConfig(TimestampMixin, Base):
     )
     auto_optimize: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     optimization_rules: Mapped[dict | None] = mapped_column(JSONB, default=dict)
+    tags: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
+    streams: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
 
     # Relationships
     tenant = relationship("Tenant")

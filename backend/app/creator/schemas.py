@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class CreatorPieceCreate(BaseModel):
@@ -24,6 +24,8 @@ class CreatorPieceCreate(BaseModel):
     buyer_persona: str | None = None
     created_by: str | None = None
     ai_model: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    streams: list[str] = Field(default_factory=list)
 
 
 class CreatorPieceUpdate(BaseModel):
@@ -54,6 +56,8 @@ class CreatorPieceUpdate(BaseModel):
     approved_by: str | None = None
     approved_at: datetime | None = None
     error_message: str | None = None
+    tags: list[str] | None = None
+    streams: list[str] | None = None
 
 
 class CreatorPieceResponse(BaseModel):
@@ -88,6 +92,8 @@ class CreatorPieceResponse(BaseModel):
     approved_by: str | None = None
     approved_at: datetime | None = None
     error_message: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    streams: list[str] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 

@@ -126,6 +126,8 @@ class CampaignConfigCreate(BaseModel):
     weather_boost_factor: Decimal = Decimal("1.5")
     auto_optimize: bool = True
     optimization_rules: dict | None = None
+    tags: list[str] = []
+    streams: list[str] = []
 
 
 class CampaignConfigUpdate(BaseModel):
@@ -141,6 +143,8 @@ class CampaignConfigUpdate(BaseModel):
     weather_boost_factor: Decimal | None = None
     auto_optimize: bool | None = None
     optimization_rules: dict | None = None
+    tags: list[str] | None = None
+    streams: list[str] | None = None
 
 
 class CampaignConfigResponse(BaseModel):
@@ -160,6 +164,8 @@ class CampaignConfigResponse(BaseModel):
     weather_boost_factor: Decimal
     auto_optimize: bool
     optimization_rules: dict | None = None
+    tags: list[str] = []
+    streams: list[str] = []
     created_at: datetime
     updated_at: datetime
 

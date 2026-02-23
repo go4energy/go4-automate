@@ -22,7 +22,7 @@ router = APIRouter(prefix="/prompts", tags=["prompts"])
 async def create_prompt(
     data: PromptCreate,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> PromptResponse:
     """Create a new prompt template."""
     try:
@@ -44,7 +44,7 @@ async def list_prompts(
     is_active: bool | None = Query(None),
     search: str | None = Query(None),
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> list[PromptListItem]:
     """List prompts (deduplicated to highest version per slug)."""
     try:
@@ -58,11 +58,31 @@ async def list_prompts(
         raise HTTPException(status_code=500, detail="Interner Serverfehler") from e
 
 
+@router.get("/slug/{slug}", response_model=PromptResponse)
+async def get_prompt_by_slug(
+    slug: str,
+    tenant_id: str = Depends(get_current_tenant_id),
+    db: AsyncSession = Depends(get_db),
+) -> PromptResponse:
+    """Get the active prompt by slug."""
+    try:
+        service = PromptService(db)
+        return await service.get_active_by_slug(tenant_id, slug)
+    except NotFoundError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message) from e
+    except AppError as e:
+        logger.error("AppError: {msg}", msg=e.message)
+        raise HTTPException(status_code=e.status_code, detail=e.message) from e
+    except Exception as e:
+        logger.exception("Unerwarteter Fehler in get_prompt_by_slug")
+        raise HTTPException(status_code=500, detail="Interner Serverfehler") from e
+
+
 @router.get("/{prompt_id}", response_model=PromptResponse)
 async def get_prompt(
     prompt_id: int,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> PromptResponse:
     """Get a prompt by ID."""
     try:
@@ -83,7 +103,7 @@ async def update_prompt(
     prompt_id: int,
     data: PromptUpdate,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> PromptResponse:
     """Update a prompt."""
     try:
@@ -103,7 +123,7 @@ async def update_prompt(
 async def delete_prompt(
     prompt_id: int,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> None:
     """Delete a prompt."""
     try:
@@ -127,7 +147,7 @@ async def delete_prompt(
 async def create_prompt_version(
     prompt_id: int,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> PromptResponse:
     """Create a new version of a prompt (copy + increment version)."""
     try:

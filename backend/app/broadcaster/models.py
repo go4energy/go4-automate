@@ -32,7 +32,8 @@ class BriefingChannel(TimestampMixin, Base):
     slug: Mapped[str] = mapped_column(String(100), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
     target_audience: Mapped[str | None] = mapped_column(String(200))
-    categories: Mapped[list | None] = mapped_column(JSONB, default=list)
+    tags: Mapped[list | None] = mapped_column(JSONB, default=list)
+    streams: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
     schedule: Mapped[str | None] = mapped_column(String(50))
     voice: Mapped[str] = mapped_column(
         String(100), default="de_DE-thorsten-high", nullable=False

@@ -17,8 +17,10 @@ const moduleIcons = {
 
 <template>
   <div class="space-y-2">
-    <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400">Modul-Status</h3>
-    <div v-if="!props.status" class="text-sm text-gray-400">Laden...</div>
+    <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+      Modul-Status
+    </h3>
+    <div v-if="!props.status" class="text-sm text-gray-400 dark:text-gray-500">Laden...</div>
     <div v-else class="space-y-1">
       <div
         v-for="(mod, key) in props.status.modules"
@@ -42,7 +44,7 @@ const moduleIcons = {
         </svg>
         <svg
           v-else
-          class="h-4 w-4 shrink-0 text-gray-300"
+          class="h-4 w-4 shrink-0 text-gray-300 dark:text-gray-600"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -58,7 +60,9 @@ const moduleIcons = {
         <!-- Icon -->
         <svg
           class="h-4 w-4 shrink-0"
-          :class="mod.configured ? 'text-gray-600' : 'text-gray-400'"
+          :class="
+            mod.configured ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-500'
+          "
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -71,11 +75,15 @@ const moduleIcons = {
         <div class="min-w-0 flex-1">
           <p
             class="truncate text-sm font-medium"
-            :class="mod.configured ? 'text-gray-700' : 'text-gray-500'"
+            :class="
+              mod.configured
+                ? 'text-gray-700 dark:text-gray-300'
+                : 'text-gray-500 dark:text-gray-400'
+            "
           >
             {{ mod.label }}
           </p>
-          <p class="truncate text-xs text-gray-400">
+          <p class="truncate text-xs text-gray-400 dark:text-gray-500">
             {{ mod.details }}
           </p>
         </div>

@@ -8,10 +8,10 @@ defineProps({
 <template>
   <div class="flex items-center justify-between">
     <div>
-      <h1 class="text-2xl font-bold text-go4-secondary">
+      <h1 class="text-2xl font-bold text-go4-secondary dark:text-gray-100">
         {{ title }}
       </h1>
-      <p v-if="subtitle" class="mt-1 text-sm text-go4-muted">
+      <p v-if="subtitle" class="mt-1 text-sm text-go4-muted dark:text-gray-400">
         {{ subtitle }}
       </p>
     </div>

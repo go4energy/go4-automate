@@ -42,10 +42,13 @@ async function runOptimizer() {
     </PageHeader>
 
     <div v-if="store.loading" class="mt-8 flex items-center justify-center p-12">
-      <span class="text-go4-muted">Laden...</span>
+      <span class="text-go4-muted dark:text-gray-400">Laden...</span>
     </div>
 
-    <div v-else-if="store.error" class="mt-8 rounded-lg bg-red-50 p-4 text-red-700">
+    <div
+      v-else-if="store.error"
+      class="mt-8 rounded-lg bg-red-50 dark:bg-red-900/20 p-4 text-red-700 dark:text-red-400"
+    >
       {{ store.error }}
     </div>
 
@@ -84,15 +87,20 @@ async function runOptimizer() {
       <!-- Campaigns Table + Weather -->
       <div class="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
         <!-- Campaigns Table -->
-        <div class="rounded-lg bg-white p-6 shadow-sm lg:col-span-2">
-          <h3 class="mb-4 text-sm font-medium text-go4-muted">Kampagnen</h3>
-          <div v-if="store.campaigns.length === 0" class="py-8 text-center text-go4-muted">
+        <div class="rounded-lg bg-white dark:bg-gray-800 p-6 shadow-sm lg:col-span-2">
+          <h3 class="mb-4 text-sm font-medium text-go4-muted dark:text-gray-400">Kampagnen</h3>
+          <div
+            v-if="store.campaigns.length === 0"
+            class="py-8 text-center text-go4-muted dark:text-gray-400"
+          >
             Keine Kampagnen konfiguriert
           </div>
           <div v-else class="overflow-x-auto">
-            <table class="min-w-full text-sm">
+            <table class="min-w-full text-sm text-go4-secondary dark:text-gray-300">
               <thead>
-                <tr class="border-b text-left text-xs font-medium uppercase text-go4-muted">
+                <tr
+                  class="border-b dark:border-gray-700 text-left text-xs font-medium uppercase text-go4-muted dark:text-gray-400"
+                >
                   <th class="py-3 pr-4">Kampagne</th>
                   <th class="py-3 pr-4">Status</th>
                   <th class="py-3 pr-4 text-right">Ziel-CPL</th>
@@ -105,7 +113,7 @@ async function runOptimizer() {
                 <tr
                   v-for="campaign in store.campaigns"
                   :key="campaign.id"
-                  class="border-b last:border-0"
+                  class="border-b dark:border-gray-700 last:border-0"
                 >
                   <td class="py-3 pr-4">
                     <router-link
@@ -120,8 +128,8 @@ async function runOptimizer() {
                       :class="[
                         'rounded-full px-2 py-0.5 text-xs font-medium',
                         campaign.status === 'active'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-600'
+                          ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
                       ]"
                     >
                       {{ campaign.status }}
@@ -137,7 +145,11 @@ async function runOptimizer() {
                   </td>
                   <td class="py-3 pr-4">
                     <span
-                      :class="campaign.weather_boost_enabled ? 'text-yellow-600' : 'text-gray-400'"
+                      :class="
+                        campaign.weather_boost_enabled
+                          ? 'text-yellow-600'
+                          : 'text-gray-400 dark:text-gray-500'
+                      "
                     >
                       {{ campaign.weather_boost_enabled ? 'Aktiv' : 'Aus' }}
                     </span>
@@ -169,32 +181,39 @@ async function runOptimizer() {
       </div>
 
       <!-- Optimizer Log -->
-      <div v-if="store.optimizerLog.length > 0" class="mt-8 rounded-lg bg-white p-6 shadow-sm">
-        <h3 class="mb-4 text-sm font-medium text-go4-muted">Letzte Optimierung</h3>
+      <div
+        v-if="store.optimizerLog.length > 0"
+        class="mt-8 rounded-lg bg-white dark:bg-gray-800 p-6 shadow-sm"
+      >
+        <h3 class="mb-4 text-sm font-medium text-go4-muted dark:text-gray-400">
+          Letzte Optimierung
+        </h3>
         <div class="space-y-2">
           <div
             v-for="(entry, idx) in store.optimizerLog"
             :key="idx"
-            class="flex items-center gap-4 rounded-lg border p-3 text-sm"
+            class="flex items-center gap-4 rounded-lg border dark:border-gray-700 p-3 text-sm"
           >
             <span
               :class="[
                 'rounded-full px-2 py-0.5 text-xs font-medium',
                 entry.action === 'scaled'
-                  ? 'bg-green-100 text-green-800'
+                  ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400'
                   : entry.action === 'reduced'
-                    ? 'bg-orange-100 text-orange-800'
+                    ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-400'
                     : entry.action === 'stopped'
-                      ? 'bg-red-100 text-red-800'
+                      ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400'
                       : entry.action === 'weather_boosted'
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-gray-100 text-gray-600'
+                        ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
               ]"
             >
               {{ entry.action }}
             </span>
-            <span class="font-medium">{{ entry.campaign_name || entry.campaign_id }}</span>
-            <span class="text-go4-muted">{{ entry.reason }}</span>
+            <span class="font-medium text-go4-secondary dark:text-gray-100">{{
+              entry.campaign_name || entry.campaign_id
+            }}</span>
+            <span class="text-go4-muted dark:text-gray-400">{{ entry.reason }}</span>
           </div>
         </div>
       </div>

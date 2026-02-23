@@ -14,6 +14,10 @@ from app.main import app
 settings.template_dir = "../config/templates"
 settings.tenant_config_dir = "../config/tenants"
 
+# Set backend_secret for test auth bypass
+settings.backend_secret = "test-secret"
+TEST_AUTH_HEADERS = {"X-Backend-Secret": "test-secret"}
+
 
 # JSONB is not supported by SQLite - compile as JSON instead
 @compiles(JSONB, "sqlite")
@@ -68,11 +72,14 @@ async def db_session():
 
 @pytest.fixture
 async def client():
-    """Async HTTP test client with DB override."""
+    """Async HTTP test client with DB override and auth bypass."""
     app.dependency_overrides[get_db] = override_get_db
     transport = ASGITransport(app=app)
     async with AsyncClient(
-        transport=transport, base_url="http://test", follow_redirects=True
+        transport=transport,
+        base_url="http://test",
+        follow_redirects=True,
+        headers=TEST_AUTH_HEADERS,
     ) as ac:
         yield ac
     app.dependency_overrides.clear()

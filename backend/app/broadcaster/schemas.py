@@ -14,7 +14,8 @@ class ChannelCreate(BaseModel):
     slug: str = Field(..., max_length=100, pattern=r"^[a-z0-9][a-z0-9-]*$")
     description: str | None = None
     target_audience: str | None = Field(None, max_length=200)
-    categories: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+    streams: list[str] = Field(default_factory=list)
     schedule: str | None = Field(None, max_length=50)
     voice: str = "de_DE-thorsten-high"
     language: str = "de"
@@ -32,7 +33,8 @@ class ChannelUpdate(BaseModel):
     name: str | None = Field(None, max_length=200)
     description: str | None = None
     target_audience: str | None = Field(None, max_length=200)
-    categories: list[str] | None = None
+    tags: list[str] | None = None
+    streams: list[str] | None = None
     schedule: str | None = Field(None, max_length=50)
     voice: str | None = None
     language: str | None = None
@@ -54,7 +56,8 @@ class ChannelResponse(BaseModel):
     slug: str
     description: str | None = None
     target_audience: str | None = None
-    categories: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+    streams: list[str] = Field(default_factory=list)
     schedule: str | None = None
     voice: str
     language: str

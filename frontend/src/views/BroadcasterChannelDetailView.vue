@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useBroadcasterStore } from '@/stores/broadcaster'
+import { useTabState } from '@/composables/useTabState'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
@@ -10,7 +11,7 @@ const route = useRoute()
 const router = useRouter()
 const store = useBroadcasterStore()
 
-const activeTab = ref('episodes')
+const activeTab = useTabState('broadcaster-channel', 'episodes', ['episodes', 'users'])
 const tabs = [
   { key: 'episodes', label: 'Episoden' },
   { key: 'users', label: 'Listener' }
@@ -88,46 +89,51 @@ function feedUrl() {
     </PageHeader>
 
     <!-- Error -->
-    <div v-if="store.error" class="mt-4 rounded-lg bg-red-50 p-4 text-sm text-red-700">
+    <div
+      v-if="store.error"
+      class="mt-4 rounded-lg bg-red-50 dark:bg-red-900/20 p-4 text-sm text-red-700 dark:text-red-400"
+    >
       {{ store.error }}
     </div>
 
     <!-- Channel Info -->
     <div v-if="store.currentChannel" class="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-      <div class="rounded-lg bg-white p-4 shadow-sm">
-        <p class="text-xs font-medium uppercase text-go4-muted">Episoden</p>
-        <p class="mt-1 text-2xl font-semibold text-go4-secondary">
+      <div class="rounded-lg bg-white dark:bg-gray-800 p-4 shadow-sm">
+        <p class="text-xs font-medium uppercase text-go4-muted dark:text-gray-400">Episoden</p>
+        <p class="mt-1 text-2xl font-semibold text-go4-secondary dark:text-gray-100">
           {{ store.currentChannel.episode_count || 0 }}
         </p>
       </div>
-      <div class="rounded-lg bg-white p-4 shadow-sm">
-        <p class="text-xs font-medium uppercase text-go4-muted">Abonnenten</p>
-        <p class="mt-1 text-2xl font-semibold text-go4-secondary">
+      <div class="rounded-lg bg-white dark:bg-gray-800 p-4 shadow-sm">
+        <p class="text-xs font-medium uppercase text-go4-muted dark:text-gray-400">Abonnenten</p>
+        <p class="mt-1 text-2xl font-semibold text-go4-secondary dark:text-gray-100">
           {{ store.currentChannel.subscriber_count || 0 }}
         </p>
       </div>
-      <div class="rounded-lg bg-white p-4 shadow-sm">
-        <p class="text-xs font-medium uppercase text-go4-muted">Stimme</p>
-        <p class="mt-1 text-sm font-medium text-go4-secondary">
+      <div class="rounded-lg bg-white dark:bg-gray-800 p-4 shadow-sm">
+        <p class="text-xs font-medium uppercase text-go4-muted dark:text-gray-400">Stimme</p>
+        <p class="mt-1 text-sm font-medium text-go4-secondary dark:text-gray-100">
           {{ store.currentChannel.voice }}
         </p>
       </div>
-      <div class="rounded-lg bg-white p-4 shadow-sm">
-        <p class="text-xs font-medium uppercase text-go4-muted">Schedule</p>
-        <p class="mt-1 text-sm font-medium text-go4-secondary">
+      <div class="rounded-lg bg-white dark:bg-gray-800 p-4 shadow-sm">
+        <p class="text-xs font-medium uppercase text-go4-muted dark:text-gray-400">Schedule</p>
+        <p class="mt-1 text-sm font-medium text-go4-secondary dark:text-gray-100">
           {{ store.currentChannel.schedule || 'Manuell' }}
         </p>
       </div>
     </div>
 
     <!-- RSS Feed URL -->
-    <div v-if="store.currentChannel" class="mt-4 rounded-lg bg-sky-50 p-3">
-      <p class="text-xs font-medium text-sky-700">Podcast RSS-Feed:</p>
-      <code class="mt-1 block break-all text-xs text-sky-900">{{ feedUrl() }}</code>
+    <div v-if="store.currentChannel" class="mt-4 rounded-lg bg-sky-50 dark:bg-sky-900/20 p-3">
+      <p class="text-xs font-medium text-sky-700 dark:text-sky-400">Podcast RSS-Feed:</p>
+      <code class="mt-1 block break-all text-xs text-sky-900 dark:text-sky-300">{{
+        feedUrl()
+      }}</code>
     </div>
 
     <!-- Tabs -->
-    <div class="mt-6 border-b border-gray-200">
+    <div class="mt-6 border-b border-gray-200 dark:border-gray-700">
       <nav class="-mb-px flex space-x-8">
         <button
           v-for="tab in tabs"
@@ -136,7 +142,7 @@ function feedUrl() {
           :class="
             activeTab === tab.key
               ? 'border-go4-primary text-go4-primary'
-              : 'border-transparent text-go4-muted hover:border-gray-300 hover:text-go4-secondary'
+              : 'border-transparent text-go4-muted dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600 hover:text-go4-secondary dark:hover:text-gray-100'
           "
           @click="activeTab = tab.key"
         >
@@ -149,7 +155,7 @@ function feedUrl() {
           </span>
           <span
             v-if="tab.key === 'users'"
-            class="ml-1.5 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
+            class="ml-1.5 rounded-full bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-xs text-gray-600 dark:text-gray-300"
           >
             {{ store.users.length }}
           </span>
@@ -159,7 +165,7 @@ function feedUrl() {
 
     <!-- Loading -->
     <div v-if="store.loading" class="mt-8 flex items-center justify-center py-12">
-      <span class="text-go4-muted">Laden...</span>
+      <span class="text-go4-muted dark:text-gray-400">Laden...</span>
     </div>
 
     <!-- Episodes Tab -->
@@ -169,10 +175,10 @@ function feedUrl() {
         title="Noch keine Episoden"
         description="Generieren Sie die erste Episode fuer diesen Channel."
       />
-      <div v-else class="overflow-hidden rounded-lg bg-white shadow-sm">
+      <div v-else class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 shadow-sm">
         <table class="w-full text-left text-sm">
           <thead
-            class="border-b border-gray-100 bg-gray-50 text-xs uppercase tracking-wider text-go4-muted"
+            class="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-xs uppercase tracking-wider text-go4-muted dark:text-gray-400"
           >
             <tr>
               <th class="px-4 py-3 font-medium">#</th>
@@ -183,26 +189,33 @@ function feedUrl() {
               <th class="px-4 py-3 text-right font-medium">Aktionen</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-gray-50">
-            <tr v-for="ep in store.episodes" :key="ep.id" class="transition hover:bg-gray-50/50">
-              <td class="px-4 py-3 text-go4-muted">
+          <tbody class="divide-y divide-gray-50 dark:divide-gray-700">
+            <tr
+              v-for="ep in store.episodes"
+              :key="ep.id"
+              class="transition hover:bg-gray-50/50 dark:hover:bg-gray-700/50"
+            >
+              <td class="px-4 py-3 text-go4-muted dark:text-gray-400">
                 {{ ep.episode_number }}
               </td>
               <td class="px-4 py-3">
-                <p class="font-medium text-go4-secondary">
+                <p class="font-medium text-go4-secondary dark:text-gray-100">
                   {{ ep.title }}
                 </p>
-                <p v-if="ep.summary" class="mt-0.5 line-clamp-1 text-xs text-go4-muted">
+                <p
+                  v-if="ep.summary"
+                  class="mt-0.5 line-clamp-1 text-xs text-go4-muted dark:text-gray-400"
+                >
                   {{ ep.summary }}
                 </p>
               </td>
-              <td class="hidden px-4 py-3 text-xs text-go4-muted md:table-cell">
+              <td class="hidden px-4 py-3 text-xs text-go4-muted dark:text-gray-400 md:table-cell">
                 {{ formatDuration(ep.audio_duration_seconds) }}
               </td>
               <td class="px-4 py-3">
                 <StatusBadge :status="ep.status" />
               </td>
-              <td class="hidden px-4 py-3 text-xs text-gray-400 lg:table-cell">
+              <td class="hidden px-4 py-3 text-xs text-gray-400 dark:text-gray-500 lg:table-cell">
                 {{ formatDate(ep.created_at) }}
               </td>
               <td class="px-4 py-3">
@@ -211,12 +224,12 @@ function feedUrl() {
                     v-if="ep.audio_url"
                     :href="`/uploads/${ep.audio_url}`"
                     target="_blank"
-                    class="rounded bg-sky-100 px-2.5 py-1 text-xs font-medium text-sky-700 hover:bg-sky-200"
+                    class="rounded bg-sky-100 dark:bg-sky-900/30 px-2.5 py-1 text-xs font-medium text-sky-700 dark:text-sky-400 hover:bg-sky-200 dark:hover:bg-sky-800/40"
                   >
                     Audio
                   </a>
                   <button
-                    class="rounded bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-200"
+                    class="rounded bg-red-100 dark:bg-red-900/30 px-2.5 py-1 text-xs font-medium text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-800/40"
                     @click="handleDeleteEpisode(ep.id)"
                   >
                     Loeschen
@@ -236,10 +249,10 @@ function feedUrl() {
         title="Noch keine Listener"
         description="Listener registrieren sich ueber die PWA oder werden hier angelegt."
       />
-      <div v-else class="overflow-hidden rounded-lg bg-white shadow-sm">
+      <div v-else class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 shadow-sm">
         <table class="w-full text-left text-sm">
           <thead
-            class="border-b border-gray-100 bg-gray-50 text-xs uppercase tracking-wider text-go4-muted"
+            class="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-xs uppercase tracking-wider text-go4-muted dark:text-gray-400"
           >
             <tr>
               <th class="px-4 py-3 font-medium">E-Mail</th>
@@ -250,32 +263,36 @@ function feedUrl() {
               <th class="px-4 py-3 text-right font-medium">Aktionen</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-gray-50">
-            <tr v-for="user in store.users" :key="user.id" class="transition hover:bg-gray-50/50">
-              <td class="px-4 py-3 font-medium text-go4-secondary">
+          <tbody class="divide-y divide-gray-50 dark:divide-gray-700">
+            <tr
+              v-for="user in store.users"
+              :key="user.id"
+              class="transition hover:bg-gray-50/50 dark:hover:bg-gray-700/50"
+            >
+              <td class="px-4 py-3 font-medium text-go4-secondary dark:text-gray-100">
                 {{ user.email }}
               </td>
-              <td class="hidden px-4 py-3 text-go4-muted md:table-cell">
+              <td class="hidden px-4 py-3 text-go4-muted dark:text-gray-400 md:table-cell">
                 {{ user.display_name || '-' }}
               </td>
               <td class="hidden px-4 py-3 md:table-cell">
                 <span
                   v-if="user.role"
-                  class="rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700"
+                  class="rounded-full bg-purple-100 dark:bg-purple-900/30 px-2 py-0.5 text-xs text-purple-700 dark:text-purple-400"
                 >
                   {{ user.role }}
                 </span>
               </td>
-              <td class="px-4 py-3 text-xs text-go4-muted">
+              <td class="px-4 py-3 text-xs text-go4-muted dark:text-gray-400">
                 {{ user.subscription_count || 0 }}
               </td>
-              <td class="hidden px-4 py-3 text-xs text-gray-400 lg:table-cell">
+              <td class="hidden px-4 py-3 text-xs text-gray-400 dark:text-gray-500 lg:table-cell">
                 {{ formatDate(user.last_login_at) }}
               </td>
               <td class="px-4 py-3">
                 <div class="flex items-center justify-end gap-1.5">
                   <button
-                    class="rounded bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-200"
+                    class="rounded bg-red-100 dark:bg-red-900/30 px-2.5 py-1 text-xs font-medium text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-800/40"
                     @click="handleDeleteUser(user.id)"
                   >
                     Loeschen

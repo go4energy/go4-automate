@@ -62,7 +62,7 @@ const hasChanges = computed(() => {
             isHealthy ? 'bg-green-500' : 'bg-red-500'
           ]"
         />
-        <span class="text-sm font-medium text-go4-secondary">
+        <span class="text-sm font-medium text-go4-secondary dark:text-gray-200">
           {{ isHealthy ? 'Gesund' : 'Problem' }}
         </span>
       </div>
@@ -74,10 +74,10 @@ const hasChanges = computed(() => {
           :class="[
             'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
             value === 'ok'
-              ? 'bg-green-100 text-green-800'
+              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
               : value === 'not_configured'
-                ? 'bg-yellow-100 text-yellow-800'
-                : 'bg-red-100 text-red-800'
+                ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+                : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
           ]"
         >
           {{ key }}: {{ value }}
@@ -102,7 +102,7 @@ const hasChanges = computed(() => {
     </div>
 
     <!-- Actions -->
-    <div class="flex items-center gap-3 border-t border-gray-200 pt-4">
+    <div class="flex items-center gap-3 border-t border-gray-200 pt-4 dark:border-gray-700">
       <button
         :disabled="saving || !hasChanges"
         class="rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-go4-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
@@ -112,7 +112,7 @@ const hasChanges = computed(() => {
       </button>
       <button
         :disabled="saving || !hasChanges"
-        class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+        class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
         @click="reset"
       >
         Zuruecksetzen

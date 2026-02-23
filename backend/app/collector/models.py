@@ -1,4 +1,4 @@
-"""Collector models - Source, Finding, Topic, PageSnapshot."""
+"""Collector models - Group, Source, Finding, Topic, PageSnapshot."""
 
 from datetime import datetime
 
@@ -17,6 +17,45 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 from app.models.base import TimestampMixin
+
+
+class CollectorGroup(TimestampMixin, Base):
+    """Thematic group that bundles sources, findings, and topics."""
+
+    __tablename__ = "collector_groups"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(
+        String(50), ForeignKey("tenants.tenant_id"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    slug: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    fetch_interval_hours: Mapped[int] = mapped_column(
+        Integer, default=24, nullable=False
+    )
+    distribution_channels: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    tags: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
+    streams: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
+    analysis_prompt_slugs: Mapped[list] = mapped_column(
+        JSONB, default=list, nullable=False
+    )
+
+    # Relationships
+    tenant = relationship("Tenant", back_populates="collector_groups")
+    sources = relationship("CollectorSource", back_populates="group")
+    findings = relationship("CollectorFinding", back_populates="group")
+    topics = relationship("CollectorTopic", back_populates="group")
+    snapshots = relationship("PageSnapshot", back_populates="group")
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "slug", name="uq_collector_groups_tenant_slug"),
+        Index("ix_collector_groups_tenant_active", "tenant_id", "active"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<CollectorGroup {self.name!r} ({self.slug})>"
 
 
 class CollectorSource(TimestampMixin, Base):
@@ -38,13 +77,18 @@ class CollectorSource(TimestampMixin, Base):
     )
     last_fetched_at: Mapped[datetime | None] = mapped_column()
     config: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    categories: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
+    tags: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
+    streams: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
+    group_id: Mapped[int | None] = mapped_column(
+        ForeignKey("collector_groups.id", ondelete="SET NULL"), nullable=True
+    )
     change_detection_enabled: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
     )
 
     # Relationships
     tenant = relationship("Tenant", back_populates="collector_sources")
+    group = relationship("CollectorGroup", back_populates="sources")
     findings = relationship(
         "CollectorFinding", back_populates="source", cascade="all, delete-orphan"
     )
@@ -73,6 +117,9 @@ class CollectorFinding(TimestampMixin, Base):
     source_id: Mapped[int | None] = mapped_column(
         ForeignKey("collector_sources.id"), nullable=True
     )
+    group_id: Mapped[int | None] = mapped_column(
+        ForeignKey("collector_groups.id", ondelete="SET NULL"), nullable=True
+    )
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     summary: Mapped[str | None] = mapped_column(Text)
     url: Mapped[str] = mapped_column(Text, nullable=False)
@@ -81,11 +128,13 @@ class CollectorFinding(TimestampMixin, Base):
     topics_extracted: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     relevance_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="new", nullable=False)
-    categories: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
+    tags: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
+    streams: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
 
     # Relationships
     tenant = relationship("Tenant", back_populates="collector_findings")
     source = relationship("CollectorSource", back_populates="findings")
+    group = relationship("CollectorGroup", back_populates="findings")
     topics = relationship(
         "CollectorTopic", back_populates="finding", cascade="all, delete-orphan"
     )
@@ -112,8 +161,12 @@ class CollectorTopic(TimestampMixin, Base):
     finding_id: Mapped[int | None] = mapped_column(
         ForeignKey("collector_findings.id"), nullable=True
     )
+    group_id: Mapped[int | None] = mapped_column(
+        ForeignKey("collector_groups.id", ondelete="SET NULL"), nullable=True
+    )
     title: Mapped[str] = mapped_column(String(300), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
+    detail: Mapped[str | None] = mapped_column(Text, nullable=True)
     category: Mapped[str] = mapped_column(String(50), default="general", nullable=False)
     platforms: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     priority: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
@@ -123,12 +176,15 @@ class CollectorTopic(TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(20), default="suggested", nullable=False)
     content_piece_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
-    categories: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
+    tags: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
+    streams: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
     target_modules: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    prompt_slug: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     # Relationships
     tenant = relationship("Tenant", back_populates="collector_topics")
     finding = relationship("CollectorFinding", back_populates="topics")
+    group = relationship("CollectorGroup", back_populates="topics")
 
     __table_args__ = (
         Index("ix_topic_suggestions_tenant_status", "tenant_id", "status"),
@@ -151,6 +207,9 @@ class PageSnapshot(TimestampMixin, Base):
     source_id: Mapped[int] = mapped_column(
         ForeignKey("collector_sources.id", ondelete="CASCADE"), nullable=False
     )
+    group_id: Mapped[int | None] = mapped_column(
+        ForeignKey("collector_groups.id", ondelete="SET NULL"), nullable=True
+    )
     url: Mapped[str] = mapped_column(Text, nullable=False)
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     content_text: Mapped[str] = mapped_column(Text, nullable=False)
@@ -161,6 +220,7 @@ class PageSnapshot(TimestampMixin, Base):
 
     # Relationships
     source = relationship("CollectorSource", back_populates="snapshots")
+    group = relationship("CollectorGroup", back_populates="snapshots")
 
     def __repr__(self) -> str:
         return f"<PageSnapshot source={self.source_id} ({self.snapshot_at})>"

@@ -58,6 +58,11 @@ class Prompt(TimestampMixin, Base):
         Integer, nullable=False, server_default="2048"
     )
 
+    # Processing mode: "batch" (all findings at once) or "each" (one finding per call)
+    processing_mode: Mapped[str] = mapped_column(
+        String(10), nullable=False, server_default="batch"
+    )
+
     # Versioning
     version: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1")
     is_active: Mapped[bool] = mapped_column(

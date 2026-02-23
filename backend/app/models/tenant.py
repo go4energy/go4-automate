@@ -38,6 +38,9 @@ class Tenant(TimestampMixin, Base):
     distributor_performances = relationship(
         "DistributorPerformance", back_populates="tenant", lazy="selectin"
     )
+    collector_groups = relationship(
+        "CollectorGroup", back_populates="tenant", lazy="selectin"
+    )
     collector_sources = relationship(
         "CollectorSource", back_populates="tenant", lazy="selectin"
     )

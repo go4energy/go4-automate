@@ -250,21 +250,30 @@ SEED_PROMPTS = [
     },
     {
         "slug": "research-topic-analyzer",
-        "name": "Research Topic Analyzer",
-        "description": "Analysiert Research-Findings und schlägt Content-Themen vor.",
+        "name": "Artikel-Zusammenfassung",
+        "description": "Fasst einzelne Artikel-Findings zusammen (Kurzfassung + Langfassung).",
         "category": "research",
         "system_prompt": (
-            "Du bist ein Content-Stratege für {{COMPANY_NAME}}. "
-            "Deine Aufgabe ist es, aus aktuellen Branchennachrichten "
-            "relevante Content-Themen für Social Media und E-Mail-Marketing abzuleiten."
+            "Du bist ein Recherche-Analyst fuer {{COMPANY_NAME}}. "
+            "Deine Aufgabe ist es, Artikel und Nachrichten praezise zusammenzufassen. "
+            "Fokussiere dich auf die Kernaussagen, relevante Fakten und den Kontext."
         ),
         "user_prompt": (
-            "Analysiere die folgenden Research-Findings und schlage 3-5 Content-Themen vor:\n\n"
+            "Fasse JEDEN der folgenden Artikel einzeln zusammen.\n\n"
             "{{findings_json}}\n\n"
             "Keywords: {{keywords}}\n\n"
-            "Antworte als JSON-Array: "
-            '[{{"title": "...", "description": "...", "category": "content|email|social", '
-            '"platforms": ["facebook", "instagram", "email"], "priority": 1-5}}]'
+            "Erstelle fuer JEDEN Artikel (identifiziert durch seine 'id') eine Zusammenfassung:\n"
+            '- "finding_id": Die id des Artikels (exakt uebernehmen)\n'
+            '- "title": Praegnanter Titel der Zusammenfassung\n'
+            '- "description": Kurzfassung (2-5 Saetze, kompakt und informativ)\n'
+            '- "detail": Langfassung (5-10 Saetze, mit Kontext, Hintergrund '
+            "und warum das Thema relevant ist)\n"
+            '- "category": Kategorie (content|email|social|general)\n'
+            '- "priority": Relevanz 1-5 (1=sehr hoch)\n\n'
+            "Antworte als JSON-Array mit genau einem Eintrag pro Artikel: "
+            '[{{"finding_id": 123, "title": "...", "description": "Kurzfassung...", '
+            '"detail": "Langfassung mit Kontext...", '
+            '"category": "general", "priority": 3}}]'
         ),
         "variables": [
             {
@@ -272,7 +281,7 @@ SEED_PROMPTS = [
                 "type": "string",
                 "required": True,
                 "default": None,
-                "description": "JSON-Array der Research-Findings",
+                "description": "JSON-Array der Research-Findings mit id",
             },
             {
                 "name": "keywords",
@@ -293,7 +302,7 @@ SEED_PROMPTS = [
         "provider": "anthropic",
         "model": "claude-sonnet-4-5-20250929",
         "temperature": 0.5,
-        "max_tokens": 2048,
+        "max_tokens": 4096,
     },
     {
         "slug": "custom-topic-content",
@@ -627,3 +636,30 @@ async def seed_prompts(db: AsyncSession, tenant_id: str) -> int:
     if created > 0:
         await db.flush()
     return created
+
+
+async def update_prompt_template(db: AsyncSession, tenant_id: str, slug: str) -> bool:
+    """Update an existing prompt with the latest seed template. Returns True if updated."""
+    seed = next((s for s in SEED_PROMPTS if s["slug"] == slug), None)
+    if not seed:
+        return False
+
+    result = await db.execute(
+        select(Prompt).where(
+            Prompt.tenant_id == tenant_id,
+            Prompt.slug == slug,
+        )
+    )
+    prompt = result.scalar_one_or_none()
+    if not prompt:
+        return False
+
+    prompt.user_prompt = seed["user_prompt"]
+    prompt.system_prompt = seed["system_prompt"]
+    await db.flush()
+    logger.info(
+        "Prompt Template aktualisiert: {slug} (Tenant: {tenant})",
+        slug=slug,
+        tenant=tenant_id,
+    )
+    return True

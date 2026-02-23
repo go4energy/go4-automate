@@ -1,43 +1,28 @@
-"""SQLAlchemy models."""
+"""SQLAlchemy models — auto-discovered from domain modules + explicit shared models."""
 
-from app.collector.models import (
-    CollectorFinding,
-    CollectorSource,
-    CollectorTopic,
-    PageSnapshot,
-)
-from app.creator.models import CreatorCalendar, CreatorPiece
-from app.crm.models import CrmContact, CrmEmailLog
+from pathlib import Path
 
-# Distributor models are imported from the distributor module
-from app.distributor.models import (
-    DistributorCampaign,
-    DistributorCampaignConfig,
-    DistributorConversion,
-    DistributorPerformance,
-)
-from app.models.activity_log import ActivityLog
-from app.models.chat_message import ChatMessage
-from app.models.conversation import Conversation
-from app.models.prompt import Prompt
-from app.models.tenant import Tenant
+from app.utils.module_discovery import discover_manifests, register_models
+
+# Auto-discover and import domain module models (collector, creator, distributor, crm, broadcaster, etc.)
+_manifests = discover_manifests(Path(__file__).resolve().parent.parent)
+register_models(_manifests)
+
+# Shared models (no __manifest__.py, live in app/models/)
+from app.models.activity_log import ActivityLog  # noqa: E402
+from app.models.chat_message import ChatMessage  # noqa: E402
+from app.models.conversation import Conversation  # noqa: E402
+from app.models.prompt import Prompt  # noqa: E402
+from app.models.stream import Stream  # noqa: E402
+from app.models.tag import Tag  # noqa: E402
+from app.models.tenant import Tenant  # noqa: E402
 
 __all__ = [
     "ActivityLog",
     "ChatMessage",
-    "CollectorFinding",
-    "CollectorSource",
-    "CollectorTopic",
     "Conversation",
-    "CreatorCalendar",
-    "CreatorPiece",
-    "CrmContact",
-    "CrmEmailLog",
-    "DistributorCampaign",
-    "DistributorCampaignConfig",
-    "DistributorConversion",
-    "DistributorPerformance",
-    "PageSnapshot",
     "Prompt",
+    "Stream",
+    "Tag",
     "Tenant",
 ]

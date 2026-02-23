@@ -46,6 +46,8 @@ class CreatorPiece(TimestampMixin, Base):
     approved_by: Mapped[str | None] = mapped_column(String(100))
     approved_at: Mapped[datetime | None] = mapped_column()
     error_message: Mapped[str | None] = mapped_column(Text)
+    tags: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
+    streams: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
 
     # Relationships
     tenant = relationship("Tenant", back_populates="creator_pieces")

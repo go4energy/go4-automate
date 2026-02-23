@@ -298,7 +298,7 @@ class BroadcasterService:
         return (max_num or 0) + 1
 
     async def _fetch_findings(self, tenant_id: str, channel: BriefingChannel) -> list:
-        """Fetch collector findings matching channel categories."""
+        """Fetch collector findings matching channel tags and/or streams."""
         from app.collector.models import CollectorFinding
 
         query = select(CollectorFinding).where(
@@ -306,15 +306,25 @@ class BroadcasterService:
             CollectorFinding.status.in_(["new", "reviewed"]),
         )
 
-        # Filter by channel categories if specified (JSONB ?| text[])
-        if channel.categories:
+        # Filter by channel tags if specified (JSONB ?| text[])
+        if channel.tags:
             from sqlalchemy import cast
             from sqlalchemy.dialects.postgresql import ARRAY as PG_ARRAY
             from sqlalchemy.types import String
 
             query = query.where(
-                CollectorFinding.categories.op("?|")(
-                    cast(channel.categories, PG_ARRAY(String))
+                CollectorFinding.tags.op("?|")(cast(channel.tags, PG_ARRAY(String)))
+            )
+
+        # Filter by channel streams if specified (JSONB ?| text[])
+        if channel.streams:
+            from sqlalchemy import cast
+            from sqlalchemy.dialects.postgresql import ARRAY as PG_ARRAY
+            from sqlalchemy.types import String
+
+            query = query.where(
+                CollectorFinding.streams.op("?|")(
+                    cast(channel.streams, PG_ARRAY(String))
                 )
             )
 

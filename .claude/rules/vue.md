@@ -115,6 +115,20 @@ export const useLeadStore = defineStore('leads', () => {
 - Base URL aus `import.meta.env.VITE_API_URL`
 - Response Error Interceptor mit zentralem Error-Handling
 
+## Tab-State Persistenz
+Tabs in Views MÜSSEN ihren Zustand über Navigation hinweg behalten. Nutze das Composable `useTabState`:
+```javascript
+import { useTabState } from '@/composables/useTabState'
+
+// statt: const activeTab = ref('sources')
+const activeTab = useTabState('collector', 'sources', ['sources', 'findings', 'topics'])
+//                             ^ key       ^ default   ^ erlaubte Werte
+```
+- **Immer** `useTabState` statt `ref()` für Tab-State in Views
+- Key muss pro View eindeutig sein (z.B. `'collector'`, `'user-management'`)
+- `validTabs` Array mitgeben um veraltete Werte abzufangen
+- Speichert in `sessionStorage` → bleibt bei Modul-Wechsel erhalten, Reset bei neuem Browser-Tab
+
 ## Verboten
 - `var` – nutze `const` / `let`
 - Options API (`data()`, `methods`, `computed` als Objekt)

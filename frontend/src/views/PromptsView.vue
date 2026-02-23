@@ -22,12 +22,12 @@ const categoryOptions = computed(() => {
 })
 
 const categoryColors = {
-  content: 'bg-blue-100 text-blue-700',
-  analysis: 'bg-purple-100 text-purple-700',
-  email: 'bg-green-100 text-green-700',
-  general: 'bg-gray-100 text-gray-700',
-  chat: 'bg-indigo-100 text-indigo-700',
-  research: 'bg-orange-100 text-orange-700'
+  content: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  analysis: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+  email: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  general: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
+  chat: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400',
+  research: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
 }
 
 function getCategoryColor(category) {
@@ -43,11 +43,11 @@ async function loadPrompts() {
 }
 
 function goToEditor(promptId) {
-  router.push(`/prompts/${promptId}`)
+  router.push(`/settings/prompts/${promptId}`)
 }
 
 function goToNew() {
-  router.push('/prompts/new')
+  router.push('/settings/prompts/new')
 }
 
 onMounted(() => {
@@ -74,12 +74,12 @@ onMounted(() => {
         v-model="search"
         type="text"
         placeholder="Suchen..."
-        class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
+        class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
         @input="loadPrompts"
       />
       <select
         v-model="categoryFilter"
-        class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none"
+        class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
         @change="loadPrompts"
       >
         <option value="">Alle Kategorien</option>
@@ -89,7 +89,7 @@ onMounted(() => {
       </select>
       <select
         v-model="activeFilter"
-        class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none"
+        class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
         @change="loadPrompts"
       >
         <option :value="null">Alle Status</option>
@@ -100,11 +100,14 @@ onMounted(() => {
 
     <!-- Loading -->
     <div v-if="store.loading" class="mt-8 flex items-center justify-center p-8">
-      <span class="text-go4-muted">Laden...</span>
+      <span class="text-go4-muted dark:text-gray-400">Laden...</span>
     </div>
 
     <!-- Error -->
-    <div v-else-if="store.error" class="mt-8 rounded-lg bg-red-50 p-4 text-red-700">
+    <div
+      v-else-if="store.error"
+      class="mt-8 rounded-lg bg-red-50 dark:bg-red-900/20 p-4 text-red-700 dark:text-red-400"
+    >
       {{ store.error }}
     </div>
 
@@ -127,15 +130,15 @@ onMounted(() => {
       <div
         v-for="prompt in filteredPrompts"
         :key="prompt.id"
-        class="cursor-pointer rounded-lg bg-white p-5 shadow-sm transition hover:shadow-md"
+        class="cursor-pointer rounded-lg bg-white dark:bg-gray-800 p-5 shadow-sm transition hover:shadow-md"
         @click="goToEditor(prompt.id)"
       >
         <div class="flex items-start justify-between">
           <div class="min-w-0 flex-1">
-            <h3 class="truncate text-sm font-semibold text-go4-secondary">
+            <h3 class="truncate text-sm font-semibold text-go4-secondary dark:text-gray-100">
               {{ prompt.name }}
             </h3>
-            <p class="mt-0.5 font-mono text-xs text-go4-muted">
+            <p class="mt-0.5 font-mono text-xs text-go4-muted dark:text-gray-400">
               {{ prompt.slug }}
             </p>
           </div>
@@ -149,18 +152,23 @@ onMounted(() => {
           </span>
         </div>
 
-        <p v-if="prompt.description" class="mt-2 line-clamp-2 text-xs text-go4-muted">
+        <p
+          v-if="prompt.description"
+          class="mt-2 line-clamp-2 text-xs text-go4-muted dark:text-gray-400"
+        >
           {{ prompt.description }}
         </p>
 
-        <div class="mt-3 flex items-center justify-between text-xs text-go4-muted">
+        <div
+          class="mt-3 flex items-center justify-between text-xs text-go4-muted dark:text-gray-400"
+        >
           <span>{{ prompt.provider }} / {{ prompt.model }}</span>
           <div class="flex items-center gap-2">
             <span>v{{ prompt.version }}</span>
             <span
               :class="[
                 'inline-block h-2 w-2 rounded-full',
-                prompt.is_active ? 'bg-green-400' : 'bg-gray-300'
+                prompt.is_active ? 'bg-green-400' : 'bg-gray-300 dark:bg-gray-600'
               ]"
             />
           </div>

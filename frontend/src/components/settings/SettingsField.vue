@@ -37,7 +37,7 @@ const hint = computed(() => {
 
 <template>
   <div class="space-y-1">
-    <label class="block text-sm font-medium text-go4-secondary">
+    <label class="block text-sm font-medium text-go4-secondary dark:text-gray-200">
       {{ param.description }}
       <span v-if="isReadOnly" class="ml-1 text-xs text-gray-400">(nur lesen)</span>
     </label>
@@ -49,7 +49,7 @@ const hint = computed(() => {
       :disabled="isReadOnly"
       :class="[
         'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200',
-        modelValue ? 'bg-go4-primary' : 'bg-gray-200',
+        modelValue ? 'bg-go4-primary' : 'bg-gray-200 dark:bg-gray-600',
         isReadOnly ? 'opacity-50 cursor-not-allowed' : ''
       ]"
       @click="onToggle"
@@ -67,7 +67,7 @@ const hint = computed(() => {
       v-else-if="param.type === 'enum'"
       :value="modelValue"
       :disabled="isReadOnly"
-      class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-go4-secondary shadow-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary disabled:cursor-not-allowed disabled:opacity-50"
+      class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-go4-secondary shadow-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
       @change="onSelect"
     >
       <option v-for="opt in param.options" :key="opt" :value="opt">
@@ -86,7 +86,7 @@ const hint = computed(() => {
           ? 'Konfiguriert (unveraendert lassen)'
           : 'Nicht konfiguriert'
       "
-      class="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-go4-secondary shadow-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary disabled:cursor-not-allowed disabled:opacity-50"
+      class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-go4-secondary shadow-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
       @input="onInput"
     />
 
@@ -99,7 +99,7 @@ const hint = computed(() => {
       :min="param.min"
       :max="param.max"
       step="1"
-      class="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-go4-secondary shadow-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary disabled:cursor-not-allowed disabled:opacity-50"
+      class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-go4-secondary shadow-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
       @input="onInput"
     />
 
@@ -112,7 +112,7 @@ const hint = computed(() => {
       :min="param.min"
       :max="param.max"
       step="0.1"
-      class="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-go4-secondary shadow-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary disabled:cursor-not-allowed disabled:opacity-50"
+      class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-go4-secondary shadow-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
       @input="onInput"
     />
 
@@ -122,7 +122,7 @@ const hint = computed(() => {
       type="text"
       :value="modelValue"
       :disabled="isReadOnly"
-      class="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-go4-secondary shadow-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary disabled:cursor-not-allowed disabled:opacity-50"
+      class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-go4-secondary shadow-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
       @input="onInput"
     />
 

@@ -70,10 +70,10 @@ SETUP_TOOLS = [
                     "description": "Abruf-Intervall in Stunden",
                     "default": 24,
                 },
-                "categories": {
+                "tags": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Kategorien fuer die Quelle, z.B. ['social_media', 'podcast']",
+                    "description": "Tags fuer die Quelle, z.B. ['solar', 'speicher']",
                     "default": [],
                 },
             },
@@ -185,10 +185,10 @@ SETUP_TOOLS = [
                     "type": "string",
                     "description": "Zielgruppe, z.B. 'Geschaeftsfuehrung und Management'",
                 },
-                "categories": {
+                "tags": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Themen-Kategorien, z.B. ['Strategie', 'Marktentwicklung']",
+                    "description": "Tags fuer Themen-Routing, z.B. ['solar', 'speicher']",
                 },
                 "schedule": {
                     "type": "string",
@@ -391,7 +391,7 @@ class ToolExecutor:
                     "url": s.url,
                     "source_type": s.source_type,
                     "keywords": s.keywords or [],
-                    "categories": s.categories or [],
+                    "tags": s.tags or [],
                     "active": s.active,
                     "fetch_interval_hours": s.fetch_interval_hours,
                 }
@@ -410,7 +410,7 @@ class ToolExecutor:
             source_type=tool_input["source_type"],
             keywords=tool_input.get("keywords", []),
             fetch_interval_hours=tool_input.get("fetch_interval_hours", 24),
-            categories=tool_input.get("categories", []),
+            tags=tool_input.get("tags", []),
         )
         service = CollectorService(self.db)
         source = await service.create_source(self.tenant_id, data)
@@ -609,7 +609,7 @@ class ToolExecutor:
             slug=tool_input.get("slug", tool_input["name"].lower().replace(" ", "-")),
             description=tool_input.get("description", ""),
             target_audience=tool_input["target_audience"],
-            categories=tool_input.get("categories", []),
+            tags=tool_input.get("tags", []),
             schedule=tool_input.get("schedule", ""),
             voice=tool_input.get("voice", "de_DE-thorsten-high"),
             language=tool_input.get("language", "de"),
@@ -639,7 +639,7 @@ class ToolExecutor:
                     "name": c.name,
                     "slug": c.slug,
                     "target_audience": c.target_audience,
-                    "categories": c.categories or [],
+                    "tags": c.tags or [],
                     "schedule": c.schedule or "",
                     "active": c.active,
                 }

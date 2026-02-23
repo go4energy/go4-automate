@@ -31,6 +31,7 @@ class PromptCreate(BaseModel):
     model: str = "claude-sonnet-4-5-20250929"
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     max_tokens: int = Field(default=2048, ge=1, le=16384)
+    processing_mode: str = "batch"
 
 
 class PromptUpdate(BaseModel):
@@ -49,6 +50,7 @@ class PromptUpdate(BaseModel):
     temperature: float | None = Field(default=None, ge=0.0, le=2.0)
     max_tokens: int | None = Field(default=None, ge=1, le=16384)
     is_active: bool | None = None
+    processing_mode: str | None = None
 
 
 class PromptResponse(BaseModel):
@@ -69,6 +71,7 @@ class PromptResponse(BaseModel):
     model: str
     temperature: float
     max_tokens: int
+    processing_mode: str = "batch"
     version: int
     is_active: bool
     created_at: datetime
@@ -89,6 +92,7 @@ class PromptListItem(BaseModel):
     output_format: str
     provider: str
     model: str
+    processing_mode: str = "batch"
     version: int
     is_active: bool
     created_at: datetime

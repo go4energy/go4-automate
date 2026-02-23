@@ -1,7 +1,11 @@
 import api from '@/api'
 
-// --- Categories ---
-export const getCategories = () => api.get('/v1/collector/categories')
+// --- Groups ---
+export const getGroups = () => api.get('/v1/collector/groups')
+export const getGroup = (id) => api.get(`/v1/collector/groups/${id}`)
+export const createGroup = (data) => api.post('/v1/collector/groups', data)
+export const updateGroup = (id, data) => api.put(`/v1/collector/groups/${id}`, data)
+export const deleteGroup = (id) => api.delete(`/v1/collector/groups/${id}`)
 
 // --- Sources ---
 export const getSources = (params) => api.get('/v1/collector/sources', { params })
@@ -24,13 +28,26 @@ export const getSnapshots = (sourceId) => api.get(`/v1/collector/sources/${sourc
 // --- Findings ---
 export const getFindings = (params) => api.get('/v1/collector/findings', { params })
 export const updateFinding = (id, data) => api.patch(`/v1/collector/findings/${id}`, data)
+export const analyzeFinding = (id) => api.post(`/v1/collector/findings/${id}/analyze`)
+export const bulkDeleteFindings = (ids) => api.post('/v1/collector/findings/bulk-delete', { ids })
 
 // --- Topics ---
 export const getTopics = (params) => api.get('/v1/collector/topics', { params })
+export const getTopic = (id) => api.get(`/v1/collector/topics/${id}`)
 export const createTopic = (data) => api.post('/v1/collector/topics', data)
 export const updateTopic = (id, data) => api.put(`/v1/collector/topics/${id}`, data)
 export const deleteTopic = (id) => api.delete(`/v1/collector/topics/${id}`)
 export const generateFromTopic = (id, data) => api.post(`/v1/collector/topics/${id}/generate`, data)
+export const reanalyzeTopic = (id) => api.post(`/v1/collector/topics/${id}/reanalyze`)
+export const bulkDeleteTopics = (ids) => api.post('/v1/collector/topics/bulk-delete', { ids })
+
+// --- Group Prompts ---
+export const addGroupPrompt = (groupId, data) =>
+  api.post(`/v1/collector/groups/${groupId}/prompts`, data)
+export const removeGroupPrompt = (groupId, slug) =>
+  api.delete(`/v1/collector/groups/${groupId}/prompts/${slug}`)
+export const runGroupPrompt = (groupId, slug) =>
+  api.post(`/v1/collector/groups/${groupId}/prompts/${slug}/run`)
 
 // --- Upload ---
 export const uploadImage = (file) => {

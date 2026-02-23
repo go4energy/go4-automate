@@ -84,6 +84,9 @@ class Settings(BaseSettings):
     jwt_expiry_hours: int = 720  # 30 days
     listener_self_registration: bool = True
 
+    # Auth (Platform)
+    initial_admin_password: str = "changeme"
+
     # Tenant
     default_tenant_id: str = "default"
     active_tenant: str = "go4energy"
