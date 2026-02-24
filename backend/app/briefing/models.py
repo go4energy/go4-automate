@@ -1,10 +1,11 @@
-"""Broadcaster models - Channel, Episode, ListenerUser, Subscription, Feedback, ExternalFeed."""
+"""Briefing models - Channel, Episode, Source, Finding, ListenerUser, Subscription, Feedback, ExternalFeed."""
 
 from datetime import datetime
 
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -19,6 +20,147 @@ from app.database import Base
 from app.models.base import TimestampMixin
 
 
+class BriefingSource(TimestampMixin, Base):
+    """A data source for the briefing module (RSS, website, calendar, email, KPI, websearch)."""
+
+    __tablename__ = "briefing_sources"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(
+        String(50), ForeignKey("tenants.tenant_id"), nullable=False
+    )
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True
+    )
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    source_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    url: Mapped[str | None] = mapped_column(Text)
+    keywords: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    fetch_interval_hours: Mapped[int] = mapped_column(
+        Integer, default=24, nullable=False
+    )
+    last_fetched_at: Mapped[datetime | None] = mapped_column()
+    config: Mapped[dict | None] = mapped_column(JSONB)
+    tags: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
+    streams: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
+
+    # Relationships
+    tenant = relationship("Tenant")
+    findings = relationship(
+        "BriefingFinding", back_populates="source", cascade="all, delete-orphan"
+    )
+    channel_links = relationship(
+        "BriefingChannelSource", back_populates="source", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        Index("ix_briefing_sources_tenant_active", "tenant_id", "active"),
+        Index("ix_briefing_sources_tenant_type", "tenant_id", "source_type"),
+        Index("ix_briefing_sources_tenant_user", "tenant_id", "user_id"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<BriefingSource {self.name!r} ({self.source_type})>"
+
+
+class BriefingFinding(TimestampMixin, Base):
+    """A finding discovered by a briefing source."""
+
+    __tablename__ = "briefing_findings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(
+        String(50), ForeignKey("tenants.tenant_id"), nullable=False
+    )
+    source_id: Mapped[int | None] = mapped_column(
+        ForeignKey("briefing_sources.id", ondelete="SET NULL"), nullable=True
+    )
+    title: Mapped[str] = mapped_column(String(500), nullable=False)
+    summary: Mapped[str | None] = mapped_column(Text)
+    url: Mapped[str] = mapped_column(Text, nullable=False)
+    content_snippet: Mapped[str | None] = mapped_column(Text)
+    found_at: Mapped[datetime] = mapped_column(nullable=False)
+    relevance_score: Mapped[float | None] = mapped_column(Float)
+    status: Mapped[str] = mapped_column(String(20), default="new", nullable=False)
+    source_type: Mapped[str | None] = mapped_column(String(30))
+    tags: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
+    streams: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
+    metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB)
+
+    # Relationships
+    source = relationship("BriefingSource", back_populates="findings")
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "url", name="uq_briefing_findings_tenant_url"),
+        Index("ix_briefing_findings_tenant_status", "tenant_id", "status"),
+        Index("ix_briefing_findings_tenant_source", "tenant_id", "source_id"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<BriefingFinding {self.title!r} ({self.status})>"
+
+
+class BriefingChannelSource(Base):
+    """Many-to-many link between channels and sources."""
+
+    __tablename__ = "briefing_channel_sources"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    channel_id: Mapped[int] = mapped_column(
+        ForeignKey("briefing_channels.id", ondelete="CASCADE"), nullable=False
+    )
+    source_id: Mapped[int] = mapped_column(
+        ForeignKey("briefing_sources.id", ondelete="CASCADE"), nullable=False
+    )
+
+    # Relationships
+    channel = relationship("BriefingChannel", back_populates="source_links")
+    source = relationship("BriefingSource", back_populates="channel_links")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "channel_id", "source_id", name="uq_briefing_channel_sources_channel_source"
+        ),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<BriefingChannelSource channel={self.channel_id} source={self.source_id}>"
+        )
+
+
+class BriefingSpeaker(TimestampMixin, Base):
+    """A voice speaker for XTTS v2 voice cloning."""
+
+    __tablename__ = "briefing_speakers"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(
+        String(50), ForeignKey("tenants.tenant_id"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    language: Mapped[str] = mapped_column(String(10), default="de", nullable=False)
+    file_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    file_size_bytes: Mapped[int | None] = mapped_column(BigInteger)
+    duration_seconds: Mapped[int | None] = mapped_column(Integer)
+    sample_rate: Mapped[int | None] = mapped_column(Integer)
+    xtts_speaker_name: Mapped[str | None] = mapped_column(String(200))
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    # Relationships
+    tenant = relationship("Tenant")
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "name", name="uq_briefing_speakers_tenant_name"),
+        Index("ix_briefing_speakers_tenant", "tenant_id"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<BriefingSpeaker {self.name!r} ({self.language})>"
+
+
 class BriefingChannel(TimestampMixin, Base):
     """A briefing channel targeting a specific audience."""
 
@@ -27,6 +169,12 @@ class BriefingChannel(TimestampMixin, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     tenant_id: Mapped[str] = mapped_column(
         String(50), ForeignKey("tenants.tenant_id"), nullable=False
+    )
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=True
+    )
+    cloned_from_id: Mapped[int | None] = mapped_column(
+        ForeignKey("briefing_channels.id", ondelete="SET NULL"), nullable=True
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     slug: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -50,6 +198,16 @@ class BriefingChannel(TimestampMixin, Base):
     )
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     cover_image_url: Mapped[str | None] = mapped_column(String(500))
+    output_format: Mapped[str] = mapped_column(
+        String(20), default="audio", nullable=False
+    )
+    text_format: Mapped[str] = mapped_column(
+        String(20), default="markdown", nullable=False
+    )
+    tts_engine: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    xtts_speaker_id: Mapped[int | None] = mapped_column(
+        ForeignKey("briefing_speakers.id", ondelete="SET NULL"), nullable=True
+    )
 
     # Relationships
     tenant = relationship("Tenant")
@@ -59,10 +217,14 @@ class BriefingChannel(TimestampMixin, Base):
     subscriptions = relationship(
         "ListenerSubscription", back_populates="channel", cascade="all, delete-orphan"
     )
+    source_links = relationship(
+        "BriefingChannelSource", back_populates="channel", cascade="all, delete-orphan"
+    )
 
     __table_args__ = (
-        UniqueConstraint("tenant_id", "slug", name="uq_briefing_channels_tenant_slug"),
+        # Partial unique indexes on slug are defined in migration 020
         Index("ix_briefing_channels_tenant", "tenant_id"),
+        Index("ix_briefing_channels_tenant_user", "tenant_id", "user_id"),
     )
 
     def __repr__(self) -> str:
@@ -96,6 +258,10 @@ class BriefingEpisode(TimestampMixin, Base):
         String(20), default="generating", nullable=False
     )
     error_message: Mapped[str | None] = mapped_column(Text)
+    text_content: Mapped[str | None] = mapped_column(Text)
+    output_format: Mapped[str] = mapped_column(
+        String(20), default="audio", nullable=False
+    )
     generated_at: Mapped[datetime | None] = mapped_column()
     published_at: Mapped[datetime | None] = mapped_column()
 

@@ -158,7 +158,7 @@ def _extract_badge_count(module_name: str, metrics: dict) -> int:
         "creator": "pieces_draft",
         "distributor": "active_campaigns",
         "crm": "contacts_active",
-        "broadcaster": "active_channels",
+        "briefing": "active_channels",
     }
     key = badge_keys.get(module_name)
     if key and key in metrics:

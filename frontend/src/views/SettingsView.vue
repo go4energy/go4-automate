@@ -451,7 +451,7 @@ function goToNewPrompt() {
       <div v-else-if="activeTabKey === 'streams'" class="space-y-6">
         <div class="flex items-center justify-between">
           <p class="text-sm text-gray-500 dark:text-gray-400">
-            Streams definieren Informationsfluesse zwischen Modulen (z.B. Collector → Broadcaster).
+            Streams definieren Informationsfluesse zwischen Modulen (z.B. Collector → Briefing).
           </p>
         </div>
 

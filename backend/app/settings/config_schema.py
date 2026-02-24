@@ -57,7 +57,7 @@ FIELD_META: dict[str, dict] = {
     "llm_model_scoring": {"cat": "llm_models", "desc": "LLM-Modell fuer Scoring"},
     "llm_model_briefing": {
         "cat": "llm_models",
-        "desc": "LLM-Provider fuer Broadcaster Briefings",
+        "desc": "LLM-Provider fuer Briefings",
         "options": ["anthropic", "ollama"],
     },
     "ollama_url": {"cat": "llm_models", "desc": "Ollama Server URL"},
@@ -87,10 +87,15 @@ FIELD_META: dict[str, dict] = {
     "tts_engine": {
         "cat": "tts_audio",
         "desc": "TTS-Engine fuer Audio-Generierung",
-        "options": ["piper", "disabled"],
+        "options": ["piper", "xtts", "disabled"],
     },
     "tts_url": {"cat": "tts_audio", "desc": "TTS Server URL (Piper)"},
-    "broadcaster_audio_dir": {
+    "xtts_url": {"cat": "tts_audio", "desc": "XTTS v2 Server URL"},
+    "speaker_upload_dir": {
+        "cat": "tts_audio",
+        "desc": "Verzeichnis fuer Speaker-Dateien",
+    },
+    "briefing_audio_dir": {
         "cat": "tts_audio",
         "desc": "Verzeichnis fuer Audio-Dateien",
     },

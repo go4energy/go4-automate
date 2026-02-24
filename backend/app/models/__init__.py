@@ -4,7 +4,7 @@ from pathlib import Path
 
 from app.utils.module_discovery import discover_manifests, register_models
 
-# Auto-discover and import domain module models (collector, creator, distributor, crm, broadcaster, etc.)
+# Auto-discover and import domain module models (collector, creator, distributor, crm, briefing, etc.)
 _manifests = discover_manifests(Path(__file__).resolve().parent.parent)
 register_models(_manifests)
 

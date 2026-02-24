@@ -5,9 +5,9 @@ from fastapi.responses import StreamingResponse
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.broadcaster.listener_service import ListenerService
-from app.broadcaster.models import ListenerUser
-from app.broadcaster.schemas import (
+from app.briefing.listener_service import ListenerService
+from app.briefing.models import ListenerUser
+from app.briefing.schemas import (
     ChannelResponse,
     EpisodeListItem,
     EpisodeResponse,
@@ -238,9 +238,9 @@ async def get_episode(
 ) -> EpisodeResponse:
     """Get episode detail."""
     try:
-        from app.broadcaster.service import BroadcasterService
+        from app.briefing.service import BriefingService
 
-        service = BroadcasterService(db)
+        service = BriefingService(db)
         return await service.get_episode(episode_id)
     except AppError as e:
         logger.error("AppError: {msg}", msg=e.message)
@@ -259,10 +259,10 @@ async def stream_audio(
     """Stream episode audio file."""
     from pathlib import Path
 
-    from app.broadcaster.service import BroadcasterService
+    from app.briefing.service import BriefingService
 
     try:
-        service = BroadcasterService(db)
+        service = BriefingService(db)
         episode = await service.get_episode(episode_id)
 
         if not episode.audio_url:

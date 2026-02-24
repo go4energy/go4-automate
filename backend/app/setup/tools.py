@@ -150,8 +150,8 @@ SETUP_TOOLS = [
         },
     },
     {
-        "name": "update_broadcaster_config",
-        "description": "Aktualisiert Broadcaster-Konfiguration (LLM-Provider, TTS-Engine, Stimme, Selbstregistrierung).",
+        "name": "update_briefing_config",
+        "description": "Aktualisiert Briefing-Konfiguration (LLM-Provider, TTS-Engine, Stimme, Selbstregistrierung).",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -288,7 +288,7 @@ class ToolExecutor:
             "check_integration_status": self._check_integration_status,
             "list_prompts": self._list_prompts,
             "get_setup_progress": self._get_setup_progress,
-            "update_broadcaster_config": self._update_broadcaster_config,
+            "update_briefing_config": self._update_briefing_config,
             "create_briefing_channel": self._create_briefing_channel,
             "list_briefing_channels": self._list_briefing_channels,
             "create_listener_user": self._create_listener_user,
@@ -530,8 +530,8 @@ class ToolExecutor:
         distributor_keys = ["ADS_MONTHLY_BUDGET", "ADS_TARGET_CPL"]
         distributor_set = sum(1 for k in distributor_keys if config.get(k))
 
-        # Broadcaster config
-        broadcaster_configured = bool(
+        # Briefing config
+        briefing_configured = bool(
             settings.tts_engine != "disabled" or settings.llm_model_briefing
         )
 
@@ -549,10 +549,10 @@ class ToolExecutor:
             ]
         )
 
-        # Broadcaster channels
-        from app.broadcaster.service import BroadcasterService
+        # Briefing channels
+        from app.briefing.service import BriefingService
 
-        bc_service = BroadcasterService(self.db)
+        bc_service = BriefingService(self.db)
         bc_channels = await bc_service.list_channels(self.tenant_id)
         bc_channel_count = len(bc_channels)
 
@@ -578,9 +578,9 @@ class ToolExecutor:
                     "configured": distributor_set >= 1,
                     "details": f"{distributor_set}/{len(distributor_keys)} Felder",
                 },
-                "broadcaster": {
-                    "label": "Broadcaster",
-                    "configured": broadcaster_configured and bc_channel_count > 0,
+                "briefing": {
+                    "label": "Briefing",
+                    "configured": briefing_configured and bc_channel_count > 0,
                     "details": (
                         f"LLM: {settings.llm_model_briefing}, "
                         f"TTS: {settings.tts_engine}, "
@@ -595,14 +595,14 @@ class ToolExecutor:
             }
         }
 
-    async def _update_broadcaster_config(self, tool_input: dict) -> dict:
-        """Update broadcaster config (delegates to update_tenant_config)."""
+    async def _update_briefing_config(self, tool_input: dict) -> dict:
+        """Update briefing config (delegates to update_tenant_config)."""
         return await self._update_tenant_config(tool_input)
 
     async def _create_briefing_channel(self, tool_input: dict) -> dict:
         """Create a new briefing channel."""
-        from app.broadcaster.schemas import ChannelCreate
-        from app.broadcaster.service import BroadcasterService
+        from app.briefing.schemas import ChannelCreate
+        from app.briefing.service import BriefingService
 
         data = ChannelCreate(
             name=tool_input["name"],
@@ -616,7 +616,7 @@ class ToolExecutor:
             max_items=tool_input.get("max_items", 5),
             max_duration_minutes=tool_input.get("max_duration_minutes", 5),
         )
-        service = BroadcasterService(self.db)
+        service = BriefingService(self.db)
         channel = await service.create_channel(self.tenant_id, data)
         return {
             "id": channel.id,
@@ -628,9 +628,9 @@ class ToolExecutor:
 
     async def _list_briefing_channels(self, _input: dict) -> dict:
         """List all briefing channels."""
-        from app.broadcaster.service import BroadcasterService
+        from app.briefing.service import BriefingService
 
-        service = BroadcasterService(self.db)
+        service = BriefingService(self.db)
         channels = await service.list_channels(self.tenant_id)
         return {
             "channels": [
@@ -650,8 +650,8 @@ class ToolExecutor:
 
     async def _create_listener_user(self, tool_input: dict) -> dict:
         """Create a new listener user."""
-        from app.broadcaster.schemas import ListenerUserCreate
-        from app.broadcaster.service import BroadcasterService
+        from app.briefing.schemas import ListenerUserCreate
+        from app.briefing.service import BriefingService
 
         data = ListenerUserCreate(
             email=tool_input["email"],
@@ -659,7 +659,7 @@ class ToolExecutor:
             display_name=tool_input["display_name"],
             role=tool_input.get("role", "employee"),
         )
-        service = BroadcasterService(self.db)
+        service = BriefingService(self.db)
         user = await service.create_user(self.tenant_id, data)
         return {
             "id": user.id,
@@ -671,9 +671,9 @@ class ToolExecutor:
 
     async def _list_listener_users(self, _input: dict) -> dict:
         """List all listener users."""
-        from app.broadcaster.service import BroadcasterService
+        from app.briefing.service import BriefingService
 
-        service = BroadcasterService(self.db)
+        service = BriefingService(self.db)
         users = await service.list_users(self.tenant_id)
         return {
             "users": [

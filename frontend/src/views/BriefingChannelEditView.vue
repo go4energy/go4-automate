@@ -1,17 +1,20 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useBroadcasterStore } from '@/stores/broadcaster'
+import { useBriefingStore } from '@/stores/briefing'
+import { useAuthStore } from '@/stores/auth'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import TagSelector from '@/components/ui/TagSelector.vue'
 import StreamSelector from '@/components/ui/StreamSelector.vue'
 
 const route = useRoute()
 const router = useRouter()
-const store = useBroadcasterStore()
+const store = useBriefingStore()
+const authStore = useAuthStore()
 
 const isEdit = computed(() => !!route.params.id)
 const saving = ref(false)
+const orgWide = ref(false)
 
 const form = ref({
   name: '',
@@ -28,8 +31,14 @@ const form = ref({
   personal_context_enabled: false,
   max_items: 10,
   max_duration_minutes: 5,
-  cover_image_url: ''
+  cover_image_url: '',
+  output_format: 'audio',
+  text_format: 'markdown',
+  tts_engine: null,
+  xtts_speaker_id: null
 })
+
+const effectiveEngine = computed(() => form.value.tts_engine || 'piper')
 
 const availableVoices = [
   { value: 'de_DE-thorsten-high', label: 'Thorsten (DE, hoch)' },
@@ -40,6 +49,7 @@ const availableVoices = [
 ]
 
 onMounted(async () => {
+  store.fetchSpeakers()
   if (isEdit.value) {
     const data = await store.fetchChannel(route.params.id)
     Object.keys(form.value).forEach((key) => {
@@ -49,6 +59,9 @@ onMounted(async () => {
     })
     form.value.tags = data.tags || []
     form.value.streams = data.streams || []
+    // Nullable fields that might come back as null
+    form.value.tts_engine = data.tts_engine || null
+    form.value.xtts_speaker_id = data.xtts_speaker_id || null
   }
 })
 
@@ -67,9 +80,10 @@ async function handleSubmit() {
     if (isEdit.value) {
       await store.editChannel(route.params.id, data)
     } else {
-      await store.addChannel(data)
+      const params = orgWide.value ? { org_wide: true } : undefined
+      await store.addChannel(data, params)
     }
-    router.push('/broadcaster')
+    router.push('/briefing')
   } catch {
     // error handled by store
   } finally {
@@ -167,24 +181,40 @@ async function handleSubmit() {
         </div>
       </div>
 
-      <!-- Schedule + Voice -->
+      <!-- Schedule -->
+      <div>
+        <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
+          >Schedule (Cron)</label
+        >
+        <input
+          v-model="form.schedule"
+          class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 focus:border-go4-primary focus:ring-1 focus:ring-go4-primary"
+          placeholder="0 6 * * 1-5"
+        />
+        <p class="mt-1 text-xs text-go4-muted dark:text-gray-400">
+          z.B. "0 6 * * 1-5" = Mo-Fr um 06:00
+        </p>
+      </div>
+
+      <!-- TTS Engine + Voice/Speaker -->
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
           <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
-            >Schedule (Cron)</label
+            >TTS-Engine</label
           >
-          <input
-            v-model="form.schedule"
+          <select
+            v-model="form.tts_engine"
             class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 focus:border-go4-primary focus:ring-1 focus:ring-go4-primary"
-            placeholder="0 6 * * 1-5"
-          />
-          <p class="mt-1 text-xs text-go4-muted dark:text-gray-400">
-            z.B. "0 6 * * 1-5" = Mo-Fr um 06:00
-          </p>
+          >
+            <option :value="null">Standard (global)</option>
+            <option value="piper">Piper</option>
+            <option value="xtts">XTTS v2</option>
+            <option value="disabled">Deaktiviert</option>
+          </select>
         </div>
-        <div>
+        <div v-if="effectiveEngine !== 'xtts'">
           <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
-            >Stimme</label
+            >Piper-Stimme</label
           >
           <select
             v-model="form.voice"
@@ -194,6 +224,26 @@ async function handleSubmit() {
               {{ v.label }}
             </option>
           </select>
+        </div>
+        <div v-else>
+          <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
+            >XTTS-Sprecher</label
+          >
+          <select
+            v-model="form.xtts_speaker_id"
+            class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 focus:border-go4-primary focus:ring-1 focus:ring-go4-primary"
+          >
+            <option :value="null">Kein Sprecher</option>
+            <option v-for="s in store.speakers" :key="s.id" :value="s.id">
+              {{ s.name }} ({{ s.language === 'de' ? 'DE' : 'EN' }})
+            </option>
+          </select>
+          <p
+            v-if="store.speakers.length === 0"
+            class="mt-1 text-xs text-go4-muted dark:text-gray-400"
+          >
+            Noch keine Sprecher. Laden Sie einen im "Sprecher"-Tab hoch.
+          </p>
         </div>
       </div>
 
@@ -225,6 +275,35 @@ async function handleSubmit() {
         </div>
       </div>
 
+      <!-- Output Format -->
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div>
+          <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">
+            Ausgabeformat
+          </label>
+          <select
+            v-model="form.output_format"
+            class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 focus:border-go4-primary focus:ring-1 focus:ring-go4-primary"
+          >
+            <option value="audio">Audio</option>
+            <option value="text">Text</option>
+            <option value="both">Audio + Text</option>
+          </select>
+        </div>
+        <div v-if="form.output_format !== 'audio'">
+          <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">
+            Textformat
+          </label>
+          <select
+            v-model="form.text_format"
+            class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 focus:border-go4-primary focus:ring-1 focus:ring-go4-primary"
+          >
+            <option value="markdown">Markdown</option>
+            <option value="html">HTML</option>
+          </select>
+        </div>
+      </div>
+
       <!-- Intro + Outro -->
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
@@ -251,6 +330,23 @@ async function handleSubmit() {
         </div>
       </div>
 
+      <!-- Org-Wide Toggle (Admin only, create mode) -->
+      <div
+        v-if="authStore.isAdmin && !isEdit"
+        class="flex items-center gap-3 rounded-lg bg-sky-50 dark:bg-sky-900/20 p-4"
+      >
+        <label class="flex items-center gap-2">
+          <input
+            v-model="orgWide"
+            type="checkbox"
+            class="h-4 w-4 rounded border-gray-300 text-go4-primary focus:ring-go4-primary dark:border-gray-600"
+          />
+          <span class="text-sm font-medium text-sky-700 dark:text-sky-400"
+            >Org-weiter Channel (fuer alle Mitarbeiter sichtbar)</span
+          >
+        </label>
+      </div>
+
       <!-- Actions -->
       <div class="flex items-center gap-3 border-t border-gray-200 dark:border-gray-700 pt-6">
         <button
@@ -261,7 +357,7 @@ async function handleSubmit() {
           {{ saving ? 'Speichern...' : isEdit ? 'Speichern' : 'Channel erstellen' }}
         </button>
         <router-link
-          to="/broadcaster"
+          to="/briefing"
           class="rounded-lg border border-gray-300 dark:border-gray-600 px-5 py-2 text-sm font-medium text-go4-secondary dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700"
         >
           Abbrechen

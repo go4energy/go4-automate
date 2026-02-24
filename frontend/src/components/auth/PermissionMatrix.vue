@@ -8,7 +8,7 @@ const props = defineProps({
 
 const emit = defineEmits(['update'])
 
-const modules = ['collector', 'creator', 'broadcaster', 'distributor', 'crm']
+const modules = ['collector', 'creator', 'briefing', 'distributor', 'crm']
 const actions = ['view', 'edit', 'delete', 'settings']
 const actionLabels = {
   view: 'Ansehen',
@@ -19,7 +19,7 @@ const actionLabels = {
 const moduleLabels = {
   collector: 'Collector',
   creator: 'Creator',
-  broadcaster: 'Broadcaster',
+  briefing: 'Briefing',
   distributor: 'Distributor',
   crm: 'CRM'
 }

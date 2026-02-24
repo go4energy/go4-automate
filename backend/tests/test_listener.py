@@ -37,7 +37,7 @@ async def _register_user(client):
 async def _create_channel(client):
     """Helper: create a briefing channel via admin API and return its ID."""
     resp = await client.post(
-        "/api/v1/broadcaster/channels", json=CHANNEL_PAYLOAD, headers=HEADERS
+        "/api/v1/briefing/channels", json=CHANNEL_PAYLOAD, headers=HEADERS
     )
     assert resp.status_code == 201
     return resp.json()["id"]

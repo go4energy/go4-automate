@@ -67,17 +67,27 @@ class Settings(BaseSettings):
     # Search API
     serper_api_key: str = ""
 
-    # LLM — Broadcaster (switchable)
+    # LLM — Briefing (switchable)
     llm_model_briefing: str = "anthropic"  # "anthropic" | "ollama"
     ollama_url: str = "http://localhost:11434"
     ollama_model: str = "mistral"
 
-    # TTS (Remote Piper Server)
-    tts_engine: str = "piper"  # "piper" | "disabled"
+    # TTS (Remote Piper Server / XTTS)
+    tts_engine: str = "piper"  # "piper" | "xtts" | "disabled"
     tts_url: str = "http://localhost:10200"
+    xtts_url: str = "http://localhost:8020"
+    speaker_upload_dir: str = "uploads/speakers"
 
-    # Broadcaster
-    broadcaster_audio_dir: str = "uploads/broadcaster"
+    # Briefing
+    briefing_audio_dir: str = "uploads/briefing"
+
+    # OAuth (Briefing Calendar/Email sources)
+    app_url: str = "http://localhost:8001"
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    microsoft_client_id: str = ""
+    microsoft_client_secret: str = ""
+    microsoft_tenant_id: str = ""
 
     # Auth (Listener PWA)
     jwt_secret: str = "change-me-in-production"

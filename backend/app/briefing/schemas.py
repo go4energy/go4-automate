@@ -1,8 +1,27 @@
-"""Broadcaster schemas - Admin + Listener API."""
+"""Briefing schemas - Admin + Listener API."""
 
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
+
+# --- Speaker (XTTS Voice Cloning) ---
+
+
+class SpeakerResponse(BaseModel):
+    """Full response for a briefing speaker."""
+
+    id: int
+    tenant_id: str
+    name: str
+    description: str | None = None
+    language: str
+    file_size_bytes: int | None = None
+    duration_seconds: int | None = None
+    active: bool
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
 
 # --- Channel (Admin) ---
 
@@ -25,6 +44,10 @@ class ChannelCreate(BaseModel):
     max_items: int = Field(default=10, ge=1, le=50)
     max_duration_minutes: int = Field(default=5, ge=1, le=30)
     cover_image_url: str | None = None
+    output_format: str = "audio"
+    text_format: str = "markdown"
+    tts_engine: str | None = None
+    xtts_speaker_id: int | None = None
 
 
 class ChannelUpdate(BaseModel):
@@ -45,6 +68,10 @@ class ChannelUpdate(BaseModel):
     max_duration_minutes: int | None = Field(None, ge=1, le=30)
     active: bool | None = None
     cover_image_url: str | None = None
+    output_format: str | None = None
+    text_format: str | None = None
+    tts_engine: str | None = None
+    xtts_speaker_id: int | None = None
 
 
 class ChannelResponse(BaseModel):
@@ -52,6 +79,8 @@ class ChannelResponse(BaseModel):
 
     id: int
     tenant_id: str
+    user_id: int | None = None
+    cloned_from_id: int | None = None
     name: str
     slug: str
     description: str | None = None
@@ -68,6 +97,10 @@ class ChannelResponse(BaseModel):
     max_duration_minutes: int
     active: bool
     cover_image_url: str | None = None
+    output_format: str = "audio"
+    text_format: str = "markdown"
+    tts_engine: str | None = None
+    xtts_speaker_id: int | None = None
     episode_count: int = 0
     subscriber_count: int = 0
     created_at: datetime
@@ -80,6 +113,8 @@ class ChannelListItem(BaseModel):
     """Lightweight channel for list views."""
 
     id: int
+    user_id: int | None = None
+    cloned_from_id: int | None = None
     name: str
     slug: str
     target_audience: str | None = None
@@ -111,6 +146,8 @@ class EpisodeResponse(BaseModel):
     findings_used: list | None = None
     status: str
     error_message: str | None = None
+    text_content: str | None = None
+    output_format: str = "audio"
     generated_at: datetime | None = None
     published_at: datetime | None = None
     created_at: datetime
@@ -129,6 +166,7 @@ class EpisodeListItem(BaseModel):
     summary: str | None = None
     audio_url: str | None = None
     audio_duration_seconds: int | None = None
+    output_format: str = "audio"
     status: str
     published_at: datetime | None = None
     created_at: datetime
@@ -279,3 +317,117 @@ class ExternalFeedResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# --- Briefing Source ---
+
+
+class BriefingSourceCreate(BaseModel):
+    """Input for creating a briefing source."""
+
+    name: str = Field(..., max_length=200)
+    source_type: str = Field(
+        ..., pattern=r"^(rss|website|websearch|calendar|email|kpi)$"
+    )
+    url: str | None = None
+    keywords: list[str] = Field(default_factory=list)
+    active: bool = True
+    fetch_interval_hours: int = Field(default=24, ge=1, le=720)
+    config: dict | None = None
+    tags: list[str] = Field(default_factory=list)
+    streams: list[str] = Field(default_factory=list)
+
+
+class BriefingSourceUpdate(BaseModel):
+    """Partial update for a briefing source."""
+
+    name: str | None = Field(None, max_length=200)
+    url: str | None = None
+    keywords: list[str] | None = None
+    active: bool | None = None
+    fetch_interval_hours: int | None = Field(None, ge=1, le=720)
+    config: dict | None = None
+    tags: list[str] | None = None
+    streams: list[str] | None = None
+
+
+class BriefingSourceResponse(BaseModel):
+    """Full response for a briefing source."""
+
+    id: int
+    tenant_id: str
+    user_id: int | None = None
+    name: str
+    source_type: str
+    url: str | None = None
+    keywords: list[str] = Field(default_factory=list)
+    active: bool
+    fetch_interval_hours: int
+    last_fetched_at: datetime | None = None
+    config: dict | None = None
+    tags: list[str] = Field(default_factory=list)
+    streams: list[str] = Field(default_factory=list)
+    oauth_connected: bool = False
+    oauth_email: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# --- Briefing Finding ---
+
+
+class BriefingFindingResponse(BaseModel):
+    """Full response for a briefing finding."""
+
+    id: int
+    tenant_id: str
+    source_id: int | None = None
+    title: str
+    summary: str | None = None
+    url: str
+    content_snippet: str | None = None
+    found_at: datetime
+    relevance_score: float | None = None
+    status: str
+    source_type: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    streams: list[str] = Field(default_factory=list)
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BriefingFindingUpdate(BaseModel):
+    """Update a briefing finding (status change)."""
+
+    status: str = Field(..., pattern=r"^(new|used|dismissed)$")
+
+
+class BulkDeleteRequest(BaseModel):
+    """Bulk delete request."""
+
+    ids: list[int] = Field(..., min_length=1)
+
+
+class BulkDeleteResponse(BaseModel):
+    """Bulk delete response."""
+
+    deleted: int
+
+
+class ChannelCloneRequest(BaseModel):
+    """Request to clone an org channel as personal channel."""
+
+    name: str | None = None
+    slug: str | None = None
+
+
+class BriefingRunResponse(BaseModel):
+    """Response for source run operation."""
+
+    sources_processed: int
+    findings_new: int
+    errors: list[str] = Field(default_factory=list)

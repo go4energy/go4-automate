@@ -8,7 +8,7 @@ from passlib.hash import bcrypt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.broadcaster.models import (
+from app.briefing.models import (
     BriefingChannel,
     BriefingEpisode,
     ListenerExternalFeed,

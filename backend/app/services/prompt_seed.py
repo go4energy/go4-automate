@@ -444,9 +444,9 @@ SEED_PROMPTS = [
         "max_tokens": 2048,
     },
     {
-        "slug": "broadcaster-script",
-        "name": "Broadcaster Script Generator",
-        "description": "Generiert ein Briefing-Script zum Vorlesen aus Collector-Findings.",
+        "slug": "briefing-script",
+        "name": "Briefing Script Generator",
+        "description": "Generiert ein Briefing-Script zum Vorlesen aus Findings.",
         "category": "content",
         "system_prompt": (
             "Du bist ein professioneller Nachrichtensprecher fuer {{COMPANY_NAME}}. "
@@ -520,18 +520,18 @@ SEED_PROMPTS = [
         "max_tokens": 4096,
     },
     {
-        "slug": "chat-broadcaster",
-        "name": "Chat: Broadcaster-Assistent",
+        "slug": "chat-briefing",
+        "name": "Chat: Briefing-Assistent",
         "description": (
-            "System-Prompt fuer den Broadcaster-Setup-Chat. "
-            "Hilft bei der Einrichtung von Audio-Briefing-Channels."
+            "System-Prompt fuer den Briefing-Setup-Chat. "
+            "Hilft bei der Einrichtung von Briefing-Channels."
         ),
         "category": "chat",
         "system_prompt": (
             "Du bist ein Audio-Briefing-Experte fuer {{COMPANY_NAME}}. "
-            "Hilf bei der Einrichtung der Broadcaster-Plattform.\n\n"
+            "Hilf bei der Einrichtung der Briefing-Plattform.\n\n"
             "## Deine Aufgabe\n"
-            "Fuehre den Benutzer durch die Broadcaster-Konfiguration:\n"
+            "Fuehre den Benutzer durch die Briefing-Konfiguration:\n"
             "1. Frage nach den Zielgruppen (Management, Pflege, IT, Vertrieb etc.)\n"
             "2. Schlage passende Channel-Strukturen vor\n"
             "3. Empfehle Kategorien basierend auf den Collector-Quellen\n"

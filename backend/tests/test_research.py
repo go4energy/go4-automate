@@ -192,7 +192,7 @@ async def test_collector_run_with_mock(client, test_tenant):
     ]
 
     with (
-        patch("app.collector.service.feedparser.parse", return_value=mock_feed),
+        patch("app.utils.source_fetchers.feedparser.parse", return_value=mock_feed),
         patch(
             "app.collector.service.CollectorService._analyze_findings",
             new_callable=AsyncMock,
@@ -226,7 +226,7 @@ async def test_finding_dedup(client, test_tenant):
     mock_feed.entries = [entry]
 
     with (
-        patch("app.collector.service.feedparser.parse", return_value=mock_feed),
+        patch("app.utils.source_fetchers.feedparser.parse", return_value=mock_feed),
         patch(
             "app.collector.service.CollectorService._analyze_findings",
             new_callable=AsyncMock,
@@ -260,7 +260,7 @@ async def test_update_finding_status(client, test_tenant):
     mock_feed.entries = [entry]
 
     with (
-        patch("app.collector.service.feedparser.parse", return_value=mock_feed),
+        patch("app.utils.source_fetchers.feedparser.parse", return_value=mock_feed),
         patch(
             "app.collector.service.CollectorService._analyze_findings",
             new_callable=AsyncMock,

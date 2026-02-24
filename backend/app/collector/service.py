@@ -5,7 +5,6 @@ import hashlib
 import json
 from datetime import datetime, timedelta
 
-import feedparser
 import httpx
 from bs4 import BeautifulSoup
 from loguru import logger
@@ -475,114 +474,27 @@ class CollectorService:
         raise ValidationError(f"Unbekannter Source-Typ: {source.source_type}")
 
     async def _fetch_rss(self, source: CollectorSource) -> list[dict]:
-        """Fetch and filter RSS feed entries."""
-        feed = feedparser.parse(source.url)
-        keywords = [k.lower() for k in (source.keywords or [])]
-        items: list[dict] = []
+        """Fetch and filter RSS feed entries via shared fetcher."""
+        from app.utils.source_fetchers import fetch_rss
 
-        for entry in feed.entries[:50]:
-            title = entry.get("title", "")
-            summary = entry.get("summary", "")
-            link = entry.get("link", "")
-
-            if keywords and not self._matches_keywords(title, summary, keywords):
-                continue
-
-            published = entry.get("published_parsed")
-            found_at = datetime(*published[:6]) if published else datetime.utcnow()
-
-            items.append(
-                {
-                    "title": title[:500],
-                    "summary": summary[:1000] if summary else None,
-                    "url": link,
-                    "found_at": found_at,
-                }
-            )
-
-        return items
+        return await fetch_rss(source.url, source.keywords)
 
     async def _fetch_website(self, source: CollectorSource) -> list[dict]:
-        """Scrape a website for articles matching keywords."""
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.get(source.url)
-            resp.raise_for_status()
-
-        soup = BeautifulSoup(resp.text, "html.parser")
-        keywords = [k.lower() for k in (source.keywords or [])]
-        items: list[dict] = []
+        """Scrape a website for articles via shared fetcher."""
+        from app.utils.source_fetchers import fetch_website
 
         cfg = source.config or {}
         selector = cfg.get("selector", "article, .post, .entry")
-        articles = soup.select(selector)
-
-        if not articles:
-            articles = soup.find_all(["article", "h2", "h3"])
-
-        for article in articles[:30]:
-            title_el = article.find(["h1", "h2", "h3", "a"])
-            title = title_el.get_text(strip=True) if title_el else ""
-            if not title:
-                continue
-
-            link_el = article.find("a", href=True)
-            link = link_el["href"] if link_el else source.url
-            if link.startswith("/"):
-                from urllib.parse import urljoin
-
-                link = urljoin(source.url, link)
-
-            snippet_el = article.find("p")
-            snippet = snippet_el.get_text(strip=True)[:500] if snippet_el else None
-
-            if keywords and not self._matches_keywords(title, snippet or "", keywords):
-                continue
-
-            items.append(
-                {
-                    "title": title[:500],
-                    "summary": snippet,
-                    "url": link,
-                    "content_snippet": snippet,
-                    "found_at": datetime.utcnow(),
-                }
-            )
-
-        return items
+        return await fetch_website(source.url, source.keywords, selector)
 
     async def _fetch_websearch(self, source: CollectorSource) -> list[dict]:
-        """Search via Serper API."""
+        """Search via Serper API using shared fetcher."""
         from app.config import settings
+        from app.utils.source_fetchers import fetch_websearch
 
-        if not settings.serper_api_key:
-            raise ExternalServiceError("Serper", "API Key nicht konfiguriert")
-
-        query = " ".join(source.keywords or [source.url])
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.post(
-                "https://google.serper.dev/search",
-                headers={
-                    "X-API-KEY": settings.serper_api_key,
-                    "Content-Type": "application/json",
-                },
-                json={"q": query, "num": 10},
-            )
-            resp.raise_for_status()
-
-        data = resp.json()
-        items: list[dict] = []
-
-        for result in data.get("organic", [])[:10]:
-            items.append(
-                {
-                    "title": result.get("title", "")[:500],
-                    "summary": result.get("snippet", "")[:1000],
-                    "url": result.get("link", ""),
-                    "found_at": datetime.utcnow(),
-                }
-            )
-
-        return items
+        return await fetch_websearch(
+            source.keywords or [source.url], settings.serper_api_key
+        )
 
     async def _deduplicate_and_save(
         self,

@@ -5,7 +5,7 @@ import { useCreatorStore } from '@/stores/creator'
 import { useDistributorStore } from '@/stores/distributor'
 import { useCollectorStore } from '@/stores/collector'
 import { useActivityStore } from '@/stores/activity'
-import { useBroadcasterStore } from '@/stores/broadcaster'
+import { useBriefingStore } from '@/stores/briefing'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import StatCard from '@/components/ui/StatCard.vue'
 import ActivityFeed from '@/components/ui/ActivityFeed.vue'
@@ -15,7 +15,7 @@ const creatorStore = useCreatorStore()
 const distributorStore = useDistributorStore()
 const collectorStore = useCollectorStore()
 const activityStore = useActivityStore()
-const broadcasterStore = useBroadcasterStore()
+const briefingStore = useBriefingStore()
 
 onMounted(() => {
   crmStore.fetchContacts()
@@ -25,7 +25,7 @@ onMounted(() => {
   collectorStore.fetchSources()
   activityStore.fetchActivities(null, 15)
   activityStore.fetchStats(7)
-  broadcasterStore.fetchChannels()
+  briefingStore.fetchChannels()
 })
 </script>
 
@@ -148,24 +148,24 @@ onMounted(() => {
           </div>
         </router-link>
 
-        <!-- Broadcaster -->
+        <!-- Briefing -->
         <router-link
-          to="/broadcaster"
+          to="/briefing"
           class="block rounded-lg bg-white p-5 shadow-sm transition hover:shadow-md dark:bg-gray-800 dark:hover:bg-gray-750"
         >
           <div class="flex items-center justify-between">
             <div>
-              <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Broadcaster</h3>
+              <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Briefing</h3>
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                {{ broadcasterStore.activeChannels.length }} aktive Channels &middot;
-                {{ broadcasterStore.totalEpisodes }} Episoden
+                {{ briefingStore.activeChannels.length }} aktive Channels &middot;
+                {{ briefingStore.totalEpisodes }} Episoden
               </p>
             </div>
             <span
-              v-if="broadcasterStore.totalListeners > 0"
+              v-if="briefingStore.totalListeners > 0"
               class="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700 dark:bg-sky-900/30 dark:text-sky-400"
             >
-              {{ broadcasterStore.totalListeners }} Listener
+              {{ briefingStore.totalListeners }} Listener
             </span>
           </div>
         </router-link>

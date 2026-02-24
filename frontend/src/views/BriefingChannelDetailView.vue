@@ -1,7 +1,8 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useBroadcasterStore } from '@/stores/broadcaster'
+import { useBriefingStore } from '@/stores/briefing'
+import { useAuthStore } from '@/stores/auth'
 import { useTabState } from '@/composables/useTabState'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
@@ -9,19 +10,31 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 
 const route = useRoute()
 const router = useRouter()
-const store = useBroadcasterStore()
+const store = useBriefingStore()
+const authStore = useAuthStore()
 
-const activeTab = useTabState('broadcaster-channel', 'episodes', ['episodes', 'users'])
+const activeTab = useTabState('briefing-channel', 'episodes', ['episodes', 'sources'])
 const tabs = [
   { key: 'episodes', label: 'Episoden' },
-  { key: 'users', label: 'Listener' }
+  { key: 'sources', label: 'Quellen' }
 ]
+
+const isOrgChannel = () => store.currentChannel?.user_id === null
+const canEdit = () => !isOrgChannel() || authStore.isAdmin
 
 onMounted(async () => {
   await store.fetchChannel(route.params.id)
   await store.fetchEpisodes(route.params.id)
-  await store.fetchUsers()
+  await store.fetchSources()
+  await store.fetchChannelSources(route.params.id)
+  store.fetchSpeakers()
 })
+
+function speakerName() {
+  if (!store.currentChannel?.xtts_speaker_id) return ''
+  const speaker = store.speakers.find((s) => s.id === store.currentChannel.xtts_speaker_id)
+  return speaker?.name || ''
+}
 
 async function handleGenerate() {
   await store.triggerGenerate(route.params.id)
@@ -34,9 +47,24 @@ async function handleDeleteEpisode(id) {
   }
 }
 
-async function handleDeleteUser(id) {
-  if (confirm('Listener wirklich loeschen?')) {
-    await store.removeUser(id)
+async function handleCloneChannel() {
+  const cloned = await store.cloneOrgChannel(route.params.id)
+  if (cloned) {
+    router.push(`/briefing/channels/${cloned.id}/edit`)
+  }
+}
+
+async function handleLinkSource() {
+  const select = document.getElementById('link-source-select')
+  const sourceId = parseInt(select.value)
+  if (!sourceId) return
+  await store.linkSourceToChannel(route.params.id, sourceId)
+  select.value = ''
+}
+
+async function handleUnlinkSource(sourceId) {
+  if (confirm('Quelle wirklich vom Channel entfernen?')) {
+    await store.unlinkSourceFromChannel(route.params.id, sourceId)
   }
 }
 
@@ -61,7 +89,7 @@ function formatDuration(seconds) {
 function feedUrl() {
   if (!store.currentChannel) return ''
   const base = window.location.origin
-  return `${base}/api/v1/broadcaster/feed/${store.currentChannel.tenant_id}/${store.currentChannel.slug}/feed.xml`
+  return `${base}/api/v1/briefing/feed/${store.currentChannel.tenant_id}/${store.currentChannel.slug}/feed.xml`
 }
 </script>
 
@@ -79,12 +107,21 @@ function feedUrl() {
         >
           {{ store.generating ? 'Generiert...' : 'Episode generieren' }}
         </button>
-        <router-link
-          :to="`/broadcaster/channels/${route.params.id}/edit`"
-          class="rounded-lg border border-go4-primary px-4 py-2 text-sm font-medium text-go4-primary transition hover:bg-go4-primary/5"
+        <template v-if="canEdit()">
+          <router-link
+            :to="`/briefing/channels/${route.params.id}/edit`"
+            class="rounded-lg border border-go4-primary px-4 py-2 text-sm font-medium text-go4-primary transition hover:bg-go4-primary/5"
+          >
+            Bearbeiten
+          </router-link>
+        </template>
+        <button
+          v-else-if="isOrgChannel()"
+          class="rounded-lg border border-sky-500 px-4 py-2 text-sm font-medium text-sky-600 transition hover:bg-sky-50 dark:text-sky-400 dark:hover:bg-sky-900/20"
+          @click="handleCloneChannel"
         >
-          Bearbeiten
-        </router-link>
+          Anpassen
+        </button>
       </template>
     </PageHeader>
 
@@ -105,15 +142,26 @@ function feedUrl() {
         </p>
       </div>
       <div class="rounded-lg bg-white dark:bg-gray-800 p-4 shadow-sm">
-        <p class="text-xs font-medium uppercase text-go4-muted dark:text-gray-400">Abonnenten</p>
-        <p class="mt-1 text-2xl font-semibold text-go4-secondary dark:text-gray-100">
-          {{ store.currentChannel.subscriber_count || 0 }}
+        <p class="text-xs font-medium uppercase text-go4-muted dark:text-gray-400">Typ</p>
+        <p class="mt-1 text-sm font-medium text-go4-secondary dark:text-gray-100">
+          {{ store.currentChannel.user_id === null ? 'Organisation' : 'Persoenlich' }}
         </p>
       </div>
       <div class="rounded-lg bg-white dark:bg-gray-800 p-4 shadow-sm">
         <p class="text-xs font-medium uppercase text-go4-muted dark:text-gray-400">Stimme</p>
         <p class="mt-1 text-sm font-medium text-go4-secondary dark:text-gray-100">
-          {{ store.currentChannel.voice }}
+          <template v-if="store.currentChannel.tts_engine === 'xtts'">
+            XTTS v2
+            <span v-if="speakerName()" class="text-go4-muted dark:text-gray-400">
+              ({{ speakerName() }})
+            </span>
+          </template>
+          <template v-else-if="store.currentChannel.tts_engine === 'disabled'">
+            Deaktiviert
+          </template>
+          <template v-else>
+            {{ store.currentChannel.voice }}
+          </template>
         </p>
       </div>
       <div class="rounded-lg bg-white dark:bg-gray-800 p-4 shadow-sm">
@@ -154,10 +202,10 @@ function feedUrl() {
             {{ store.episodes.length }}
           </span>
           <span
-            v-if="tab.key === 'users'"
+            v-if="tab.key === 'sources'"
             class="ml-1.5 rounded-full bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-xs text-gray-600 dark:text-gray-300"
           >
-            {{ store.users.length }}
+            {{ store.channelSources.length }}
           </span>
         </button>
       </nav>
@@ -242,12 +290,37 @@ function feedUrl() {
       </div>
     </div>
 
-    <!-- Users Tab -->
-    <div v-else-if="activeTab === 'users'" class="mt-6">
+    <!-- Sources Tab -->
+    <div v-else-if="activeTab === 'sources'" class="mt-6">
+      <!-- Link Source -->
+      <div v-if="canEdit()" class="mb-4 flex items-center gap-3">
+        <select
+          id="link-source-select"
+          class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-800 dark:text-gray-200"
+        >
+          <option value="">Quelle auswaehlen...</option>
+          <option
+            v-for="s in store.sources.filter(
+              (s) => !store.channelSources.find((cs) => cs.id === s.id)
+            )"
+            :key="s.id"
+            :value="s.id"
+          >
+            {{ s.name }} ({{ s.source_type }})
+          </option>
+        </select>
+        <button
+          class="rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-go4-primary/90"
+          @click="handleLinkSource"
+        >
+          Verlinken
+        </button>
+      </div>
+
       <EmptyState
-        v-if="store.users.length === 0"
-        title="Noch keine Listener"
-        description="Listener registrieren sich ueber die PWA oder werden hier angelegt."
+        v-if="store.channelSources.length === 0"
+        title="Keine Quellen verlinkt"
+        description="Verlinken Sie Briefing-Quellen mit diesem Channel."
       />
       <div v-else class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 shadow-sm">
         <table class="w-full text-left text-sm">
@@ -255,47 +328,43 @@ function feedUrl() {
             class="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-xs uppercase tracking-wider text-go4-muted dark:text-gray-400"
           >
             <tr>
-              <th class="px-4 py-3 font-medium">E-Mail</th>
-              <th class="hidden px-4 py-3 font-medium md:table-cell">Name</th>
-              <th class="hidden px-4 py-3 font-medium md:table-cell">Rolle</th>
-              <th class="px-4 py-3 font-medium">Abos</th>
-              <th class="hidden px-4 py-3 font-medium lg:table-cell">Letzter Login</th>
-              <th class="px-4 py-3 text-right font-medium">Aktionen</th>
+              <th class="px-4 py-3 font-medium">Name</th>
+              <th class="px-4 py-3 font-medium">Typ</th>
+              <th class="hidden px-4 py-3 font-medium md:table-cell">Status</th>
+              <th v-if="canEdit()" class="px-4 py-3 text-right font-medium">Aktionen</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-50 dark:divide-gray-700">
             <tr
-              v-for="user in store.users"
-              :key="user.id"
+              v-for="source in store.channelSources"
+              :key="source.id"
               class="transition hover:bg-gray-50/50 dark:hover:bg-gray-700/50"
             >
               <td class="px-4 py-3 font-medium text-go4-secondary dark:text-gray-100">
-                {{ user.email }}
+                {{ source.name }}
               </td>
-              <td class="hidden px-4 py-3 text-go4-muted dark:text-gray-400 md:table-cell">
-                {{ user.display_name || '-' }}
+              <td class="px-4 py-3 text-xs text-go4-muted dark:text-gray-400">
+                {{ source.source_type }}
               </td>
               <td class="hidden px-4 py-3 md:table-cell">
                 <span
-                  v-if="user.role"
-                  class="rounded-full bg-purple-100 dark:bg-purple-900/30 px-2 py-0.5 text-xs text-purple-700 dark:text-purple-400"
+                  class="rounded-full px-2 py-0.5 text-xs font-medium"
+                  :class="
+                    source.active
+                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                  "
                 >
-                  {{ user.role }}
+                  {{ source.active ? 'Aktiv' : 'Inaktiv' }}
                 </span>
               </td>
-              <td class="px-4 py-3 text-xs text-go4-muted dark:text-gray-400">
-                {{ user.subscription_count || 0 }}
-              </td>
-              <td class="hidden px-4 py-3 text-xs text-gray-400 dark:text-gray-500 lg:table-cell">
-                {{ formatDate(user.last_login_at) }}
-              </td>
-              <td class="px-4 py-3">
+              <td v-if="canEdit()" class="px-4 py-3">
                 <div class="flex items-center justify-end gap-1.5">
                   <button
                     class="rounded bg-red-100 dark:bg-red-900/30 px-2.5 py-1 text-xs font-medium text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-800/40"
-                    @click="handleDeleteUser(user.id)"
+                    @click="handleUnlinkSource(source.id)"
                   >
-                    Loeschen
+                    Entfernen
                   </button>
                 </div>
               </td>

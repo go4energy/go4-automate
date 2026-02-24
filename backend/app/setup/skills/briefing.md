@@ -1,7 +1,7 @@
-# Broadcaster
+# Briefing
 
 ## Beschreibung
-Audio-Briefing-Plattform: Automatische Generierung von gesprochenen Nachrichten-Briefings fuer verschiedene Zielgruppen. Collector-Findings werden per KI zu einem Sprechtext zusammengefasst und per TTS (Text-to-Speech) in Audio umgewandelt.
+Internes Briefing-Modul: Eigene Quellen sammeln, per KI aufbereiten und als Text- oder Audio-Briefing an interne Zielgruppen verteilen. Komplett isoliert von der Marketing-Pipeline (Collector → Creator → Distributor).
 
 ## Konfigurierbare Parameter
 | Parameter | Beschreibung | Typ | Beispiel | Default |
@@ -11,14 +11,14 @@ Audio-Briefing-Plattform: Automatische Generierung von gesprochenen Nachrichten-
 | OLLAMA_MODEL | Ollama Modell | string | mistral | mistral |
 | TTS_ENGINE | TTS-Engine | enum | piper, disabled | piper |
 | TTS_URL | Piper Server URL | string | http://remote:10200 | http://localhost:10200 |
-| BROADCASTER_AUDIO_DIR | Audio-Speicherort | string | uploads/broadcaster | uploads/broadcaster |
+| BRIEFING_AUDIO_DIR | Audio-Speicherort | string | uploads/briefing | uploads/briefing |
 | JWT_SECRET | JWT-Secret fuer Listener-Auth | string | - | change-me-in-production |
 | JWT_EXPIRY_HOURS | Token-Gueltigkeitsdauer | int | 720 | 720 |
 | LISTENER_SELF_REGISTRATION | Selbstregistrierung erlauben | bool | true | true |
 
 ## Verfuegbare Tools
-- `get_current_config` — Aktuelle Broadcaster-Konfiguration lesen
-- `update_tenant_config` — Broadcaster-Parameter aktualisieren
+- `get_current_config` — Aktuelle Briefing-Konfiguration lesen
+- `update_tenant_config` — Briefing-Parameter aktualisieren
 - `check_integration_status` — TTS- und LLM-Verfuegbarkeit pruefen
 
 ## Workflow
@@ -33,7 +33,7 @@ Audio-Briefing-Plattform: Automatische Generierung von gesprochenen Nachrichten-
 2. Wie oft sollen Briefings generiert werden? (taeglich, woechentlich)
 3. Soll TTS aktiviert werden oder nur Text-Transkripte?
 4. Soll die Selbstregistrierung fuer Listener erlaubt sein?
-5. Welche Collector-Kategorien sind fuer welche Zielgruppe relevant?
+5. Welche Briefing-Quellen sind fuer welche Zielgruppe relevant?
 
 ## Branchenspezifische Empfehlungen
 - **Krankenhaus**: Separate Channels fuer Management, Pflege, IT. Taeglich morgens 06:00.

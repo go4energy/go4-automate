@@ -1,4 +1,4 @@
-"""Broadcaster module interface - config schema, metrics, status."""
+"""Briefing module interface - config schema, metrics, status."""
 
 from datetime import datetime, timedelta
 
@@ -9,10 +9,10 @@ from app.utils.module_interface import ModuleInterface
 from app.utils.module_registry import register_module
 
 
-class BroadcasterInterface(ModuleInterface):
-    """Broadcaster module standardized interface."""
+class BriefingInterface(ModuleInterface):
+    """Briefing module standardized interface."""
 
-    MODULE_NAME = "broadcaster"
+    MODULE_NAME = "briefing"
     PARAMS = [
         {
             "key": "llm_provider",
@@ -26,7 +26,7 @@ class BroadcasterInterface(ModuleInterface):
         {
             "key": "tts_engine",
             "type": "enum",
-            "options": ["piper", "disabled"],
+            "options": ["piper", "xtts", "disabled"],
             "default": "piper",
             "description": "TTS-Engine fuer Audio-Generierung",
             "affects_kpis": ["episodes_with_audio"],
@@ -61,12 +61,12 @@ class BroadcasterInterface(ModuleInterface):
     ]
 
     async def get_status(self, db: AsyncSession, tenant_id: str) -> dict:
-        """Return broadcaster health and operational status."""
-        from app.broadcaster.models import (
+        """Return briefing health and operational status."""
+        from app.briefing.models import (
             BriefingChannel,
             ListenerUser,
         )
-        from app.broadcaster.tts import TTSService
+        from app.briefing.tts import TTSService
         from app.config import settings
 
         channels_result = await db.execute(
@@ -89,7 +89,7 @@ class BroadcasterInterface(ModuleInterface):
         tts = TTSService()
 
         return {
-            "module": "broadcaster",
+            "module": "briefing",
             "healthy": True,
             "components": {
                 "database": "ok",
@@ -103,8 +103,8 @@ class BroadcasterInterface(ModuleInterface):
     async def get_metrics(
         self, db: AsyncSession, tenant_id: str, days: int = 7
     ) -> dict:
-        """Return broadcaster KPIs."""
-        from app.broadcaster.models import (
+        """Return briefing KPIs."""
+        from app.briefing.models import (
             BriefingChannel,
             BriefingEpisode,
             ListenerFeedback,
@@ -152,7 +152,7 @@ class BroadcasterInterface(ModuleInterface):
         episodes_total = episodes_count.scalar() or 0
 
         return {
-            "module": "broadcaster",
+            "module": "briefing",
             "period": f"{days}d",
             "metrics": {
                 "episodes_total": episodes_total,
@@ -165,8 +165,8 @@ class BroadcasterInterface(ModuleInterface):
         }
 
 
-broadcaster_interface = BroadcasterInterface()
+briefing_interface = BriefingInterface()
 
 # Auto-register for settings discovery
 
-register_module(broadcaster_interface)
+register_module(briefing_interface)

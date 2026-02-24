@@ -3,7 +3,7 @@
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
-from app.broadcaster.models import BriefingChannel, BriefingEpisode
+from app.briefing.models import BriefingChannel, BriefingEpisode
 from app.config import settings
 
 ITUNES_NS = "http://www.itunes.com/dtds/podcast-1.0.dtd"
