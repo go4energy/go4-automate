@@ -33,8 +33,7 @@ services:
     container_name: go4-frontend
     restart: unless-stopped
     ports:
-      - '80:80'
-      - '443:443'
+      - '8081:80'
     depends_on:
       backend:
         condition: service_healthy
@@ -75,7 +74,7 @@ services:
     restart: unless-stopped
     command: redis-server --appendonly yes
     ports:
-      - '127.0.0.1:6379:6379'
+      - '127.0.0.1:6380:6379'
     volumes:
       - redis_data:/data
     healthcheck:
@@ -108,7 +107,7 @@ services:
       - N8N_PORT=5678
       - N8N_EDITOR_BASE_URL=https://n8n.go4.energy/
       - GENERIC_TIMEZONE=Europe/Vienna
-      - API_BASE_URL=http://host.docker.internal:8001
+      - API_BASE_URL=http://host.docker.internal:8002
     volumes:
       - n8n_data:/home/node/.n8n
     depends_on:
@@ -123,38 +122,13 @@ services:
     networks:
       - go4net
 
-  xtts:
-    image: daswer123/xtts-api-server:latest
-    container_name: go4-xtts
-    restart: unless-stopped
-    ports:
-      - '127.0.0.1:8020:8020'
-    environment:
-      - DEVICE=cuda:0
-    volumes:
-      - ./uploads/speakers/xtts:/app/speakers
-      - xtts_models:/app/models
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ['0']
-              capabilities: [gpu]
-    healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:8020/languages']
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 120s
-    networks:
-      - go4net
+  # XTTS läuft nativ auf dem Host (nicht als Container)
+  # URL: http://localhost:8020
 
 volumes:
   postgres_data:
   redis_data:
   n8n_data:
-  xtts_models:
 
 networks:
   go4net:

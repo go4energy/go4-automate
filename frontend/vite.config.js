@@ -10,11 +10,12 @@ export default defineConfig({
     }
   },
   server: {
-    port: 5173,
-    allowedHosts: ['automate.go4.energy'],
+    port: 8081,
+    host: '0.0.0.0',
+    allowedHosts: ['automate.go4.energy', 'localhost'],
     proxy: {
       '/api': {
-        target: 'http://localhost:8001',
+        target: 'http://localhost:8002',
         changeOrigin: true
       }
     }
