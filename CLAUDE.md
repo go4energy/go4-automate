@@ -44,3 +44,10 @@ scripts/        → setup.sh, backup.sh, update.sh
 - Neues Package nötig? → Prüfe erst ob FastAPI/Vue/stdlib es kann.
 - DB-Änderung? → Alembic Migration, nie manuell.
 - Styling? → Nur Tailwind-Klassen, kein eigenes CSS. Design System nutzen.
+
+## Post-Implementierung Checkliste
+Nach jedem neuen Modul oder Feature mit DB-Änderungen IMMER:
+1. **Migration ausführen**: `cd backend && alembic upgrade head`
+2. **Backend neustarten**: Backend-Prozess killen und neu starten
+3. **Login testen**: Sicherstellen dass Auth noch funktioniert
+4. **Frontend lint**: `cd frontend && npm run lint`

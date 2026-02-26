@@ -32,6 +32,7 @@ function moveInteractive() {
 
 const categoryLabels = {
   marketing: 'Marketing',
+  sales: 'Sales & CRM',
   system: 'System & Tools'
 }
 
@@ -175,27 +176,27 @@ onUnmounted(() => {
               {{ categoryLabels[category] || category }}
             </p>
             <div
-              class="grid grid-cols-3 justify-items-center gap-x-10 gap-y-8 sm:grid-cols-4 lg:grid-cols-6"
+              class="grid grid-cols-2 justify-items-center gap-x-14 gap-y-12 sm:grid-cols-3 lg:grid-cols-5"
             >
               <button
                 v-for="mod in mods"
                 :key="mod.name"
-                class="group flex w-20 flex-col items-center gap-2.5"
+                class="group flex w-[120px] flex-col items-center gap-4"
                 @click="navigateTo(mod)"
               >
                 <div class="relative">
                   <div
-                    class="relative flex h-[68px] w-[68px] items-center justify-center rounded-[18px] transition-all duration-300 group-hover:scale-110"
+                    class="relative flex h-[102px] w-[102px] items-center justify-center rounded-[27px] transition-all duration-300 group-hover:scale-110"
                   >
                     <div
-                      class="absolute inset-0 rounded-[18px] opacity-[0.15] shadow-lg transition-all duration-300 group-hover:opacity-100 group-hover:shadow-xl"
+                      class="absolute inset-0 rounded-[27px] opacity-[0.15] shadow-lg transition-all duration-300 group-hover:opacity-100 group-hover:shadow-xl"
                       :style="{
                         background: `linear-gradient(135deg, ${mod.color}, ${mod.color}CC)`,
-                        boxShadow: `0 4px 14px ${mod.color}30`
+                        boxShadow: `0 6px 20px ${mod.color}30`
                       }"
                     />
                     <svg
-                      class="relative h-7 w-7 text-go4-secondary drop-shadow dark:text-white"
+                      class="relative h-11 w-11 text-go4-secondary drop-shadow dark:text-white"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
@@ -206,13 +207,13 @@ onUnmounted(() => {
                   </div>
                   <span
                     v-if="mod.badge_count > 0"
-                    class="absolute -right-1 -top-1 flex h-5 min-w-5 animate-pulse items-center justify-center rounded-full bg-red-500 px-1 text-xs font-bold text-white"
+                    class="absolute -right-1 -top-1 flex h-6 min-w-6 animate-pulse items-center justify-center rounded-full bg-red-500 px-1.5 text-sm font-bold text-white"
                   >
                     {{ mod.badge_count > 99 ? '99+' : mod.badge_count }}
                   </span>
                 </div>
                 <span
-                  class="text-center text-[11px] font-medium text-go4-secondary transition-colors dark:text-white"
+                  class="text-center text-base font-medium text-go4-secondary transition-colors dark:text-white"
                 >
                   {{ mod.label }}
                 </span>

@@ -15,16 +15,35 @@ export const useModuleStore = defineStore('modules', () => {
       if (!groups[cat]) groups[cat] = []
       groups[cat].push(mod)
     }
-    // Ensure marketing comes first, then system
+    // Sort modules within sales group: Funnels, CRM, Kontakte
+    if (groups.sales) {
+      const salesOrder = ['funnels', 'crm', 'contacts']
+      groups.sales.sort((a, b) => {
+        const aIdx = salesOrder.indexOf(a.name)
+        const bIdx = salesOrder.indexOf(b.name)
+        if (aIdx === -1 && bIdx === -1) return 0
+        if (aIdx === -1) return 1
+        if (bIdx === -1) return -1
+        return aIdx - bIdx
+      })
+    }
+    // Category order: Marketing first, then Sales, then system
+    const categoryOrder = ['marketing', 'sales', 'system']
     const ordered = {}
-    if (groups.marketing) ordered.marketing = groups.marketing
+    for (const cat of categoryOrder) {
+      if (groups[cat]) ordered[cat] = groups[cat]
+    }
+    // Add any remaining categories
     for (const [key, val] of Object.entries(groups)) {
-      if (key !== 'marketing') ordered[key] = val
+      if (!ordered[key]) ordered[key] = val
     }
     return ordered
   })
 
   const appModules = computed(() => modules.value.filter((m) => m.application))
+
+  // Group ordering: SALES + MARKETING first, SYSTEM + TOOLS last
+  const groupOrder = ['SALES', 'MARKETING', 'CONTENT', 'VERWALTUNG', 'SYSTEM', 'TOOLS']
 
   const sidebarGroups = computed(() => {
     const groups = {}
@@ -40,10 +59,21 @@ export const useModuleStore = defineStore('modules', () => {
         order: mod.sidebar.order || 99
       })
     }
-    return Object.entries(groups).map(([label, items]) => ({
-      label,
-      items: items.sort((a, b) => a.order - b.order)
-    }))
+    // Sort groups by predefined order
+    const sortedGroups = Object.entries(groups)
+      .map(([label, items]) => ({
+        label,
+        items: items.sort((a, b) => a.order - b.order)
+      }))
+      .sort((a, b) => {
+        const aIdx = groupOrder.indexOf(a.label)
+        const bIdx = groupOrder.indexOf(b.label)
+        if (aIdx === -1 && bIdx === -1) return a.label.localeCompare(b.label)
+        if (aIdx === -1) return 1
+        if (bIdx === -1) return -1
+        return aIdx - bIdx
+      })
+    return sortedGroups
   })
 
   async function fetchModules() {

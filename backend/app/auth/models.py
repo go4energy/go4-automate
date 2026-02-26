@@ -54,6 +54,35 @@ class User(TimestampMixin, Base):
 
     groups = relationship("Group", secondary=user_groups, back_populates="users")
 
+    # Ownership relationships
+    owned_contacts = relationship("Contact", back_populates="owner", lazy="selectin")
+    owned_companies = relationship("Company", back_populates="owner", lazy="selectin")
+    owned_deals = relationship("CrmDeal", back_populates="owner", lazy="selectin")
+
+    # CRM relationships
+    crm_activities = relationship("CrmActivity", back_populates="user", lazy="selectin")
+    assigned_tasks = relationship(
+        "CrmTask",
+        foreign_keys="CrmTask.assigned_to",
+        back_populates="assignee",
+        lazy="selectin",
+    )
+    created_tasks = relationship(
+        "CrmTask",
+        foreign_keys="CrmTask.created_by",
+        back_populates="creator",
+        lazy="selectin",
+    )
+
+    # Funnels relationships
+    owned_funnels = relationship("Funnel", back_populates="owner", lazy="selectin")
+    funnel_prospects = relationship(
+        "FunnelProspect", back_populates="owner", lazy="selectin"
+    )
+    funnel_activities_created = relationship(
+        "FunnelActivity", back_populates="user", lazy="selectin"
+    )
+
     __table_args__ = (
         UniqueConstraint("tenant_id", "email", name="uq_users_tenant_email"),
         Index("ix_users_tenant", "tenant_id"),

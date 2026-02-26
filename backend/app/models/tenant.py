@@ -32,11 +32,11 @@ class Tenant(TimestampMixin, Base):
     creator_calendar = relationship(
         "CreatorCalendar", back_populates="tenant", lazy="selectin"
     )
-    distributor_campaigns = relationship(
-        "DistributorCampaign", back_populates="tenant", lazy="selectin"
+    campaigns = relationship(
+        "Campaign", back_populates="tenant", lazy="selectin"
     )
-    distributor_performances = relationship(
-        "DistributorPerformance", back_populates="tenant", lazy="selectin"
+    campaign_performances = relationship(
+        "CampaignPerformance", back_populates="tenant", lazy="selectin"
     )
     collector_groups = relationship(
         "CollectorGroup", back_populates="tenant", lazy="selectin"
@@ -49,6 +49,35 @@ class Tenant(TimestampMixin, Base):
     )
     collector_topics = relationship(
         "CollectorTopic", back_populates="tenant", lazy="selectin"
+    )
+
+    # Contacts
+    contacts = relationship("Contact", back_populates="tenant", lazy="selectin")
+    companies = relationship("Company", back_populates="tenant", lazy="selectin")
+
+    # CRM
+    crm_pipelines = relationship("CrmPipeline", back_populates="tenant", lazy="selectin")
+    crm_pipeline_stages = relationship(
+        "CrmPipelineStage", back_populates="tenant", lazy="selectin"
+    )
+    crm_deals = relationship("CrmDeal", back_populates="tenant", lazy="selectin")
+    crm_activities = relationship("CrmActivity", back_populates="tenant", lazy="selectin")
+    crm_tasks = relationship("CrmTask", back_populates="tenant", lazy="selectin")
+
+    # Funnels
+    funnels = relationship("Funnel", back_populates="tenant", lazy="selectin")
+    funnel_stages = relationship("FunnelStage", back_populates="tenant", lazy="selectin")
+    funnel_companies = relationship(
+        "FunnelCompany", back_populates="tenant", lazy="selectin"
+    )
+    funnel_prospects = relationship(
+        "FunnelProspect", back_populates="tenant", lazy="selectin"
+    )
+    funnel_activities = relationship(
+        "FunnelActivity", back_populates="tenant", lazy="selectin"
+    )
+    funnel_handoffs = relationship(
+        "FunnelHandoff", back_populates="tenant", lazy="selectin"
     )
 
     # Shared
