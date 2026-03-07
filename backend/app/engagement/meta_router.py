@@ -20,11 +20,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.engagement.meta_models import MetaEventName
 from app.engagement.meta_schemas import (
     ConversionEventList,
     ConversionEventResponse,
-    EventName,
     EventStats,
     MetaIntegrationCreate,
     MetaIntegrationResponse,
@@ -35,7 +33,7 @@ from app.engagement.meta_schemas import (
     TestEventResponse,
 )
 from app.engagement.meta_service import MetaConversionsService
-from app.utils.dependencies import get_current_tenant
+from app.utils.dependencies import get_current_tenant_id
 
 router = APIRouter(prefix="/meta", tags=["meta-conversions"])
 
@@ -45,7 +43,7 @@ router = APIRouter(prefix="/meta", tags=["meta-conversions"])
 
 async def get_meta_service(
     db: AsyncSession = Depends(get_db),
-    tenant_id: str = Depends(get_current_tenant),
+    tenant_id: str = Depends(get_current_tenant_id),
 ) -> MetaConversionsService:
     """
     Get MetaConversionsService instance for current tenant.
@@ -178,7 +176,7 @@ async def create_integration(
             test_mode=data.test_mode,
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
     # Mask token for response
     masked_token = f"{'*' * 20}{integration.access_token[-4:]}"
@@ -234,7 +232,7 @@ async def update_integration(
             test_mode=data.test_mode,
         )
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
     # Mask token for response
     masked_token = f"{'*' * 20}{integration.access_token[-4:]}"
@@ -411,6 +409,7 @@ async def get_event(
 
     # Find by ID
     from sqlalchemy import select
+
     from app.engagement.meta_models import ConversionEvent
 
     result = await service.db.execute(

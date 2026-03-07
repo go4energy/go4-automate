@@ -13,11 +13,12 @@ from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from httpx import Response
 
-from app.engagement.meta_models import ConversionEvent, MetaEventName, MetaIntegration
+# Import all related models to ensure SQLAlchemy registry is properly configured
+from app.contacts.models import Contact  # noqa: F401
+from app.engagement.meta_models import MetaEventName, MetaIntegration
 from app.engagement.meta_service import MetaConversionsService
-
+from app.engagement.models import EngagementPipeline, PipelineEnrollment  # noqa: F401
 
 # ============== Fixtures ==============
 
@@ -75,7 +76,7 @@ class TestPIIHashing:
     def test_hash_pii_basic(self, meta_service):
         """Test basic PII hashing."""
         result = meta_service.hash_pii("test@example.com")
-        expected = hashlib.sha256("test@example.com".encode()).hexdigest()
+        expected = hashlib.sha256(b"test@example.com").hexdigest()
         assert result == expected
 
     def test_hash_pii_lowercase(self, meta_service):
@@ -149,7 +150,7 @@ class TestBuildUserData:
         assert len(result["em"]) == 1
 
         # Check email is hashed correctly (lowercase, trimmed)
-        expected_email_hash = hashlib.sha256("test@example.com".encode()).hexdigest()
+        expected_email_hash = hashlib.sha256(b"test@example.com").hexdigest()
         assert result["em"][0] == expected_email_hash
 
         # Check external_id is contact ID
@@ -223,7 +224,7 @@ class TestIntegrationManagement:
         mock_result.scalar_one_or_none = MagicMock(return_value=None)
         mock_db.execute = AsyncMock(return_value=mock_result)
 
-        integration = await meta_service.create_integration(
+        await meta_service.create_integration(
             pixel_id="1234567890123456",
             access_token="EAAtest123",
             test_mode=True,

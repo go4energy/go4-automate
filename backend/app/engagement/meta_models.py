@@ -17,7 +17,7 @@ from app.database import Base
 
 if TYPE_CHECKING:
     from app.contacts.models import Contact
-    from app.engagement.models import Pipeline, PipelineEnrollment
+    from app.engagement.models import EngagementPipeline, PipelineEnrollment
 
 
 class MetaIntegration(Base):
@@ -149,7 +149,7 @@ class ConversionEvent(Base):
         "MetaIntegration", back_populates="events"
     )
     contact: Mapped["Contact | None"] = relationship("Contact", lazy="selectin")
-    pipeline: Mapped["Pipeline | None"] = relationship("Pipeline", lazy="selectin")
+    pipeline: Mapped["EngagementPipeline | None"] = relationship("EngagementPipeline", lazy="selectin")
     enrollment: Mapped["PipelineEnrollment | None"] = relationship(
         "PipelineEnrollment", lazy="selectin"
     )

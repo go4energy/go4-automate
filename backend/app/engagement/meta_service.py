@@ -16,7 +16,7 @@ Usage:
 
 import hashlib
 import re
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -121,7 +121,7 @@ class MetaConversionsService:
             integration.ad_account_id = ad_account_id
             integration.test_mode = test_mode
             integration.is_active = True
-            integration.updated_at = datetime.utcnow()
+            integration.updated_at = datetime.now(UTC)
         else:
             # Create new
             integration = MetaIntegration(
@@ -192,7 +192,7 @@ class MetaConversionsService:
         if test_mode is not None:
             integration.test_mode = test_mode
 
-        integration.updated_at = datetime.utcnow()
+        integration.updated_at = datetime.now(UTC)
         await self.db.commit()
         await self.db.refresh(integration)
 
@@ -211,7 +211,7 @@ class MetaConversionsService:
             return False
 
         integration.is_active = False
-        integration.updated_at = datetime.utcnow()
+        integration.updated_at = datetime.now(UTC)
         await self.db.commit()
 
         self._integration = None
@@ -361,7 +361,7 @@ class MetaConversionsService:
             return None
 
         # Build event payload
-        event_time = datetime.utcnow()
+        event_time = datetime.now(UTC)
         event_id = self._generate_event_id(contact.id, event_name, event_time)
 
         user_data = self.build_user_data(contact)
@@ -417,7 +417,7 @@ class MetaConversionsService:
                 )
 
                 event_log.response_code = response.status_code
-                event_log.sent_at = datetime.utcnow()
+                event_log.sent_at = datetime.now(UTC)
 
                 if response.status_code == 200:
                     response_data = response.json()
@@ -425,7 +425,7 @@ class MetaConversionsService:
                     event_log.status = "test" if integration.test_mode else "sent"
 
                     # Update integration stats
-                    integration.last_event_at = datetime.utcnow()
+                    integration.last_event_at = datetime.now(UTC)
                     integration.total_events_sent += 1
 
                     logger.info(
@@ -667,7 +667,7 @@ class MetaConversionsService:
         if contact_id:
             query = query.where(ConversionEvent.contact_id == contact_id)
         if days:
-            cutoff = datetime.utcnow() - timedelta(days=days)
+            cutoff = datetime.now(UTC) - timedelta(days=days)
             query = query.where(ConversionEvent.event_time >= cutoff)
 
         # Count total
@@ -692,7 +692,7 @@ class MetaConversionsService:
         Returns:
             Statistics dict with totals, success rate, and daily breakdown
         """
-        cutoff = datetime.utcnow() - timedelta(days=days)
+        cutoff = datetime.now(UTC) - timedelta(days=days)
 
         # Base query
         base_query = select(ConversionEvent).where(
@@ -761,7 +761,7 @@ class MetaConversionsService:
 
         return {
             "period_start": cutoff.isoformat(),
-            "period_end": datetime.utcnow().isoformat(),
+            "period_end": datetime.now(UTC).isoformat(),
             "total_events": total,
             "events_sent": sent,
             "events_failed": failed,
