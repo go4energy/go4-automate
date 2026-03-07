@@ -77,9 +77,11 @@ from app.utils.dependencies import get_current_tenant_id
 router = APIRouter(prefix="/engagement", tags=["engagement"])
 
 # Include sub-routers
-from app.engagement.meta_router import router as meta_router
+from app.engagement.audience_router import router as audience_router  # noqa: E402
+from app.engagement.meta_router import router as meta_router  # noqa: E402
 
 router.include_router(meta_router)
+router.include_router(audience_router)
 
 
 # ============== Dashboard ==============

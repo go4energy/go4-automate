@@ -122,3 +122,87 @@ export function getMetaStats(days = 7) {
 export function getSetupGuide() {
   return api.get(`${BASE}/setup-guide`)
 }
+
+// ============== Custom Audiences ==============
+
+const AUDIENCES_BASE = '/v1/engagement/audiences'
+
+/**
+ * List Custom Audiences.
+ * @param {Object} params - Query parameters
+ * @param {number} [params.pipeline_id] - Filter by pipeline
+ * @param {boolean} [params.is_active] - Filter by active status
+ * @param {number} [params.limit=100] - Max results
+ * @param {number} [params.offset=0] - Skip count
+ * @returns {Promise<{items, total}>}
+ */
+export function listAudiences(params = {}) {
+  return api.get(AUDIENCES_BASE, { params })
+}
+
+/**
+ * Create a Custom Audience.
+ * @param {Object} data - Audience configuration
+ * @param {string} data.name - Audience name
+ * @param {string} [data.description] - Description
+ * @param {number} [data.pipeline_id] - Pipeline to filter
+ * @param {Object} [data.segment_filter] - Segment filter criteria
+ * @param {string} [data.sync_mode='manual'] - Sync mode
+ * @param {boolean} [data.create_in_meta=true] - Create in Meta immediately
+ * @returns {Promise<CustomAudience>}
+ */
+export function createAudience(data) {
+  return api.post(AUDIENCES_BASE, data)
+}
+
+/**
+ * Get a Custom Audience by ID.
+ * @param {number} audienceId - Audience ID
+ * @returns {Promise<CustomAudience>}
+ */
+export function getAudience(audienceId) {
+  return api.get(`${AUDIENCES_BASE}/${audienceId}`)
+}
+
+/**
+ * Update a Custom Audience.
+ * @param {number} audienceId - Audience ID
+ * @param {Object} data - Fields to update
+ * @returns {Promise<CustomAudience>}
+ */
+export function updateAudience(audienceId, data) {
+  return api.put(`${AUDIENCES_BASE}/${audienceId}`, data)
+}
+
+/**
+ * Delete a Custom Audience.
+ * @param {number} audienceId - Audience ID
+ * @param {boolean} [deleteInMeta=false] - Also delete in Meta
+ * @returns {Promise<void>}
+ */
+export function deleteAudience(audienceId, deleteInMeta = false) {
+  return api.delete(`${AUDIENCES_BASE}/${audienceId}`, {
+    params: { delete_in_meta: deleteInMeta }
+  })
+}
+
+/**
+ * Sync contacts to a Custom Audience.
+ * @param {number} audienceId - Audience to sync
+ * @returns {Promise<AudienceSyncLog>}
+ */
+export function syncAudience(audienceId) {
+  return api.post(`${AUDIENCES_BASE}/${audienceId}/sync`)
+}
+
+/**
+ * Get sync logs for audiences.
+ * @param {Object} params - Query parameters
+ * @param {number} [params.audience_id] - Filter by audience
+ * @param {number} [params.limit=50] - Max results
+ * @param {number} [params.offset=0] - Skip count
+ * @returns {Promise<{items, total}>}
+ */
+export function getAudienceSyncLogs(params = {}) {
+  return api.get(`${AUDIENCES_BASE}/logs`, { params })
+}

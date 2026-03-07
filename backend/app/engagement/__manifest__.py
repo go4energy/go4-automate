@@ -175,6 +175,17 @@ manifest = {
                     "tab": "meta",
                 },
             },
+            # Custom Audiences
+            {
+                "path": "audiences",
+                "name": "engagement-audiences",
+                "view": "EngagementView",
+                "meta": {
+                    "title": "Audiences",
+                    "breadcrumb": {"label": "Audiences", "parent": "engagement"},
+                    "tab": "audiences",
+                },
+            },
         ],
     },
     # AI Setup Configuration

@@ -9,7 +9,6 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
 # ============== Enums ==============
 
 
@@ -231,3 +230,139 @@ class SetupGuide(BaseModel):
             },
         ]
     )
+
+
+# ============== Custom Audiences ==============
+
+
+class SyncModeEnum(str, Enum):
+    """Sync mode for Custom Audiences."""
+
+    MANUAL = "manual"
+    DAILY = "daily"
+    REALTIME = "realtime"
+
+
+class SyncStatusEnum(str, Enum):
+    """Status of audience sync operation."""
+
+    PENDING = "pending"
+    SUCCESS = "success"
+    PARTIAL = "partial"
+    FAILED = "failed"
+
+
+class SegmentFilter(BaseModel):
+    """Filter criteria for audience segment."""
+
+    stages: list[str] | None = Field(
+        None, description="Pipeline stages to include (e.g., ['engaged', 'qualified'])"
+    )
+    statuses: list[str] | None = Field(
+        None, description="Enrollment statuses to include (e.g., ['active'])"
+    )
+    tags: list[str] | None = Field(None, description="Contact tags to require")
+    source_modules: list[str] | None = Field(
+        None, description="Source modules to filter by"
+    )
+
+
+class CustomAudienceCreate(BaseModel):
+    """Schema for creating a Custom Audience."""
+
+    name: str = Field(..., min_length=1, max_length=200, description="Audience name")
+    description: str | None = Field(None, max_length=500)
+    pipeline_id: int | None = Field(None, description="Filter to specific pipeline")
+    segment_filter: SegmentFilter | None = Field(
+        None, description="Segment filter criteria"
+    )
+    sync_mode: SyncModeEnum = Field(
+        SyncModeEnum.MANUAL, description="When to sync audience"
+    )
+    create_in_meta: bool = Field(
+        True, description="Create audience in Meta immediately"
+    )
+
+
+class CustomAudienceUpdate(BaseModel):
+    """Schema for updating a Custom Audience."""
+
+    name: str | None = Field(None, min_length=1, max_length=200)
+    description: str | None = Field(None, max_length=500)
+    segment_filter: SegmentFilter | None = None
+    sync_mode: SyncModeEnum | None = None
+    is_active: bool | None = None
+
+
+class CustomAudienceResponse(BaseModel):
+    """Schema for Custom Audience response."""
+
+    id: int
+    tenant_id: str
+    name: str
+    description: str | None
+    meta_audience_id: str | None
+    meta_audience_name: str | None
+    pipeline_id: int | None
+    pipeline_name: str | None = None
+    segment_filter: dict
+    sync_mode: str
+    is_active: bool
+    audience_size: int
+    last_sync_at: datetime | None
+    last_sync_count: int
+    last_sync_status: str | None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class CustomAudienceList(BaseModel):
+    """Paginated list of Custom Audiences."""
+
+    items: list[CustomAudienceResponse]
+    total: int
+
+
+class AudienceSyncRequest(BaseModel):
+    """Request to sync an audience."""
+
+    # No fields needed, just triggers sync
+
+
+class AudienceSyncLogResponse(BaseModel):
+    """Schema for sync log response."""
+
+    id: int
+    audience_id: int
+    audience_name: str | None = None
+    operation: str
+    started_at: datetime
+    completed_at: datetime | None
+    contacts_processed: int
+    contacts_added: int
+    contacts_removed: int
+    contacts_failed: int
+    status: str
+    error_message: str | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AudienceSyncLogList(BaseModel):
+    """Paginated list of sync logs."""
+
+    items: list[AudienceSyncLogResponse]
+    total: int
+
+
+class AudienceStats(BaseModel):
+    """Statistics for Custom Audiences."""
+
+    total_audiences: int
+    active_audiences: int
+    total_contacts_synced: int
+    last_sync_at: datetime | None
+    audiences_by_pipeline: dict[str, int]
+    sync_success_rate: float

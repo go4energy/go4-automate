@@ -188,3 +188,141 @@ class MetaEventName:
             cls.SCHEDULE,
             cls.SUBMIT_APPLICATION,
         ]
+
+
+class CustomAudience(Base):
+    """
+    Mapping between Pipeline segments and Meta Custom Audiences.
+
+    Allows syncing contacts from specific pipeline stages to Meta
+    Custom Audiences for retargeting in ad campaigns.
+
+    Attributes:
+        name: Display name (e.g., "Solar KMU - Engaged")
+        meta_audience_id: The Custom Audience ID in Meta
+        segment_filter: JSON filter for which contacts to include
+        sync_mode: manual, daily, or realtime
+    """
+
+    __tablename__ = "custom_audiences"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    meta_integration_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("meta_integrations.id", ondelete="CASCADE"), nullable=False
+    )
+
+    # Audience Info
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Meta Audience Reference
+    meta_audience_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    meta_audience_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+    # Segment Definition
+    pipeline_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("engagement_pipelines.id", ondelete="SET NULL"), nullable=True
+    )
+    segment_filter: Mapped[dict] = mapped_column(
+        JSONB,
+        default=dict,
+        nullable=False,
+        comment="Filter: {stages: [], tags: [], source_modules: []}",
+    )
+
+    # Sync Configuration
+    sync_mode: Mapped[str] = mapped_column(
+        String(20), default="manual", nullable=False, comment="manual, daily, realtime"
+    )
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    # Statistics
+    audience_size: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_sync_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_sync_status: Mapped[str | None] = mapped_column(
+        String(20), nullable=True, comment="success, partial, failed"
+    )
+
+    # Lifecycle
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    # Relationships
+    integration: Mapped["MetaIntegration"] = relationship("MetaIntegration")
+    pipeline: Mapped["EngagementPipeline | None"] = relationship("EngagementPipeline")
+    sync_logs: Mapped[list["AudienceSyncLog"]] = relationship(
+        "AudienceSyncLog", back_populates="audience", cascade="all, delete-orphan"
+    )
+
+    def __repr__(self) -> str:
+        return f"<CustomAudience {self.name!r} size={self.audience_size}>"
+
+
+class AudienceSyncLog(Base):
+    """
+    Log of Custom Audience sync operations.
+
+    Records each sync attempt with statistics and any errors.
+    Useful for debugging and monitoring sync health.
+
+    Attributes:
+        operation: add, remove, replace
+        contacts_processed: Number of contacts in the batch
+        contacts_added: Successfully added to Meta
+        status: pending, success, partial, failed
+    """
+
+    __tablename__ = "audience_sync_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    audience_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("custom_audiences.id", ondelete="CASCADE"), nullable=False
+    )
+
+    # Operation Details
+    operation: Mapped[str] = mapped_column(
+        String(20), nullable=False, comment="add, remove, replace"
+    )
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Statistics
+    contacts_processed: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    contacts_added: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    contacts_removed: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    contacts_failed: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    # Result
+    status: Mapped[str] = mapped_column(
+        String(20), default="pending", nullable=False, comment="pending, success, partial, failed"
+    )
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    meta_response: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+    # Relationships
+    audience: Mapped["CustomAudience"] = relationship("CustomAudience", back_populates="sync_logs")
+
+    def __repr__(self) -> str:
+        return f"<AudienceSyncLog {self.operation} status={self.status}>"
+
+
+class SyncMode:
+    """Sync mode constants for Custom Audiences."""
+
+    MANUAL = "manual"
+    DAILY = "daily"
+    REALTIME = "realtime"
+
+    @classmethod
+    def all(cls) -> list[str]:
+        """Return all sync modes."""
+        return [cls.MANUAL, cls.DAILY, cls.REALTIME]

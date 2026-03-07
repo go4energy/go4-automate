@@ -8,6 +8,7 @@ import SearchInput from '@/components/ui/SearchInput.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 import MetaSetupTab from '@/components/engagement/MetaSetupTab.vue'
+import AudiencesTab from '@/components/engagement/AudiencesTab.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -33,7 +34,8 @@ const tabs = [
   { key: 'activities', label: 'Aktivitaeten', route: '/engagement/activities' },
   { key: 'ab-tests', label: 'A/B Tests', route: '/engagement/ab-tests' },
   { key: 'tracking', label: 'Tracking', route: '/engagement/tracking' },
-  { key: 'meta', label: 'Meta', route: '/engagement/meta' }
+  { key: 'meta', label: 'Meta', route: '/engagement/meta' },
+  { key: 'audiences', label: 'Audiences', route: '/engagement/audiences' }
 ]
 
 const stageLabels = {
@@ -1546,6 +1548,14 @@ function formatChannel(channel) {
         class="mt-6"
       >
         <MetaSetupTab />
+      </div>
+
+      <!-- Audiences Tab -->
+      <div
+        v-else-if="activeTab === 'audiences'"
+        class="mt-6"
+      >
+        <AudiencesTab />
       </div>
     </div>
 
