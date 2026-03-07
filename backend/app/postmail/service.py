@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.contacts.models import Contact
+from app.engagement.activity_helper import Channel, Direction, log_activity
 from app.postmail.models import (
     BatchStatus,
     LetterStatus,
@@ -582,11 +583,31 @@ class PostmailService:
         batch.status = BatchStatus.SENT
         batch.sent_at = datetime.now(UTC)
 
-        # Update all letters
+        # Update all letters and log activities
         letters, _ = await self.list_letters(batch_id=batch_id, limit=10000)
         for letter in letters:
             letter.status = LetterStatus.SENT
             letter.sent_at = datetime.now(UTC)
+
+            # Log activity for letters with contact
+            if letter.contact_id:
+                try:
+                    await log_activity(
+                        db=self.db,
+                        tenant_id=self.tenant_id,
+                        contact_id=letter.contact_id,
+                        channel=Channel.POSTMAIL,
+                        activity_type="letter_sent",
+                        direction=Direction.OUTBOUND,
+                        subject=f"Brief versendet: {letter.recipient_name}",
+                        content=letter.content_html[:500] if letter.content_html else None,
+                        source_module="postmail",
+                        pipeline_id=letter.pipeline_id,
+                        metadata={"letter_id": letter.id, "batch_id": batch_id},
+                        commit=False,
+                    )
+                except Exception as e:
+                    logger.warning(f"Activity logging failed for letter {letter.id}: {e}")
 
         await self.db.commit()
         await self.db.refresh(batch)
