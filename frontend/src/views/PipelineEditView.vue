@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useEngagementStore } from '@/stores/engagement'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import Breadcrumb from '@/components/ui/Breadcrumb.vue'
+import PipelineSetupWizard from '@/components/engagement/PipelineSetupWizard.vue'
 
 const props = defineProps({
   id: { type: [String, Number], default: null }
@@ -19,6 +20,32 @@ const isEdit = computed(() => !!pipelineId.value)
 const loading = ref(false)
 const saving = ref(false)
 const error = ref(null)
+const showWizard = ref(false)
+
+function handleWizardComplete(result) {
+  showWizard.value = false
+
+  if (result.fill_form && result.pipeline_config) {
+    // Fill form with AI-generated config
+    const config = result.pipeline_config
+    formData.value = {
+      name: config.name || formData.value.name,
+      slug: config.slug || generateSlug(config.name || ''),
+      product_name: config.product_name || formData.value.product_name,
+      product_description: config.product_description || formData.value.product_description,
+      target_audience: config.target_audience || formData.value.target_audience,
+      channels: config.channels || formData.value.channels,
+      goal: config.goal || formData.value.goal,
+      tone_of_voice: config.tone_of_voice || formData.value.tone_of_voice,
+      min_days_between_touches: config.min_days_between_touches || formData.value.min_days_between_touches,
+      is_active: true,
+      playbook: config.playbook || formData.value.playbook
+    }
+  } else if (result.pipeline) {
+    // Pipeline was created by the wizard, redirect to detail
+    router.push(`/engagement/pipelines/${result.pipeline.id}`)
+  }
+}
 
 const formData = ref({
   name: '',
@@ -162,7 +189,30 @@ function cancel() {
     <PageHeader
       :title="isEdit ? 'Pipeline bearbeiten' : 'Neue Pipeline'"
       :subtitle="isEdit ? formData.name : 'Engagement-Pipeline erstellen'"
-    />
+    >
+      <template #actions>
+        <button
+          v-if="!isEdit"
+          class="flex items-center gap-2 rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white hover:bg-go4-primary-dark"
+          @click="showWizard = true"
+        >
+          <svg
+            class="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M13 10V3L4 14h7v7l9-11h-7z"
+            />
+          </svg>
+          AI-Assistent
+        </button>
+      </template>
+    </PageHeader>
 
     <Breadcrumb class="mx-4 mb-2" />
 
@@ -420,5 +470,12 @@ function cancel() {
         </div>
       </form>
     </div>
+
+    <!-- AI Setup Wizard -->
+    <PipelineSetupWizard
+      :visible="showWizard"
+      @close="showWizard = false"
+      @complete="handleWizardComplete"
+    />
   </div>
 </template>
