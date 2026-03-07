@@ -11,8 +11,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision = "046_optimization_engine"
-down_revision = "045_custom_audiences"
+revision = "046"
+down_revision = "045"
 branch_labels = None
 depends_on = None
 

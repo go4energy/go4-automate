@@ -1,6 +1,7 @@
 """Shared test fixtures."""
 
 import pytest
+import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -53,7 +54,7 @@ def anyio_backend():
     return "asyncio"
 
 
-@pytest.fixture(autouse=True)
+@pytest_asyncio.fixture(autouse=True)
 async def setup_database():
     """Create tables before each test, drop after."""
     async with test_engine.begin() as conn:
@@ -63,14 +64,14 @@ async def setup_database():
         await conn.run_sync(Base.metadata.drop_all)
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def db_session():
     """Provide a test DB session."""
     async with test_session() as session:
         yield session
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def client():
     """Async HTTP test client with DB override and auth bypass."""
     app.dependency_overrides[get_db] = override_get_db
@@ -85,7 +86,7 @@ async def client():
     app.dependency_overrides.clear()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def test_tenant(client):
     """Create a test tenant and return its data."""
     response = await client.post(
