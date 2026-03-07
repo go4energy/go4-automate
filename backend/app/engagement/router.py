@@ -73,7 +73,13 @@ from app.engagement.service import (
 from app.exceptions import AppError, DuplicateError, NotFoundError, ValidationError
 from app.utils.dependencies import get_current_tenant_id
 
+# Main router
 router = APIRouter(prefix="/engagement", tags=["engagement"])
+
+# Include sub-routers
+from app.engagement.meta_router import router as meta_router
+
+router.include_router(meta_router)
 
 
 # ============== Dashboard ==============

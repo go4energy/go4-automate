@@ -164,6 +164,17 @@ manifest = {
                     "tab": "tracking",
                 },
             },
+            # Meta Conversions API
+            {
+                "path": "meta",
+                "name": "engagement-meta",
+                "view": "EngagementView",
+                "meta": {
+                    "title": "Meta CAPI",
+                    "breadcrumb": {"label": "Meta", "parent": "engagement"},
+                    "tab": "meta",
+                },
+            },
         ],
     },
     # AI Setup Configuration

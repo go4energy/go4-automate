@@ -7,6 +7,7 @@ import Breadcrumb from '@/components/ui/Breadcrumb.vue'
 import SearchInput from '@/components/ui/SearchInput.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
+import MetaSetupTab from '@/components/engagement/MetaSetupTab.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -31,7 +32,8 @@ const tabs = [
   { key: 'approval', label: 'Freigabe', route: '/engagement/approval' },
   { key: 'activities', label: 'Aktivitaeten', route: '/engagement/activities' },
   { key: 'ab-tests', label: 'A/B Tests', route: '/engagement/ab-tests' },
-  { key: 'tracking', label: 'Tracking', route: '/engagement/tracking' }
+  { key: 'tracking', label: 'Tracking', route: '/engagement/tracking' },
+  { key: 'meta', label: 'Meta', route: '/engagement/meta' }
 ]
 
 const stageLabels = {
@@ -1536,6 +1538,14 @@ function formatChannel(channel) {
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- Meta Tab -->
+      <div
+        v-else-if="activeTab === 'meta'"
+        class="mt-6"
+      >
+        <MetaSetupTab />
       </div>
     </div>
 
