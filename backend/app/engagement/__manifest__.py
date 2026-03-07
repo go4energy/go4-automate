@@ -186,6 +186,17 @@ manifest = {
                     "tab": "audiences",
                 },
             },
+            # Optimization
+            {
+                "path": "optimization",
+                "name": "engagement-optimization",
+                "view": "EngagementView",
+                "meta": {
+                    "title": "Optimierung",
+                    "breadcrumb": {"label": "Optimierung", "parent": "engagement"},
+                    "tab": "optimization",
+                },
+            },
         ],
     },
     # AI Setup Configuration

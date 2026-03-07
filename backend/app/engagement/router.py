@@ -79,9 +79,11 @@ router = APIRouter(prefix="/engagement", tags=["engagement"])
 # Include sub-routers
 from app.engagement.audience_router import router as audience_router  # noqa: E402
 from app.engagement.meta_router import router as meta_router  # noqa: E402
+from app.engagement.optimizer_router import router as optimizer_router  # noqa: E402
 
 router.include_router(meta_router)
 router.include_router(audience_router)
+router.include_router(optimizer_router)
 
 
 # ============== Dashboard ==============

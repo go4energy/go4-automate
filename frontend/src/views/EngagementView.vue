@@ -9,6 +9,7 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 import MetaSetupTab from '@/components/engagement/MetaSetupTab.vue'
 import AudiencesTab from '@/components/engagement/AudiencesTab.vue'
+import OptimizationTab from '@/components/engagement/OptimizationTab.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -35,7 +36,8 @@ const tabs = [
   { key: 'ab-tests', label: 'A/B Tests', route: '/engagement/ab-tests' },
   { key: 'tracking', label: 'Tracking', route: '/engagement/tracking' },
   { key: 'meta', label: 'Meta', route: '/engagement/meta' },
-  { key: 'audiences', label: 'Audiences', route: '/engagement/audiences' }
+  { key: 'audiences', label: 'Audiences', route: '/engagement/audiences' },
+  { key: 'optimization', label: 'Optimierung', route: '/engagement/optimization' }
 ]
 
 const stageLabels = {
@@ -1556,6 +1558,14 @@ function formatChannel(channel) {
         class="mt-6"
       >
         <AudiencesTab />
+      </div>
+
+      <!-- Optimization Tab -->
+      <div
+        v-else-if="activeTab === 'optimization'"
+        class="mt-6"
+      >
+        <OptimizationTab />
       </div>
     </div>
 
