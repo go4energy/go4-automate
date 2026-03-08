@@ -164,3 +164,23 @@ export const executeEngagementAction = (actionId, contentOverride = null) =>
   api.post(`${BASE}/engagement/actions/${actionId}/execute`, {
     content_override: contentOverride
   })
+
+// ============== Contact Bridge ==============
+
+export const importToCentralContact = (contactId) =>
+  api.post(`${BASE}/contacts/${contactId}/import-to-contacts`)
+
+export const bulkImportToCentralContacts = (linkedinContactIds) =>
+  api.post(`${BASE}/contacts/bulk-import-to-contacts`, {
+    linkedin_contact_ids: linkedinContactIds
+  })
+
+export const linkToCentralContact = (linkedinContactId, contactId) =>
+  api.post(`${BASE}/contacts/${linkedinContactId}/link-contact`, {
+    contact_id: contactId
+  })
+
+export const importConversations = (linkedinContactId, contactId) =>
+  api.post(`${BASE}/contacts/${linkedinContactId}/import-conversations`, {
+    contact_id: contactId
+  })

@@ -281,6 +281,7 @@ async def log_linkedin_activity(
     direction: str | None = None,
     external_id: str | None = None,
     performed_by: int | None = None,
+    performed_at: datetime | None = None,
     metadata: dict[str, Any] | None = None,
     commit: bool = True,
 ) -> ContactActivity:
@@ -319,6 +320,7 @@ async def log_linkedin_activity(
         source_module="linkedin",
         external_id=external_id,
         performed_by=performed_by,
+        performed_at=performed_at,
         metadata=metadata,
         commit=commit,
     )
