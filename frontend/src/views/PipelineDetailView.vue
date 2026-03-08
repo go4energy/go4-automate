@@ -687,10 +687,10 @@ async function enrollSelected() {
 
     <!-- Delete Confirm Dialog -->
     <ConfirmDialog
-      :show="showDeleteDialog"
+      :open="showDeleteDialog"
       title="Pipeline loeschen?"
       :message="`Sind Sie sicher, dass Sie die Pipeline '${pipeline?.name}' loeschen moechten? Alle Enrollments werden ebenfalls geloescht.`"
-      confirm-label="Loeschen"
+      confirm-text="Loeschen"
       @confirm="deletePipeline"
       @cancel="showDeleteDialog = false"
     />

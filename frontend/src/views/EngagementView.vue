@@ -358,28 +358,7 @@ function formatChannel(channel) {
     <PageHeader
       title="Engagement"
       subtitle="Multi-Channel KI-gesteuertes Engagement"
-    >
-      <template #actions>
-        <button
-          v-if="activeTab === 'pipelines'"
-          class="flex items-center gap-2 rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white hover:bg-go4-primary-dark"
-          @click="createPipeline"
-        >
-          <svg
-            class="h-5 w-5"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-          >
-            <path
-              fill-rule="evenodd"
-              d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
-              clip-rule="evenodd"
-            />
-          </svg>
-          Neue Pipeline
-        </button>
-      </template>
-    </PageHeader>
+    />
 
     <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
       <Breadcrumb class="mb-4" />
@@ -611,13 +590,30 @@ function formatChannel(channel) {
         v-else-if="activeTab === 'pipelines'"
         class="mt-6"
       >
-        <!-- Filters -->
-        <div class="mb-6 flex items-center gap-4">
+        <!-- Header with search and add button -->
+        <div class="mb-6 flex items-center justify-between gap-4">
           <SearchInput
             v-model="searchQuery"
             placeholder="Pipeline suchen..."
             class="w-64"
           />
+          <button
+            class="flex items-center gap-2 rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white hover:bg-go4-primary-dark"
+            @click="createPipeline"
+          >
+            <svg
+              class="h-5 w-5"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                clip-rule="evenodd"
+              />
+            </svg>
+            Neue Pipeline
+          </button>
         </div>
 
         <EmptyState
@@ -1571,22 +1567,22 @@ function formatChannel(channel) {
 
     <!-- Delete Confirmation -->
     <ConfirmDialog
-      :show="showDeleteConfirm"
+      :open="showDeleteConfirm"
       title="Pipeline loeschen?"
       :message="`Moechtest du die Pipeline '${pipelineToDelete?.name}' wirklich loeschen? Alle Enrollments werden ebenfalls entfernt.`"
-      confirm-label="Loeschen"
-      confirm-variant="danger"
+      confirm-text="Loeschen"
+      variant="danger"
       @confirm="deletePipeline"
       @cancel="showDeleteConfirm = false"
     />
 
     <!-- A/B Test Delete Confirmation -->
     <ConfirmDialog
-      :show="showDeleteABTestConfirm"
+      :open="showDeleteABTestConfirm"
       title="A/B Test loeschen?"
       :message="`Moechtest du den A/B Test '${abTestToDelete?.name}' wirklich loeschen?`"
-      confirm-label="Loeschen"
-      confirm-variant="danger"
+      confirm-text="Loeschen"
+      variant="danger"
       @confirm="deleteABTest"
       @cancel="showDeleteABTestConfirm = false"
     />
