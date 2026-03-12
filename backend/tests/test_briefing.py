@@ -849,7 +849,7 @@ async def test_oauth_authorize_redirect_microsoft(client, test_tenant):
     with patch("app.briefing.router.settings") as mock_settings:
         mock_settings.microsoft_client_id = "test-client-id"
         mock_settings.microsoft_tenant_id = "test-tenant-id"
-        mock_settings.app_url = "http://localhost:8001"
+        mock_settings.app_url = "http://localhost:8000"
         mock_settings.google_client_id = ""
         mock_settings.google_client_secret = ""
         mock_settings.microsoft_client_secret = ""
@@ -882,7 +882,7 @@ async def test_oauth_authorize_redirect_google(client, test_tenant):
 
     with patch("app.briefing.router.settings") as mock_settings:
         mock_settings.google_client_id = "google-test-id"
-        mock_settings.app_url = "http://localhost:8001"
+        mock_settings.app_url = "http://localhost:8000"
         mock_settings.microsoft_client_id = ""
         mock_settings.microsoft_client_secret = ""
         mock_settings.microsoft_tenant_id = ""

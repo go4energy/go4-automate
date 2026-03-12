@@ -1,5 +1,7 @@
 # go4-automate auf DGX Spark (GB10)
 
+> Sonderbetrieb: Diese Anleitung beschreibt einen nativen DGX-/GPU-Setup-Pfad. Der offizielle Repo-Standard bleibt `Docker First` gemäß `README.md` und `docs/admin-guide.md`.
+
 Setup-Dokumentation für die Installation auf NVIDIA DGX Spark mit Grace Blackwell (GB10).
 
 ## System-Info

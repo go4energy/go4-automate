@@ -109,8 +109,8 @@ SETUP_TOOLS = [
         },
     },
     {
-        "name": "update_distributor_config",
-        "description": "Aktualisiert Distributor-Konfiguration (Budget, CPL, Weather-Boost, etc.).",
+        "name": "update_campaigns_config",
+        "description": "Aktualisiert Campaigns-/Ads-Konfiguration (Budget, CPL, Weather-Boost, etc.).",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -284,7 +284,8 @@ class ToolExecutor:
             "create_collector_source": self._create_collector_source,
             "delete_collector_source": self._delete_collector_source,
             "update_creator_config": self._update_creator_config,
-            "update_distributor_config": self._update_distributor_config,
+            "update_campaigns_config": self._update_campaigns_config,
+            "update_distributor_config": self._update_campaigns_config,
             "check_integration_status": self._check_integration_status,
             "list_prompts": self._list_prompts,
             "get_setup_progress": self._get_setup_progress,
@@ -340,14 +341,10 @@ class ToolExecutor:
         tenant.config = current
         await self.db.flush()
 
-        # Update env file
-        self._update_env_file(updates)
+        TenantService.write_file_updates(self.tenant_id, updates)
 
         # Update local cache
         self.tenant_config.update(updates)
-
-        # Clear tenant config cache
-        TenantService._config_cache.pop(self.tenant_id, None)
 
         logger.info(
             "Tenant-Config aktualisiert: {keys} (Tenant: {tenant})",
@@ -355,29 +352,6 @@ class ToolExecutor:
             tenant=self.tenant_id,
         )
         return {"updated": list(updates.keys()), "success": True}
-
-    def _update_env_file(self, updates: dict) -> None:
-        """Write updated values to tenant env file."""
-        from pathlib import Path
-
-        env_path = Path(settings.tenant_config_dir) / f"{self.tenant_id}.env"
-        env_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # Read existing
-        existing = {}
-        if env_path.exists():
-            for line in env_path.read_text().splitlines():
-                line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    key, _, value = line.partition("=")
-                    existing[key.strip()] = value.strip()
-
-        # Merge
-        existing.update(updates)
-
-        # Write back
-        lines = [f"{k}={v}" for k, v in sorted(existing.items())]
-        env_path.write_text("\n".join(lines) + "\n")
 
     async def _list_collector_sources(self, _input: dict) -> dict:
         """List all collector sources."""
@@ -432,8 +406,8 @@ class ToolExecutor:
         """Update creator config (delegates to update_tenant_config)."""
         return await self._update_tenant_config(tool_input)
 
-    async def _update_distributor_config(self, tool_input: dict) -> dict:
-        """Update distributor config (delegates to update_tenant_config)."""
+    async def _update_campaigns_config(self, tool_input: dict) -> dict:
+        """Update campaigns config (delegates to update_tenant_config)."""
         return await self._update_tenant_config(tool_input)
 
     async def _check_integration_status(self, _input: dict) -> dict:
@@ -526,9 +500,9 @@ class ToolExecutor:
         creator_keys = ["CONTENT_PLATFORMS", "POSTS_PER_WEEK", "CONTENT_THEMES"]
         creator_set = sum(1 for k in creator_keys if config.get(k))
 
-        # Distributor config
-        distributor_keys = ["ADS_MONTHLY_BUDGET", "ADS_TARGET_CPL"]
-        distributor_set = sum(1 for k in distributor_keys if config.get(k))
+        # Campaigns config
+        campaigns_keys = ["ADS_MONTHLY_BUDGET", "ADS_TARGET_CPL"]
+        campaigns_set = sum(1 for k in campaigns_keys if config.get(k))
 
         # Briefing config
         briefing_configured = bool(
@@ -573,10 +547,10 @@ class ToolExecutor:
                     "configured": creator_set >= 2,
                     "details": f"{creator_set}/{len(creator_keys)} Felder",
                 },
-                "distributor": {
-                    "label": "Distributor",
-                    "configured": distributor_set >= 1,
-                    "details": f"{distributor_set}/{len(distributor_keys)} Felder",
+                "campaigns": {
+                    "label": "Campaigns",
+                    "configured": campaigns_set >= 1,
+                    "details": f"{campaigns_set}/{len(campaigns_keys)} Felder",
                 },
                 "briefing": {
                     "label": "Briefing",

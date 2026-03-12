@@ -11,7 +11,12 @@ from app.services.tenant import TenantService
 async def get_current_tenant_id(
     x_tenant_id: str | None = Header(None),
 ) -> str:
-    """Resolve tenant ID from X-Tenant-ID header or fallback to default."""
+    """Resolve tenant ID from X-Tenant-ID header.
+
+    Protected API routes should already enforce the header in middleware.
+    The default fallback remains for public/special flows that still call this
+    dependency without tenant-scoped auth requirements.
+    """
     return x_tenant_id or settings.default_tenant_id
 
 
@@ -23,10 +28,6 @@ async def get_tenant_config(
     service = TenantService(db)
     try:
         tenant = await service.get_by_id(tenant_id)
-        # Merge .env config with DB config (DB takes precedence)
-        env_config = TenantService.load_env_config(tenant_id)
-        merged = {**env_config, **(tenant.config or {})}
-        return merged
+        return TenantService.merge_effective_config(tenant_id, tenant.config or {})
     except Exception:
-        # Fallback to .env file config only
-        return TenantService.load_env_config(tenant_id)
+        return TenantService.load_file_config(tenant_id)

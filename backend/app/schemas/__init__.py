@@ -1,6 +1,6 @@
 """Pydantic schemas — shared schemas only.
 
-Domain module schemas (collector, creator, distributor, crm) are imported
+Domain module schemas (collector, creator, campaigns, crm) are imported
 directly from their respective modules (e.g. app.collector.schemas).
 """
 

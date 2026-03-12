@@ -81,7 +81,7 @@ async def test_get_setup_status(client, test_tenant):
     assert "tenant" in data["modules"]
     assert "collector" in data["modules"]
     assert "creator" in data["modules"]
-    assert "distributor" in data["modules"]
+    assert "campaigns" in data["modules"]
     assert "integrations" in data["modules"]
     for mod in data["modules"].values():
         assert "label" in mod

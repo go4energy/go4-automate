@@ -17,7 +17,7 @@ from app.exceptions import AppError, DuplicateError, NotFoundError
 PERMISSION_ACTIONS = ["view", "edit", "delete", "settings"]
 
 # Modules that have permissions
-PERMISSION_MODULES = ["collector", "creator", "briefing", "distributor", "crm"]
+PERMISSION_MODULES = ["collector", "creator", "briefing", "campaigns", "crm"]
 
 
 class AuthService:

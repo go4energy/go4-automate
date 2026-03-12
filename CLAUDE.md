@@ -13,19 +13,23 @@
 Python 3.12 / FastAPI / Vue 3 (Composition API, JS) / Tailwind CSS / PostgreSQL 16 / Redis 7 / Docker + Caddy / n8n
 Design System: https://github.com/go4energy/go4-design-system.git
 
+## Offizieller Betriebsmodus
+Standard für Doku, Skripte und Support ist `Docker First`.
+
 ## Ports (WICHTIG!)
 | Service  | Port | Host              |
 |----------|------|-------------------|
-| Backend  | 8002 | 192.168.1.227     |
-| Frontend | 8081 | 192.168.1.227     |
+| Backend  | 8000 | localhost         |
+| Frontend | 8081 | localhost         |
+| n8n      | 5678 | localhost         |
 
 **Login:** team@go4.energy / Tenant: go4energy
 
 ## Commands
 ```bash
-# Backend (IMMER Port 8002!)
+# Backend (Docker-Standard: 8000)
 cd backend && source .venv/bin/activate
-uvicorn app.main:app --host 0.0.0.0 --port 8002 --reload
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 pytest tests/ -v --tb=short
 ruff check . && ruff format .
 
@@ -33,9 +37,8 @@ ruff check . && ruff format .
 python run_engagement_worker.py   # Engagement Brain (alle 15 Min)
 python run_email_worker.py        # Email-Kampagnen (alle 5 Sek)
 
-# LinkedIn Scheduler (Cron, jede Minute)
-# Wird automatisch via scripts/setup.sh eingerichtet
-# Manuell: crontab -l (anzeigen) / scripts/setup.sh (einrichten)
+# LinkedIn Scheduler (nur manuell, niemals Standardbetrieb)
+# Kein automatisches Cron-Setup via scripts/setup.sh
 python run_linkedin_scheduler.py  # Einmal-Check + Worker
 
 # Frontend
@@ -53,6 +56,10 @@ npm run e2e:report        # Letzten Report anzeigen
 docker compose -f docker/docker-compose.yml up -d
 docker compose -f docker/docker-compose.yml logs -f
 ```
+
+## Native/DGX
+- Native/DGX ist ein Sondermodus und wird getrennt dokumentiert.
+- Abweichende Ports wie `8002` sind dort erlaubt, aber nicht der Standardpfad dieser Repo-Doku.
 
 ## Project Structure
 ```
@@ -212,4 +219,3 @@ Das `npm run lint` Kommando kann Dateien beschädigen wenn der Vite Dev-Server l
 eslint . --ext .vue,.js  # ohne --fix
 prettier --check 'src/**/*.{vue,js,json}'  # ohne --write
 ```
-

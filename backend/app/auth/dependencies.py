@@ -31,11 +31,12 @@ async def get_current_user(
         and settings.backend_secret
         and backend_secret == settings.backend_secret
     ):
+        tenant_id = request.headers.get("X-Tenant-ID") or settings.active_tenant
         # Try to find a real admin user first
         stmt = (
             sa_select(User)
             .where(
-                User.tenant_id == settings.active_tenant,
+                User.tenant_id == tenant_id,
                 User.role == "admin",
             )
             .limit(1)
@@ -47,7 +48,7 @@ async def get_current_user(
         # No admin in DB — create a transient admin object (not persisted)
         return User(
             id=0,
-            tenant_id=settings.active_tenant,
+            tenant_id=tenant_id,
             email="system@internal",
             password_hash="",
             display_name="System",

@@ -73,13 +73,9 @@ alembic upgrade head 2>/dev/null && echo -e "${GREEN}[OK]${NC} Migrationen ausge
 cd ..
 echo ""
 
-echo "8. LinkedIn Scheduler Cron..."
-BACKEND_DIR="$(cd backend && pwd)"
-CRON_LINE="* * * * * ${BACKEND_DIR}/.venv/bin/python ${BACKEND_DIR}/run_linkedin_scheduler.py >> ${BACKEND_DIR}/logs/scheduler.log 2>&1"
-mkdir -p "${BACKEND_DIR}/logs"
-# Add cron only if not already present
-(crontab -l 2>/dev/null | grep -v "run_linkedin_scheduler"; echo "$CRON_LINE") | crontab -
-echo -e "${GREEN}[OK]${NC} LinkedIn Scheduler Cron eingerichtet (jede Minute)"
+echo "8. LinkedIn-Automation..."
+echo -e "${YELLOW}[INFO]${NC} Kein Cron eingerichtet. LinkedIn-Scheduler bleibt standardmäßig deaktiviert."
+echo -e "${YELLOW}[INFO]${NC} Optional manuell starten: cd backend && source .venv/bin/activate && python run_linkedin_scheduler.py"
 echo ""
 
 echo "9. Healthcheck..."
@@ -94,5 +90,5 @@ echo ""
 echo "=== Setup abgeschlossen ==="
 echo "Backend:  http://localhost:8000"
 echo "API Docs: http://localhost:8000/docs"
-echo "Frontend: http://localhost:5173 (dev) / http://localhost:80 (docker)"
+echo "Frontend: http://localhost:5173 (dev) / http://localhost:8081 (docker)"
 echo "n8n:      http://localhost:5678"

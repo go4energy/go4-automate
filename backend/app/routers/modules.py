@@ -190,7 +190,7 @@ def _extract_badge_count(module_name: str, metrics: dict) -> int:
     badge_keys = {
         "collector": "findings_total",
         "creator": "pieces_draft",
-        "distributor": "active_campaigns",
+        "campaigns": "active_campaigns",
         "crm": "contacts_active",
         "briefing": "active_channels",
     }

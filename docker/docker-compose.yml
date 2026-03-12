@@ -107,7 +107,7 @@ services:
       - N8N_PORT=5678
       - N8N_EDITOR_BASE_URL=https://n8n.go4.energy/
       - GENERIC_TIMEZONE=Europe/Vienna
-      - API_BASE_URL=http://host.docker.internal:8002
+      - API_BASE_URL=http://host.docker.internal:8000
     volumes:
       - n8n_data:/home/node/.n8n
     depends_on:

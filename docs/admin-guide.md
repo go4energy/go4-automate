@@ -1,6 +1,6 @@
 # go4-automate – Admin Guide
 
-Dieses Dokument beschreibt die Einrichtung und Konfiguration der go4-automate Plattform.
+Dieses Dokument beschreibt den offiziellen Standardbetrieb der go4-automate Plattform im Modus `Docker First`.
 
 ## Inhaltsverzeichnis
 
@@ -33,6 +33,17 @@ Dieses Dokument beschreibt die Einrichtung und Konfiguration der go4-automate Pl
 - Redis 7
 - Docker + Docker Compose (empfohlen)
 
+## Standardbetrieb
+
+Der kanonische Betriebsmodus nutzt `docker/docker-compose.yml` und folgende lokalen URLs:
+
+- Frontend: `http://localhost:8081`
+- Backend API: `http://localhost:8000`
+- API Docs: `http://localhost:8000/docs`
+- n8n: `http://localhost:5678`
+
+Native/DGX-Deployments sind möglich, werden aber separat in `docs/DGX-SPARK-SETUP.md` behandelt.
+
 ## Installation
 
 ```bash
@@ -41,29 +52,29 @@ git clone <repo-url> /opt/go4-automate
 cd /opt/go4-automate
 
 # Environment konfigurieren
-cp .env.example backend/.env
-# .env anpassen (siehe Abschnitte unten)
+cp .env.example config/.env
+# config/.env anpassen (siehe Abschnitte unten)
 
 # Docker-Dienste starten (PostgreSQL, Redis, n8n)
 docker compose -f docker/docker-compose.yml up -d
 
-# Backend
+# Optional: Backend lokal statt im Container
 cd backend
 pip install -r requirements.txt
 alembic upgrade head
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
-# Frontend
+# Optional: Frontend lokal statt im Container
 cd ../frontend
 npm install
-npm run dev
+npm run dev -- --host 0.0.0.0 --port 8081
 ```
 
 ---
 
 ## Externe Dienste konfigurieren
 
-Alle Konfiguration erfolgt ueber Environment Variables in `backend/.env`. Jeder Abschnitt beschreibt einen externen Dienst, welche Variablen benoetigt werden, und wie man die Credentials beschafft.
+Alle globale Konfiguration erfolgt ueber `config/.env`. Tenant-spezifische fachliche Konfiguration liegt unter `config/tenants/*.env` und kann zur Laufzeit durch DB-Werte pro Tenant ueberlagert werden. Jeder Abschnitt beschreibt einen externen Dienst, welche Variablen benoetigt werden, und wie man die Credentials beschafft.
 
 > **Hinweis:** Nur die Dienste konfigurieren, die tatsaechlich genutzt werden. Die Plattform startet auch mit leeren API Keys — die entsprechenden Features sind dann einfach deaktiviert.
 
@@ -433,7 +444,8 @@ Vollstaendige Liste aller konfigurierbaren Variablen:
 |----------|-------------|----------|---------|
 | **App** | | | |
 | `APP_NAME` | Anwendungsname | `go4-automate` | |
-| `APP_URL` | Oeffentliche URL (fuer OAuth Callbacks) | `http://localhost:8001` | Ja (Production) |
+| `APP_URL` | Oeffentliche URL (fuer OAuth Callbacks) | `http://localhost:8000` | Ja (Production) |
+| `API_URL` | API-Basis fuer interne Tracking-/Service-Links | `http://localhost:8000/api/v1` | |
 | `DEBUG` | Debug-Modus | `false` | |
 | `PLATFORM_NAME` | Plattformname | `go4-automate` | |
 | `DOMAIN` | Domain | `localhost` | |

@@ -46,7 +46,7 @@ else
     exit 1
 fi
 
-if curl -sf http://localhost:80 > /dev/null; then
+if curl -sf http://localhost:8081 > /dev/null; then
     echo -e "${GREEN}[OK]${NC} Frontend healthy"
 else
     echo -e "${YELLOW}[WARNUNG]${NC} Frontend nicht erreichbar"

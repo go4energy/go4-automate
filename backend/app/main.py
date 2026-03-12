@@ -116,7 +116,6 @@ app.add_middleware(
 # Auth paths exempt from JWT check
 AUTH_EXEMPT_PATHS = frozenset({"/health", "/docs", "/redoc", "/openapi.json"})
 AUTH_EXEMPT_PREFIXES = (
-    "/api/v1/auth/login",
     "/api/v1/listen/",
     "/api/v1/surveys/public/",
     "/api/v1/emailmarketing/t/",  # Email tracking (open, click, unsubscribe)
@@ -128,7 +127,7 @@ AUTH_EXEMPT_PREFIXES = (
 
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
-    """Enforce JWT auth on all /api/v1/ routes (with exemptions)."""
+    """Enforce tenant header + JWT auth on all /api/v1/ routes."""
     path = request.url.path
 
     # Skip OPTIONS requests (CORS preflight)
@@ -150,6 +149,20 @@ async def auth_middleware(request: Request, call_next):
         and settings.backend_secret
         and backend_secret == settings.backend_secret
     ):
+        return await call_next(request)
+
+    # Require explicit tenant context for protected tenant-scoped routes
+    needs_tenant_header = not (
+        path == "/api/v1/tenants" or path.startswith("/api/v1/tenants/")
+    )
+    if needs_tenant_header and not request.headers.get("X-Tenant-ID"):
+        return JSONResponse(
+            status_code=400,
+            content={"detail": "X-Tenant-ID Header fehlt"},
+        )
+
+    # Login needs tenant context, but no Bearer token yet
+    if path == "/api/v1/auth/login":
         return await call_next(request)
 
     # Check for Bearer token

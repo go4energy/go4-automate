@@ -1,7 +1,5 @@
 """Settings service - module and global config management."""
 
-from pathlib import Path
-
 from loguru import logger
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +9,7 @@ from app.config import settings
 from app.exceptions import NotFoundError
 from app.models.tenant import Tenant
 from app.settings.config_schema import GLOBAL_PARAMS, GLOBAL_PARAMS_BY_KEY
+from app.services.tenant import TenantService
 from app.utils.module_registry import get_module
 
 SECRET_REDACTED = "***configured***"
@@ -94,7 +93,7 @@ class SettingsService:
         if not filtered:
             return await self.get_global_config(tenant_id)
 
-        # Update tenant.config in DB
+        # Update tenant.config in DB with tenant-facing runtime overrides
         tenant = await self._get_tenant(tenant_id)
         if not tenant:
             raise NotFoundError("Tenant", tenant_id)
@@ -105,8 +104,7 @@ class SettingsService:
         await self.db.flush()
         await self.db.refresh(tenant)
 
-        # Write to tenant env file
-        self._update_env_file(tenant_id, filtered)
+        TenantService.write_file_updates(tenant_id, filtered)
 
         logger.info(
             "Global config updated: {keys} for tenant {tenant}",
@@ -124,25 +122,6 @@ class SettingsService:
             select(Tenant).where(Tenant.tenant_id == tenant_id).options(lazyload("*"))
         )
         return result.scalar_one_or_none()
-
-    def _update_env_file(self, tenant_id: str, updates: dict) -> None:
-        """Write updated values to tenant env file."""
-        env_path = Path(settings.tenant_config_dir) / f"{tenant_id}.env"
-        env_path.parent.mkdir(parents=True, exist_ok=True)
-
-        existing: dict[str, str] = {}
-        if env_path.exists():
-            for line in env_path.read_text().splitlines():
-                line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    key, _, value = line.partition("=")
-                    existing[key.strip()] = value.strip()
-
-        for key, value in updates.items():
-            existing[key.upper()] = str(value)
-
-        lines = [f"{k}={v}" for k, v in sorted(existing.items())]
-        env_path.write_text("\n".join(lines) + "\n")
 
     # --- Desktop Layout ---
 

@@ -258,7 +258,7 @@ async def _get_account(
 async def debug_websocket(websocket: WebSocket):
     """WebSocket for global worker debug control.
 
-    Connect with: ws://host:8002/api/v1/linkedin/debug/ws
+    Connect with: ws://host:8000/api/v1/linkedin/debug/ws
 
     Client sends:
         {"action": "continue"}  — Approve current step

@@ -17,6 +17,7 @@ TENANT_ID="$1"
 TENANT_NAME="$2"
 CONFIG_DIR="config/tenants"
 API_URL="${API_URL:-http://localhost:8000}"
+BACKEND_SECRET="${BACKEND_SECRET:-}"
 
 echo "=== Neuer Tenant: $TENANT_ID ==="
 
@@ -33,8 +34,15 @@ fi
 
 # 2. Via API registrieren
 echo "Registriere Tenant via API..."
+AUTH_HEADERS=(-H "Content-Type: application/json")
+if [ -n "${BACKEND_SECRET}" ]; then
+    AUTH_HEADERS+=(-H "X-Backend-Secret: ${BACKEND_SECRET}")
+else
+    echo -e "${YELLOW}[WARNUNG]${NC} BACKEND_SECRET nicht gesetzt. Der API-Call kann an der Auth scheitern."
+fi
+
 RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${API_URL}/api/v1/tenants" \
-    -H "Content-Type: application/json" \
+    "${AUTH_HEADERS[@]}" \
     -d "{\"tenant_id\": \"${TENANT_ID}\", \"tenant_name\": \"${TENANT_NAME}\"}")
 
 HTTP_CODE=$(echo "$RESPONSE" | tail -1)
@@ -51,4 +59,8 @@ fi
 echo ""
 echo "=== Tenant-Setup abgeschlossen ==="
 echo "Config: ${CONFIG_DIR}/${TENANT_ID}.env"
-echo "Test:   curl -H 'X-Tenant-ID: ${TENANT_ID}' ${API_URL}/api/v1/leads"
+CHECK_CMD="curl ${API_URL}/api/v1/tenants/${TENANT_ID}"
+if [ -n "${BACKEND_SECRET}" ]; then
+    CHECK_CMD="curl -H 'X-Backend-Secret: ${BACKEND_SECRET}' ${API_URL}/api/v1/tenants/${TENANT_ID}"
+fi
+echo "Prüfen: ${CHECK_CMD}"

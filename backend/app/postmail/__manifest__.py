@@ -14,7 +14,7 @@ manifest = {
     "depends": ["contacts", "engagement"],
     "has_frontend": True,
     "has_models": True,
-    "has_config_schema": True,
+    "has_config_schema": False,
     "routers": ["router"],
     "router_prefix": "/postmail",
     "sidebar": {"group": "MARKETING", "order": 56},

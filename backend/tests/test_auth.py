@@ -252,3 +252,41 @@ async def test_middleware_blocks_unauthenticated(test_tenant):
             "/api/v1/modules", headers={"X-Tenant-ID": "test-tenant"}
         )
         assert response.status_code == 401
+
+
+@pytest.mark.anyio
+async def test_middleware_requires_tenant_header_for_protected_routes(test_tenant):
+    """Protected tenant-scoped routes should reject requests without X-Tenant-ID."""
+    from httpx import ASGITransport, AsyncClient
+
+    from app.main import app
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(
+        transport=transport, base_url="http://test", follow_redirects=True
+    ) as raw_client:
+        response = await raw_client.get(
+            "/api/v1/modules", headers={"X-Backend-Secret": "wrong-secret"}
+        )
+        assert response.status_code == 400
+        assert response.json()["detail"] == "X-Tenant-ID Header fehlt"
+
+
+@pytest.mark.anyio
+async def test_login_requires_tenant_header(test_tenant):
+    """Login should require explicit tenant context before auth logic runs."""
+    from httpx import ASGITransport, AsyncClient
+
+    from app.main import app
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(
+        transport=transport, base_url="http://test", follow_redirects=True
+    ) as raw_client:
+        response = await raw_client.post(
+            "/api/v1/auth/login",
+            json={"email": "admin@test.com", "password": "secret"},
+            headers={"X-Backend-Secret": "wrong-secret"},
+        )
+        assert response.status_code == 400
+        assert response.json()["detail"] == "X-Tenant-ID Header fehlt"

@@ -40,7 +40,7 @@ fbq('track', 'PageView');
       custom_data: customData || null
     }};
 
-    fetch(apiBase + '/api/v1/distributor/conversions', {{
+    fetch(apiBase + '/campaigns/conversions', {{
       method: 'POST',
       headers: {{
         'Content-Type': 'application/json',

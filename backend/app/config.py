@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     platform_name: str = "go4-automate"
     domain: str = "localhost"
     timezone: str = "Europe/Vienna"
+    api_url: str = "http://localhost:8000/api/v1"
 
     # Database
     database_url: str = (
@@ -87,7 +88,7 @@ class Settings(BaseSettings):
     briefing_audio_dir: str = "uploads/briefing"
 
     # OAuth (Briefing Calendar/Email sources)
-    app_url: str = "http://localhost:8001"
+    app_url: str = "http://localhost:8000"
     google_client_id: str = ""
     google_client_secret: str = ""
     microsoft_client_id: str = ""
