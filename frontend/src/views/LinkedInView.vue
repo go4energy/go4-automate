@@ -1,8 +1,9 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { marked } from 'marked'
 import { useLinkedInStore } from '@/stores/linkedin'
+import api from '@/api'
 
 // Configure marked for better rendering with heading IDs
 marked.use({
@@ -31,6 +32,7 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 import ModuleSetupTab from '@/components/ai/ModuleSetupTab.vue'
 import SafetyLimitsModal from '@/components/linkedin/SafetyLimitsModal.vue'
+import ProfileCard from '@/components/linkedin/ProfileCard.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -46,11 +48,192 @@ const showDeleteAccountConfirm = ref(false)
 const showDeleteJobConfirm = ref(false)
 const showDeleteTemplateConfirm = ref(false)
 const showDeleteCampaignConfirm = ref(false)
+const showDeleteContactConfirm = ref(false)
+const showDeleteAllContactsConfirm = ref(false)
+const contactToDelete = ref(null)
 const showSafetyLimits = ref(false)
+const schedulerStatus = ref([])
+const schedulerLoading = ref(false)
 const accountToDelete = ref(null)
 const jobToDelete = ref(null)
 const templateToDelete = ref(null)
 const campaignToDelete = ref(null)
+
+// === Profile Scraper Test ===
+const scrapeUrl = ref('')
+const scrapeLoading = ref(false)
+const scrapeError = ref(null)
+const scrapeResult = ref(null)
+
+async function startScrapeTest() {
+  if (!scrapeUrl.value.trim() || scrapeLoading.value) return
+  scrapeLoading.value = true
+  scrapeError.value = null
+  scrapeResult.value = null
+  try {
+    const { data } = await api.post('/v1/linkedin/debug/scrape-profile', {
+      url: scrapeUrl.value.trim()
+    })
+    if (data.success) {
+      scrapeResult.value = data
+    } else {
+      scrapeError.value = data.error || 'Unbekannter Fehler'
+      if (data.traceback) {
+        scrapeError.value += '\n\n' + data.traceback
+      }
+    }
+  } catch (err) {
+    scrapeError.value = err.response?.data?.detail || err.message
+  } finally {
+    scrapeLoading.value = false
+  }
+}
+
+// === Debug Tab State ===
+const debugActive = ref(false)
+const debugCurrentStep = ref(null)
+const debugLogs = ref([])
+const debugAutostart = ref(false)
+const debugAutoDelay = ref(2000)
+const debugAutoCountdown = ref(0)
+const debugFinished = ref(null)
+const debugLogContainer = ref(null)
+let debugWs = null
+let debugAutoTimer = null
+
+function formatTime(isoStr) {
+  if (!isoStr) return ''
+  const d = new Date(isoStr)
+  return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+}
+
+function addDebugLog(level, message, timestamp) {
+  const levelTags = { info: '[INFO]', ok: '[ OK ]', warning: '[WARN]', error: '[ERR ]', debug: '[DBG ]', step: '[STEP]' }
+  debugLogs.value.push({
+    level,
+    levelTag: levelTags[level] || `[${level.toUpperCase()}]`,
+    message,
+    time: formatTime(timestamp || new Date().toISOString()),
+  })
+  nextTick(() => {
+    if (debugLogContainer.value) {
+      debugLogContainer.value.scrollTop = debugLogContainer.value.scrollHeight
+    }
+  })
+}
+
+function toggleDebug() {
+  if (debugActive.value) {
+    stopDebug()
+  } else {
+    startDebug()
+  }
+}
+
+function startDebug() {
+  debugFinished.value = null
+  debugCurrentStep.value = null
+  debugLogs.value = []
+
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const apiBase = import.meta.env.VITE_API_URL || 'http://192.168.1.227:8002/api/v1'
+  const host = new URL(apiBase).host
+  const wsUrl = `${protocol}//${host}/api/v1/linkedin/debug/ws`
+
+  addDebugLog('info', 'Verbinde...')
+  debugWs = new WebSocket(wsUrl)
+
+  debugWs.onopen = () => {
+    debugActive.value = true
+    addDebugLog('ok', 'Debug-Modus aktiviert — starte einen Job im Jobs-Tab')
+  }
+
+  debugWs.onmessage = (event) => {
+    try {
+      const msg = JSON.parse(event.data)
+
+      if (msg.type === 'step') {
+        debugCurrentStep.value = msg
+        addDebugLog('step', `▶ ${msg.description}${msg.details ? ' — ' + msg.details : ''}`, msg.timestamp)
+        if (debugAutostart.value) {
+          startAutoApprove()
+        }
+      } else if (msg.type === 'log') {
+        addDebugLog(msg.level, msg.message, msg.timestamp)
+      } else if (msg.type === 'status') {
+        addDebugLog('info', msg.message, msg.timestamp)
+      } else if (msg.type === 'finished') {
+        debugFinished.value = msg
+        debugCurrentStep.value = null
+        cancelAutoApprove()
+        addDebugLog(msg.status === 'completed' ? 'ok' : 'error',
+          `Job beendet: ${msg.status}${msg.message ? ' — ' + msg.message : ''}`)
+        addDebugLog('info', 'Warte auf nächsten Job...')
+      }
+    } catch (e) {
+      addDebugLog('error', `Parse-Fehler: ${e.message}`)
+    }
+  }
+
+  debugWs.onclose = () => {
+    debugActive.value = false
+    addDebugLog('warning', 'Debug-Modus deaktiviert')
+  }
+
+  debugWs.onerror = () => {
+    addDebugLog('error', 'WebSocket-Fehler')
+  }
+}
+
+function stopDebug() {
+  cancelAutoApprove()
+  if (debugWs) {
+    if (debugWs.readyState === WebSocket.OPEN) {
+      debugWs.send(JSON.stringify({ action: 'cancel' }))
+    }
+    debugWs.close()
+    debugWs = null
+  }
+  debugActive.value = false
+  debugCurrentStep.value = null
+}
+
+function approveStep() {
+  cancelAutoApprove()
+  if (debugWs && debugWs.readyState === WebSocket.OPEN) {
+    debugWs.send(JSON.stringify({ action: 'continue' }))
+    debugCurrentStep.value = null
+  }
+}
+
+function startAutoApprove() {
+  cancelAutoApprove()
+  debugAutoCountdown.value = debugAutoDelay.value
+  const interval = 100
+  debugAutoTimer = setInterval(() => {
+    debugAutoCountdown.value -= interval
+    if (debugAutoCountdown.value <= 0) {
+      cancelAutoApprove()
+      approveStep()
+    }
+  }, interval)
+}
+
+function cancelAutoApprove() {
+  if (debugAutoTimer) {
+    clearInterval(debugAutoTimer)
+    debugAutoTimer = null
+  }
+  debugAutoCountdown.value = 0
+}
+
+onUnmounted(() => {
+  if (debugWs) {
+    debugWs.close()
+    debugWs = null
+  }
+  cancelAutoApprove()
+})
 
 const tabs = [
   { key: 'dashboard', label: 'Dashboard', route: '/linkedin/dashboard' },
@@ -62,7 +245,8 @@ const tabs = [
   { key: 'inbox', label: 'Inbox', route: '/linkedin/inbox' },
   { key: 'freigabe', label: 'Freigabe', route: '/linkedin/freigabe' },
   { key: 'guide', label: 'Anleitung', route: '/linkedin/guide' },
-  { key: 'setup', label: 'Setup', route: '/linkedin/setup' }
+  { key: 'setup', label: 'Setup', route: '/linkedin/setup' },
+  { key: 'debug', label: 'Debug', route: '/linkedin/debug' }
 ]
 
 const statusColors = {
@@ -153,8 +337,13 @@ const filteredJobs = computed(() => {
   return result
 })
 
+const degreeFilter = ref(null)
+
 const filteredContacts = computed(() => {
   let result = store.contacts
+  if (degreeFilter.value) {
+    result = result.filter((c) => c.contact_degree === degreeFilter.value)
+  }
   if (statusFilter.value) {
     result = result.filter((c) => c.status === statusFilter.value)
   }
@@ -168,6 +357,16 @@ const filteredContacts = computed(() => {
     )
   }
   return result
+})
+
+const contactDegreeStats = computed(() => {
+  const all = store.contacts
+  return {
+    total: all.length,
+    first: all.filter((c) => c.contact_degree === 1).length,
+    second: all.filter((c) => c.contact_degree === 2).length,
+    third: all.filter((c) => c.contact_degree === 3).length
+  }
 })
 
 const filteredTemplates = computed(() => {
@@ -211,6 +410,29 @@ const renderedGuide = computed(() => {
   return marked(guideContent)
 })
 
+async function fetchSchedulerStatus() {
+  try {
+    schedulerLoading.value = true
+    const { data } = await api.get('/linkedin/scheduler/status')
+    schedulerStatus.value = data
+  } catch {
+    // Scheduler status is optional
+  } finally {
+    schedulerLoading.value = false
+  }
+}
+
+const scheduledJobs = computed(() => schedulerStatus.value.filter((s) => s.in_schedule_window))
+
+const dayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
+
+function formatScheduleDays(days) {
+  if (!days || days.length === 0) return 'Keine Tage'
+  if (days.length === 7) return 'Jeden Tag'
+  if (JSON.stringify(days) === JSON.stringify([0, 1, 2, 3, 4])) return 'Mo-Fr'
+  return days.map((d) => dayNames[d]).join(', ')
+}
+
 onMounted(async () => {
   await Promise.all([
     store.fetchStats(),
@@ -221,7 +443,8 @@ onMounted(async () => {
     store.fetchCampaigns(),
     store.fetchInbox(),
     store.fetchEngagementActions(),
-    funnelsStore.fetchFunnels()
+    funnelsStore.fetchFunnels(),
+    fetchSchedulerStatus()
   ])
 })
 
@@ -251,6 +474,10 @@ async function deleteAccount() {
 
 function createJob() {
   router.push('/linkedin/jobs/new')
+}
+
+function createFirstDegreeJob() {
+  router.push('/linkedin/jobs/new?preset=1st-degree')
 }
 
 function openJob(job) {
@@ -287,6 +514,33 @@ async function pauseJob(job) {
 
 function openContact(contact) {
   router.push(`/linkedin/contacts/${contact.id}`)
+}
+
+function confirmDeleteContact(contact) {
+  contactToDelete.value = contact
+  showDeleteContactConfirm.value = true
+}
+
+async function deleteContactNow() {
+  if (!contactToDelete.value) return
+  try {
+    await store.removeContact(contactToDelete.value.id)
+    showDeleteContactConfirm.value = false
+    contactToDelete.value = null
+  } catch {
+    // Error in store
+  }
+}
+
+async function deleteAllContacts() {
+  const ids = filteredContacts.value.map((c) => c.id)
+  if (!ids.length) return
+  try {
+    await store.removeContactsBulk(ids)
+    showDeleteAllContactsConfirm.value = false
+  } catch {
+    // Error in store
+  }
 }
 
 // ============== Templates ==============
@@ -1016,7 +1270,8 @@ Im Dashboard siehst du fuer jeden Account:
             <div
               v-for="job in store.runningJobs"
               :key="job.id"
-              class="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800"
+              class="flex cursor-pointer items-center justify-between rounded-lg border border-gray-200 bg-white p-4 transition-shadow hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
+              @click="openJob(job)"
             >
               <div class="flex items-center gap-4">
                 <div
@@ -1024,7 +1279,7 @@ Im Dashboard siehst du fuer jeden Account:
                 />
                 <div>
                   <div class="font-medium text-go4-secondary dark:text-white">
-                    {{ job.name }}
+                    {{ job.name || 'Job #' + job.id }}
                   </div>
                   <div class="text-sm text-go4-muted dark:text-gray-400">
                     {{ job.profiles_scraped }} / {{ job.max_profiles }} Profile
@@ -1200,10 +1455,6 @@ Im Dashboard siehst du fuer jeden Account:
                 Sales Navigator
               </span>
 
-              <span class="text-sm text-go4-muted dark:text-gray-400">
-                {{ account.profiles_scraped_today }}/{{ account.daily_profile_limit }} heute
-              </span>
-
               <div class="flex gap-1">
                 <button
                   class="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"
@@ -1283,23 +1534,93 @@ Im Dashboard siehst du fuer jeden Account:
               Fehlgeschlagen
             </option>
           </select>
-          <button
-            class="ml-auto flex h-9 w-9 items-center justify-center rounded-lg bg-go4-primary text-white hover:bg-go4-primary-dark"
-            title="Neuer Job"
-            @click="createJob"
-          >
+          <div class="ml-auto flex items-center gap-2">
+            <button
+              class="flex items-center gap-1.5 rounded-lg border border-green-300 bg-green-50 px-3 py-1.5 text-sm font-medium text-green-700 hover:bg-green-100 dark:border-green-700 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
+              title="1. Grad Kontakte importieren"
+              @click="createFirstDegreeJob"
+            >
+              <svg
+                class="h-4 w-4"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+              1. Grad
+            </button>
+            <button
+              class="flex h-9 w-9 items-center justify-center rounded-lg bg-go4-primary text-white hover:bg-go4-primary-dark"
+              title="Neuer Job"
+              @click="createJob"
+            >
+              <svg
+                class="h-5 w-5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Scheduler Status -->
+        <div
+          v-if="schedulerStatus.length > 0"
+          class="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20"
+        >
+          <div class="mb-2 flex items-center gap-2 text-sm font-medium text-blue-800 dark:text-blue-300">
             <svg
-              class="h-5 w-5"
-              viewBox="0 0 20 20"
-              fill="currentColor"
+              class="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
             >
               <path
-                fill-rule="evenodd"
-                d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
-                clip-rule="evenodd"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
-          </button>
+            Scheduler ({{ schedulerStatus.length }} geplante Jobs)
+          </div>
+          <div class="space-y-2">
+            <div
+              v-for="sj in schedulerStatus"
+              :key="sj.job_id"
+              class="flex items-center justify-between text-sm"
+            >
+              <div class="flex items-center gap-2">
+                <span
+                  class="inline-block h-2 w-2 rounded-full"
+                  :class="sj.job_status === 'running' ? 'bg-green-500 animate-pulse' : sj.in_schedule_window ? 'bg-blue-500' : 'bg-gray-400'"
+                />
+                <span class="font-medium text-gray-800 dark:text-gray-200">{{ sj.job_name }}</span>
+              </div>
+              <div class="flex items-center gap-4 text-go4-muted dark:text-gray-400">
+                <span>{{ formatScheduleDays(sj.schedule_days) }} {{ sj.schedule_start_time }}-{{ sj.schedule_end_time }}</span>
+                <span>{{ sj.profiles_scraped }}/{{ sj.daily_limit }} heute</span>
+                <span
+                  :class="statusColors[sj.job_status]"
+                  class="rounded-full px-2 py-0.5 text-xs font-medium"
+                >
+                  {{ statusLabels[sj.job_status] }}
+                </span>
+                <span v-if="sj.ran_today" class="text-xs text-green-600 dark:text-green-400">Lief heute</span>
+                <span v-else-if="sj.in_schedule_window" class="text-xs text-blue-600 dark:text-blue-400">Wartet auf Queue</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div
@@ -1335,11 +1656,29 @@ Im Dashboard siehst du fuer jeden Account:
             <div class="flex items-center justify-between">
               <div>
                 <div class="font-medium text-go4-secondary dark:text-white">
-                  {{ job.name }}
+                  {{ job.name || 'Job #' + job.id }}
                 </div>
                 <div class="mt-1 flex items-center gap-3 text-sm text-go4-muted dark:text-gray-400">
                   <span>{{ job.account_name }}</span>
-                  <span v-if="job.funnel_name">-&gt; {{ job.funnel_name }}</span>
+                  <span
+                    v-if="job.schedule_enabled"
+                    class="flex items-center gap-1 text-go4-primary"
+                  >
+                    <svg
+                      class="h-3.5 w-3.5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    Geplant
+                  </span>
                 </div>
               </div>
 
@@ -1368,7 +1707,7 @@ Im Dashboard siehst du fuer jeden Account:
                   v-else
                   class="text-sm text-go4-muted"
                 >
-                  {{ job.profiles_scraped }}/{{ job.max_profiles }}
+                  {{ job.profiles_scraped }} Profile
                 </span>
 
                 <div
@@ -1490,7 +1829,34 @@ Im Dashboard siehst du fuer jeden Account:
               Uebersprungen
             </option>
           </select>
+          <div class="flex gap-1">
+            <button
+              :class="[
+                'rounded-full px-3 py-1 text-sm font-medium transition-colors',
+                !degreeFilter ? 'bg-go4-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'
+              ]"
+              @click="degreeFilter = null"
+            >
+              Alle
+            </button>
+            <button
+              :class="[
+                'rounded-full px-3 py-1 text-sm font-medium transition-colors',
+                degreeFilter === 1 ? 'bg-green-600 text-white' : 'bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-300'
+              ]"
+              @click="degreeFilter = degreeFilter === 1 ? null : 1"
+            >
+              1. Grad
+            </button>
+          </div>
           <span class="ml-auto text-sm text-go4-muted">{{ filteredContacts.length }} Kontakte</span>
+          <button
+            v-if="filteredContacts.length > 0"
+            class="rounded-lg border border-red-300 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/20"
+            @click="showDeleteAllContactsConfirm = true"
+          >
+            Alle loeschen
+          </button>
         </div>
 
         <div
@@ -1519,6 +1885,11 @@ Im Dashboard siehst du fuer jeden Account:
                   Name
                 </th>
                 <th
+                  class="px-4 py-3 text-center text-xs font-medium uppercase text-go4-muted dark:text-gray-400"
+                >
+                  Grad
+                </th>
+                <th
                   class="px-4 py-3 text-left text-xs font-medium uppercase text-go4-muted dark:text-gray-400"
                 >
                   Position
@@ -1529,15 +1900,21 @@ Im Dashboard siehst du fuer jeden Account:
                   Unternehmen
                 </th>
                 <th
+                  class="px-4 py-3 text-center text-xs font-medium uppercase text-go4-muted dark:text-gray-400"
+                >
+                  Pipelines
+                </th>
+                <th
                   class="px-4 py-3 text-left text-xs font-medium uppercase text-go4-muted dark:text-gray-400"
                 >
                   Status
                 </th>
                 <th
-                  class="px-4 py-3 text-left text-xs font-medium uppercase text-go4-muted dark:text-gray-400"
+                  class="px-4 py-3 text-center text-xs font-medium uppercase text-go4-muted dark:text-gray-400"
                 >
-                  LinkedIn
+                  Aktiv
                 </th>
+                <th class="px-4 py-3 text-center text-xs font-medium uppercase text-go4-muted dark:text-gray-400" />
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-800">
@@ -1558,11 +1935,40 @@ Im Dashboard siehst du fuer jeden Account:
                     {{ contact.headline }}
                   </div>
                 </td>
+                <td class="whitespace-nowrap px-4 py-3 text-center">
+                  <span
+                    v-if="contact.contact_degree"
+                    :class="{
+                      'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300': contact.contact_degree === 1,
+                      'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300': contact.contact_degree === 2,
+                      'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300': contact.contact_degree === 3
+                    }"
+                    class="rounded-full px-2 py-0.5 text-xs font-medium"
+                  >
+                    {{ contact.contact_degree }}.
+                  </span>
+                  <span
+                    v-else
+                    class="text-xs text-go4-muted"
+                  >-</span>
+                </td>
                 <td class="whitespace-nowrap px-4 py-3 text-sm text-go4-muted dark:text-gray-400">
                   {{ contact.position || '-' }}
                 </td>
                 <td class="whitespace-nowrap px-4 py-3 text-sm text-go4-muted dark:text-gray-400">
                   {{ contact.company_name || '-' }}
+                </td>
+                <td class="whitespace-nowrap px-4 py-3 text-center">
+                  <span
+                    v-if="contact.pipeline_count"
+                    class="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-indigo-100 px-1.5 text-xs font-medium text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300"
+                  >
+                    {{ contact.pipeline_count }}
+                  </span>
+                  <span
+                    v-else
+                    class="text-xs text-go4-muted"
+                  >-</span>
                 </td>
                 <td class="whitespace-nowrap px-4 py-3">
                   <span
@@ -1573,16 +1979,43 @@ Im Dashboard siehst du fuer jeden Account:
                   </span>
                 </td>
                 <td
-                  class="whitespace-nowrap px-4 py-3"
+                  class="whitespace-nowrap px-4 py-3 text-center"
                   @click.stop
                 >
-                  <a
-                    :href="contact.linkedin_url"
-                    target="_blank"
-                    class="text-blue-600 hover:underline dark:text-blue-400"
+                  <button
+                    :class="contact.excluded
+                      ? 'text-red-500 hover:text-red-700 dark:text-red-400'
+                      : 'text-green-500 hover:text-green-700 dark:text-green-400'"
+                    class="text-lg"
+                    :title="contact.excluded ? 'Deaktiviert – klicken zum Aktivieren' : 'Aktiv – klicken zum Deaktivieren'"
+                    @click="store.toggleExclude(contact.id)"
                   >
-                    Profil
-                  </a>
+                    {{ contact.excluded ? '⊘' : '✓' }}
+                  </button>
+                </td>
+                <td
+                  class="whitespace-nowrap px-4 py-3 text-center"
+                  @click.stop
+                >
+                  <button
+                    class="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                    title="Kontakt loeschen"
+                    @click="confirmDeleteContact(contact)"
+                  >
+                    <svg
+                      class="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -2296,55 +2729,244 @@ Im Dashboard siehst du fuer jeden Account:
           module-label="LinkedIn"
         />
       </div>
+
+      <!-- Debug Tab -->
+      <div v-else-if="activeTab === 'debug'">
+
+        <!-- === Profile Scraper Test === -->
+        <div class="mb-6 rounded-lg border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
+          <h3 class="mb-3 text-lg font-semibold text-gray-900 dark:text-white">Profil-Scraper Test</h3>
+          <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">LinkedIn-Profil-URL eingeben, um den Extractor zu testen.</p>
+
+          <div class="flex gap-3">
+            <input
+              v-model="scrapeUrl"
+              type="text"
+              placeholder="https://www.linkedin.com/in/username/"
+              class="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              :disabled="scrapeLoading"
+              @keydown.enter="startScrapeTest"
+            />
+            <button
+              class="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              :disabled="scrapeLoading || !scrapeUrl.trim()"
+              @click="startScrapeTest"
+            >
+              <span v-if="scrapeLoading" class="flex items-center gap-2">
+                <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Scraping...
+              </span>
+              <span v-else>Start</span>
+            </button>
+          </div>
+
+          <!-- Error -->
+          <div v-if="scrapeError" class="mt-4 rounded-lg border border-red-300 bg-red-50 p-4 dark:border-red-700 dark:bg-red-900/20">
+            <p class="font-medium text-red-700 dark:text-red-300">Fehler</p>
+            <pre class="mt-2 whitespace-pre-wrap text-sm text-red-600 dark:text-red-400">{{ scrapeError }}</pre>
+          </div>
+
+          <!-- Result -->
+          <div v-if="scrapeResult" class="mt-4 space-y-4">
+            <!-- Steps Log -->
+            <div v-if="scrapeResult.steps?.length" class="rounded-lg border border-gray-200 bg-gray-900 p-3 dark:border-gray-700">
+              <div v-for="(s, i) in scrapeResult.steps" :key="i" class="font-mono text-xs leading-relaxed" :class="{
+                'text-green-400': s.status === 'ok',
+                'text-yellow-400': s.status === 'warn',
+                'text-red-400': s.status === 'fail',
+                'text-gray-400': s.status === 'start',
+              }">
+                [{{ s.status.toUpperCase().padEnd(5) }}] {{ s.step }}: {{ s.detail }}
+              </div>
+            </div>
+
+            <!-- Profile via shared component -->
+            <ProfileCard :profile="scrapeResult.profile" />
+
+            <!-- Raw Sections HTML (debug-only) -->
+            <details class="rounded-lg border border-gray-200 dark:border-gray-700">
+              <summary class="cursor-pointer rounded-t-lg bg-gray-50 px-4 py-3 text-sm font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                Raw Sections HTML ({{ scrapeResult.found_sections?.length || 0 }})
+              </summary>
+              <pre class="max-h-96 overflow-auto p-4 font-mono text-xs text-gray-800 dark:text-gray-200">{{ JSON.stringify(scrapeResult.raw_sections, null, 2) }}</pre>
+            </details>
+          </div>
+        </div>
+
+        <hr class="mb-6 border-gray-200 dark:border-gray-700" />
+
+        <!-- Debug Toggle -->
+        <div class="mb-4 flex items-center gap-4">
+          <button
+            class="rounded-lg px-5 py-2.5 text-sm font-medium text-white shadow-sm"
+            :class="debugActive
+              ? 'bg-red-600 hover:bg-red-700'
+              : 'bg-green-600 hover:bg-green-700'"
+            @click="toggleDebug"
+          >
+            {{ debugActive ? 'Debug deaktivieren' : 'Debug aktivieren' }}
+          </button>
+          <span v-if="debugActive" class="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+            <span class="inline-block h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse" />
+            Aktiv — starte einen Job im Jobs-Tab
+          </span>
+        </div>
+
+        <!-- Aktueller Schritt -->
+        <div v-if="debugActive" class="mb-4 rounded-lg border-2 border-blue-300 bg-blue-50 p-4 dark:border-blue-700 dark:bg-blue-900/20">
+          <div class="mb-2 text-xs font-medium uppercase tracking-wide text-blue-600 dark:text-blue-400">
+            Aktueller Schritt
+          </div>
+          <div v-if="debugCurrentStep" class="flex items-center justify-between">
+            <div>
+              <p class="text-lg font-semibold text-gray-900 dark:text-white">{{ debugCurrentStep.description }}</p>
+              <p v-if="debugCurrentStep.details" class="mt-1 text-sm text-gray-600 dark:text-gray-400">{{ debugCurrentStep.details }}</p>
+            </div>
+            <button
+              class="ml-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-600 text-white shadow-lg hover:bg-green-700"
+              title="Freigeben"
+              @click="approveStep"
+            >
+              <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+              </svg>
+            </button>
+          </div>
+          <div v-else class="text-sm text-gray-500 dark:text-gray-400">Warte auf nächsten Schritt...</div>
+        </div>
+
+        <!-- Autostart -->
+        <div v-if="debugActive" class="mb-4 flex items-center gap-4 rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
+          <label class="flex items-center gap-2 text-sm">
+            <input
+              v-model="debugAutostart"
+              type="checkbox"
+              class="h-4 w-4 rounded border-gray-300 text-blue-600"
+            />
+            Autostart
+          </label>
+          <div v-if="debugAutostart" class="flex items-center gap-2">
+            <input
+              v-model.number="debugAutoDelay"
+              type="number"
+              min="100"
+              max="30000"
+              step="100"
+              class="w-24 rounded border border-gray-300 px-2 py-1 text-sm dark:border-gray-600 dark:bg-gray-700"
+            />
+            <span class="text-sm text-gray-500">ms</span>
+          </div>
+          <div v-if="debugAutostart && debugAutoCountdown > 0" class="text-sm text-blue-600 dark:text-blue-400">
+            Auto-Freigabe in {{ debugAutoCountdown }}ms...
+          </div>
+        </div>
+
+        <!-- Finished banner -->
+        <div v-if="debugFinished" class="mb-4 rounded-lg border p-4" :class="debugFinished.status === 'completed' ? 'border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-900/20' : 'border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-900/20'">
+          <p class="font-semibold" :class="debugFinished.status === 'completed' ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'">
+            {{ debugFinished.status === 'completed' ? 'Abgeschlossen' : debugFinished.status === 'cancelled' ? 'Abgebrochen' : 'Fehler' }}
+          </p>
+          <p v-if="debugFinished.message" class="mt-1 text-sm">{{ debugFinished.message }}</p>
+          <p v-if="debugFinished.profiles_scraped !== undefined" class="mt-1 text-sm">
+            {{ debugFinished.profiles_found || 0 }} gefunden, {{ debugFinished.profiles_scraped }} gespeichert
+          </p>
+        </div>
+
+        <!-- Log-Fenster -->
+        <div class="rounded-lg border border-gray-200 bg-gray-900 dark:border-gray-700">
+          <div class="flex items-center justify-between border-b border-gray-700 px-4 py-2">
+            <span class="text-sm font-medium text-gray-300">Log</span>
+            <button class="text-xs text-gray-500 hover:text-gray-300" @click="debugLogs = []">Löschen</button>
+          </div>
+          <div ref="debugLogContainer" class="h-96 overflow-y-auto p-4 font-mono text-xs leading-relaxed">
+            <div v-for="(log, idx) in debugLogs" :key="idx" class="whitespace-pre-wrap" :class="{
+              'text-gray-400': log.level === 'info',
+              'text-green-400': log.level === 'ok',
+              'text-yellow-400': log.level === 'warning',
+              'text-red-400': log.level === 'error',
+              'text-blue-400': log.level === 'debug',
+              'text-cyan-400': log.level === 'step',
+            }">
+              <span class="text-gray-600">{{ log.time }}</span> <span class="font-bold">{{ log.levelTag }}</span> {{ log.message }}
+            </div>
+            <div v-if="debugLogs.length === 0" class="text-gray-600">Noch keine Logs...</div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Delete Account Confirmation -->
     <ConfirmDialog
-      :show="showDeleteAccountConfirm"
+      :open="showDeleteAccountConfirm"
       title="Account loeschen?"
       :message="`Moechtest du den Account '${accountToDelete?.name}' wirklich loeschen? Alle zugehoerigen Jobs werden ebenfalls geloescht.`"
-      confirm-label="Loeschen"
-      confirm-variant="danger"
+      confirm-text="Loeschen"
+      variant="danger"
       @confirm="deleteAccount"
       @cancel="showDeleteAccountConfirm = false"
     />
 
     <!-- Delete Job Confirmation -->
     <ConfirmDialog
-      :show="showDeleteJobConfirm"
+      :open="showDeleteJobConfirm"
       title="Job loeschen?"
       :message="`Moechtest du den Job '${jobToDelete?.name}' wirklich loeschen? Alle gescrapten Kontakte werden ebenfalls geloescht.`"
-      confirm-label="Loeschen"
-      confirm-variant="danger"
+      confirm-text="Loeschen"
+      variant="danger"
       @confirm="deleteJob"
       @cancel="showDeleteJobConfirm = false"
     />
 
     <!-- Delete Template Confirmation -->
     <ConfirmDialog
-      :show="showDeleteTemplateConfirm"
+      :open="showDeleteTemplateConfirm"
       title="Vorlage loeschen?"
       :message="`Moechtest du die Vorlage '${templateToDelete?.name}' wirklich loeschen?`"
-      confirm-label="Loeschen"
-      confirm-variant="danger"
+      confirm-text="Loeschen"
+      variant="danger"
       @confirm="deleteTemplate"
       @cancel="showDeleteTemplateConfirm = false"
     />
 
     <!-- Delete Campaign Confirmation -->
     <ConfirmDialog
-      :show="showDeleteCampaignConfirm"
+      :open="showDeleteCampaignConfirm"
       title="Kampagne loeschen?"
       :message="`Moechtest du die Kampagne '${campaignToDelete?.name}' wirklich loeschen? Alle zugehoerigen Leads und Aktionen werden ebenfalls geloescht.`"
-      confirm-label="Loeschen"
-      confirm-variant="danger"
+      confirm-text="Loeschen"
+      variant="danger"
       @confirm="deleteCampaign"
       @cancel="showDeleteCampaignConfirm = false"
     />
 
+    <!-- Delete Contact Confirmation -->
+    <ConfirmDialog
+      :open="showDeleteContactConfirm"
+      title="Kontakt loeschen?"
+      :message="`Moechtest du den Kontakt '${contactToDelete?.name || 'Unbekannt'}' wirklich loeschen?`"
+      confirm-text="Loeschen"
+      variant="danger"
+      @confirm="deleteContactNow"
+      @cancel="showDeleteContactConfirm = false"
+    />
+
+    <!-- Delete All Contacts Confirmation -->
+    <ConfirmDialog
+      :open="showDeleteAllContactsConfirm"
+      title="Alle Kontakte loeschen?"
+      :message="`Moechtest du wirklich ${filteredContacts.length} Kontakte loeschen? Diese Aktion kann nicht rueckgaengig gemacht werden.`"
+      confirm-text="Alle loeschen"
+      variant="danger"
+      @confirm="deleteAllContacts"
+      @cancel="showDeleteAllContactsConfirm = false"
+    />
+
     <!-- Safety Limits Modal -->
     <SafetyLimitsModal
-      :show="showSafetyLimits"
+      :open="showSafetyLimits"
       @close="showSafetyLimits = false"
     />
   </div>

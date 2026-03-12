@@ -83,6 +83,9 @@ class User(TimestampMixin, Base):
         "FunnelActivity", back_populates="user", lazy="selectin"
     )
 
+    # Surveys relationships
+    surveys = relationship("Survey", back_populates="owner", lazy="selectin")
+
     __table_args__ = (
         UniqueConstraint("tenant_id", "email", name="uq_users_tenant_email"),
         Index("ix_users_tenant", "tenant_id"),

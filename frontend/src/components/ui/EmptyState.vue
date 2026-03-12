@@ -23,7 +23,10 @@ defineProps({
     <h3 class="mt-4 text-sm font-medium text-go4-secondary dark:text-gray-200">
       {{ title }}
     </h3>
-    <p v-if="description" class="mt-1 text-sm text-go4-muted dark:text-gray-400">
+    <p
+      v-if="description"
+      class="mt-1 text-sm text-go4-muted dark:text-gray-400"
+    >
       {{ description }}
     </p>
     <div class="mt-4">

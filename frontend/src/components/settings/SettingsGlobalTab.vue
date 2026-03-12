@@ -60,7 +60,11 @@ const hasChanges = computed(() => {
 <template>
   <div class="space-y-6">
     <!-- Categories -->
-    <div v-for="cat in sortedCategories" :key="cat.key" class="space-y-4">
+    <div
+      v-for="cat in sortedCategories"
+      :key="cat.key"
+      class="space-y-4"
+    >
       <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-400">
         {{ cat.label }}
       </h3>

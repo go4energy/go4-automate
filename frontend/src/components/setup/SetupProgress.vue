@@ -20,8 +20,16 @@ const moduleIcons = {
     <h3 class="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
       Modul-Status
     </h3>
-    <div v-if="!props.status" class="text-sm text-gray-400 dark:text-gray-500">Laden...</div>
-    <div v-else class="space-y-1">
+    <div
+      v-if="!props.status"
+      class="text-sm text-gray-400 dark:text-gray-500"
+    >
+      Laden...
+    </div>
+    <div
+      v-else
+      class="space-y-1"
+    >
       <div
         v-for="(mod, key) in props.status.modules"
         :key="key"
@@ -68,7 +76,11 @@ const moduleIcons = {
           stroke="currentColor"
           stroke-width="1.5"
         >
-          <path stroke-linecap="round" stroke-linejoin="round" :d="moduleIcons[key] || ''" />
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            :d="moduleIcons[key] || ''"
+          />
         </svg>
 
         <!-- Label + details -->

@@ -54,7 +54,10 @@ const hasChanges = computed(() => {
 <template>
   <div class="space-y-6">
     <!-- Status Badge -->
-    <div v-if="status && status.module" class="flex items-center gap-4">
+    <div
+      v-if="status && status.module"
+      class="flex items-center gap-4"
+    >
       <div class="flex items-center gap-2">
         <span
           :class="[
@@ -67,7 +70,10 @@ const hasChanges = computed(() => {
         </span>
       </div>
       <!-- Component details -->
-      <div v-if="status.components" class="flex flex-wrap gap-2">
+      <div
+        v-if="status.components"
+        class="flex flex-wrap gap-2"
+      >
         <span
           v-for="(value, key) in status.components"
           :key="key"
@@ -86,7 +92,11 @@ const hasChanges = computed(() => {
     </div>
 
     <!-- Params grouped by category -->
-    <div v-for="cat in categories" :key="cat.key" class="space-y-4">
+    <div
+      v-for="cat in categories"
+      :key="cat.key"
+      class="space-y-4"
+    >
       <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-400">
         {{ cat.key }}
       </h3>

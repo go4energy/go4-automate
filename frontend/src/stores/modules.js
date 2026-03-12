@@ -8,6 +8,12 @@ export const useModuleStore = defineStore('modules', () => {
   const loading = ref(false)
   const error = ref(null)
 
+  // Flat sorted list — no category grouping, backend already sorts by order
+  const desktopSorted = computed(() => {
+    return [...desktopModules.value].sort((a, b) => (a.order || 99) - (b.order || 99))
+  })
+
+  // Keep for backwards compat (sidebar etc.)
   const desktopGrouped = computed(() => {
     const groups = {}
     for (const mod of desktopModules.value) {
@@ -15,29 +21,7 @@ export const useModuleStore = defineStore('modules', () => {
       if (!groups[cat]) groups[cat] = []
       groups[cat].push(mod)
     }
-    // Sort modules within sales group: Funnels, CRM, Kontakte
-    if (groups.sales) {
-      const salesOrder = ['funnels', 'crm', 'contacts']
-      groups.sales.sort((a, b) => {
-        const aIdx = salesOrder.indexOf(a.name)
-        const bIdx = salesOrder.indexOf(b.name)
-        if (aIdx === -1 && bIdx === -1) return 0
-        if (aIdx === -1) return 1
-        if (bIdx === -1) return -1
-        return aIdx - bIdx
-      })
-    }
-    // Category order: Marketing first, then Sales, then system
-    const categoryOrder = ['marketing', 'sales', 'system']
-    const ordered = {}
-    for (const cat of categoryOrder) {
-      if (groups[cat]) ordered[cat] = groups[cat]
-    }
-    // Add any remaining categories
-    for (const [key, val] of Object.entries(groups)) {
-      if (!ordered[key]) ordered[key] = val
-    }
-    return ordered
+    return groups
   })
 
   const appModules = computed(() => modules.value.filter((m) => m.application))
@@ -107,6 +91,7 @@ export const useModuleStore = defineStore('modules', () => {
     desktopModules,
     loading,
     error,
+    desktopSorted,
     desktopGrouped,
     appModules,
     sidebarGroups,

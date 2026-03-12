@@ -134,25 +134,37 @@ function feedUrl() {
     </div>
 
     <!-- Channel Info -->
-    <div v-if="store.currentChannel" class="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <div
+      v-if="store.currentChannel"
+      class="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4"
+    >
       <div class="rounded-lg bg-white dark:bg-gray-800 p-4 shadow-sm">
-        <p class="text-xs font-medium uppercase text-go4-muted dark:text-gray-400">Episoden</p>
+        <p class="text-xs font-medium uppercase text-go4-muted dark:text-gray-400">
+          Episoden
+        </p>
         <p class="mt-1 text-2xl font-semibold text-go4-secondary dark:text-gray-100">
           {{ store.currentChannel.episode_count || 0 }}
         </p>
       </div>
       <div class="rounded-lg bg-white dark:bg-gray-800 p-4 shadow-sm">
-        <p class="text-xs font-medium uppercase text-go4-muted dark:text-gray-400">Typ</p>
+        <p class="text-xs font-medium uppercase text-go4-muted dark:text-gray-400">
+          Typ
+        </p>
         <p class="mt-1 text-sm font-medium text-go4-secondary dark:text-gray-100">
           {{ store.currentChannel.user_id === null ? 'Organisation' : 'Persoenlich' }}
         </p>
       </div>
       <div class="rounded-lg bg-white dark:bg-gray-800 p-4 shadow-sm">
-        <p class="text-xs font-medium uppercase text-go4-muted dark:text-gray-400">Stimme</p>
+        <p class="text-xs font-medium uppercase text-go4-muted dark:text-gray-400">
+          Stimme
+        </p>
         <p class="mt-1 text-sm font-medium text-go4-secondary dark:text-gray-100">
           <template v-if="store.currentChannel.tts_engine === 'xtts'">
             XTTS v2
-            <span v-if="speakerName()" class="text-go4-muted dark:text-gray-400">
+            <span
+              v-if="speakerName()"
+              class="text-go4-muted dark:text-gray-400"
+            >
               ({{ speakerName() }})
             </span>
           </template>
@@ -165,7 +177,9 @@ function feedUrl() {
         </p>
       </div>
       <div class="rounded-lg bg-white dark:bg-gray-800 p-4 shadow-sm">
-        <p class="text-xs font-medium uppercase text-go4-muted dark:text-gray-400">Schedule</p>
+        <p class="text-xs font-medium uppercase text-go4-muted dark:text-gray-400">
+          Schedule
+        </p>
         <p class="mt-1 text-sm font-medium text-go4-secondary dark:text-gray-100">
           {{ store.currentChannel.schedule || 'Manuell' }}
         </p>
@@ -173,8 +187,13 @@ function feedUrl() {
     </div>
 
     <!-- RSS Feed URL -->
-    <div v-if="store.currentChannel" class="mt-4 rounded-lg bg-sky-50 dark:bg-sky-900/20 p-3">
-      <p class="text-xs font-medium text-sky-700 dark:text-sky-400">Podcast RSS-Feed:</p>
+    <div
+      v-if="store.currentChannel"
+      class="mt-4 rounded-lg bg-sky-50 dark:bg-sky-900/20 p-3"
+    >
+      <p class="text-xs font-medium text-sky-700 dark:text-sky-400">
+        Podcast RSS-Feed:
+      </p>
       <code class="mt-1 block break-all text-xs text-sky-900 dark:text-sky-300">{{
         feedUrl()
       }}</code>
@@ -212,29 +231,50 @@ function feedUrl() {
     </div>
 
     <!-- Loading -->
-    <div v-if="store.loading" class="mt-8 flex items-center justify-center py-12">
+    <div
+      v-if="store.loading"
+      class="mt-8 flex items-center justify-center py-12"
+    >
       <span class="text-go4-muted dark:text-gray-400">Laden...</span>
     </div>
 
     <!-- Episodes Tab -->
-    <div v-else-if="activeTab === 'episodes'" class="mt-6">
+    <div
+      v-else-if="activeTab === 'episodes'"
+      class="mt-6"
+    >
       <EmptyState
         v-if="store.episodes.length === 0"
         title="Noch keine Episoden"
         description="Generieren Sie die erste Episode fuer diesen Channel."
       />
-      <div v-else class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 shadow-sm">
+      <div
+        v-else
+        class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 shadow-sm"
+      >
         <table class="w-full text-left text-sm">
           <thead
             class="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-xs uppercase tracking-wider text-go4-muted dark:text-gray-400"
           >
             <tr>
-              <th class="px-4 py-3 font-medium">#</th>
-              <th class="px-4 py-3 font-medium">Titel</th>
-              <th class="hidden px-4 py-3 font-medium md:table-cell">Dauer</th>
-              <th class="px-4 py-3 font-medium">Status</th>
-              <th class="hidden px-4 py-3 font-medium lg:table-cell">Erstellt</th>
-              <th class="px-4 py-3 text-right font-medium">Aktionen</th>
+              <th class="px-4 py-3 font-medium">
+                #
+              </th>
+              <th class="px-4 py-3 font-medium">
+                Titel
+              </th>
+              <th class="hidden px-4 py-3 font-medium md:table-cell">
+                Dauer
+              </th>
+              <th class="px-4 py-3 font-medium">
+                Status
+              </th>
+              <th class="hidden px-4 py-3 font-medium lg:table-cell">
+                Erstellt
+              </th>
+              <th class="px-4 py-3 text-right font-medium">
+                Aktionen
+              </th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-50 dark:divide-gray-700">
@@ -291,14 +331,22 @@ function feedUrl() {
     </div>
 
     <!-- Sources Tab -->
-    <div v-else-if="activeTab === 'sources'" class="mt-6">
+    <div
+      v-else-if="activeTab === 'sources'"
+      class="mt-6"
+    >
       <!-- Link Source -->
-      <div v-if="canEdit()" class="mb-4 flex items-center gap-3">
+      <div
+        v-if="canEdit()"
+        class="mb-4 flex items-center gap-3"
+      >
         <select
           id="link-source-select"
           class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-800 dark:text-gray-200"
         >
-          <option value="">Quelle auswaehlen...</option>
+          <option value="">
+            Quelle auswaehlen...
+          </option>
           <option
             v-for="s in store.sources.filter(
               (s) => !store.channelSources.find((cs) => cs.id === s.id)
@@ -322,16 +370,30 @@ function feedUrl() {
         title="Keine Quellen verlinkt"
         description="Verlinken Sie Briefing-Quellen mit diesem Channel."
       />
-      <div v-else class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 shadow-sm">
+      <div
+        v-else
+        class="overflow-hidden rounded-lg bg-white dark:bg-gray-800 shadow-sm"
+      >
         <table class="w-full text-left text-sm">
           <thead
             class="border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-xs uppercase tracking-wider text-go4-muted dark:text-gray-400"
           >
             <tr>
-              <th class="px-4 py-3 font-medium">Name</th>
-              <th class="px-4 py-3 font-medium">Typ</th>
-              <th class="hidden px-4 py-3 font-medium md:table-cell">Status</th>
-              <th v-if="canEdit()" class="px-4 py-3 text-right font-medium">Aktionen</th>
+              <th class="px-4 py-3 font-medium">
+                Name
+              </th>
+              <th class="px-4 py-3 font-medium">
+                Typ
+              </th>
+              <th class="hidden px-4 py-3 font-medium md:table-cell">
+                Status
+              </th>
+              <th
+                v-if="canEdit()"
+                class="px-4 py-3 text-right font-medium"
+              >
+                Aktionen
+              </th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-50 dark:divide-gray-700">
@@ -358,7 +420,10 @@ function feedUrl() {
                   {{ source.active ? 'Aktiv' : 'Inaktiv' }}
                 </span>
               </td>
-              <td v-if="canEdit()" class="px-4 py-3">
+              <td
+                v-if="canEdit()"
+                class="px-4 py-3"
+              >
                 <div class="flex items-center justify-end gap-1.5">
                   <button
                     class="rounded bg-red-100 dark:bg-red-900/30 px-2.5 py-1 text-xs font-medium text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-800/40"

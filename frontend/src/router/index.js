@@ -9,6 +9,12 @@ const routes = [
     meta: { requiresAuth: false }
   },
   {
+    path: '/s/:slug',
+    name: 'survey-public',
+    component: () => import('@/views/SurveyPublicView.vue'),
+    meta: { requiresAuth: false }
+  },
+  {
     path: '/',
     name: 'layout',
     component: () => import('@/components/layout/AppLayout.vue'),

@@ -23,26 +23,47 @@ manifest = {
                 "path": "",
                 "name": "settings",
                 "view": "SettingsView",
-                "meta": {"title": "Einstellungen"},
+                "meta": {
+                    "title": "Einstellungen",
+                    "breadcrumb": {"label": "Einstellungen"},
+                },
             },
             {
                 "path": "prompts",
                 "name": "settings-prompts",
                 "view": "SettingsView",
-                "meta": {"title": "Prompts", "parent": "settings"},
+                "meta": {
+                    "title": "Prompts",
+                    "breadcrumb": {"label": "Prompts", "parent": "settings"},
+                },
             },
             {
                 "path": "prompts/new",
                 "name": "prompt-new",
                 "view": "PromptEditorView",
-                "meta": {"title": "Neuer Prompt", "parent": "settings"},
+                "meta": {
+                    "title": "Neuer Prompt",
+                    "breadcrumb": {"label": "Neu", "parent": "settings-prompts"},
+                },
             },
             {
                 "path": "prompts/:id",
                 "name": "prompt-edit",
                 "view": "PromptEditorView",
                 "props": True,
-                "meta": {"title": "Prompt bearbeiten", "parent": "settings"},
+                "meta": {
+                    "title": "Prompt bearbeiten",
+                    "breadcrumb": {"label": "Bearbeiten", "parent": "settings-prompts"},
+                },
+            },
+            {
+                "path": "desktop-layout",
+                "name": "desktop-layout",
+                "view": "DesktopLayoutView",
+                "meta": {
+                    "title": "Desktop Layout",
+                    "breadcrumb": {"label": "Desktop Layout", "parent": "settings"},
+                },
             },
         ],
     },

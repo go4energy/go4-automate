@@ -1,0 +1,120 @@
+{
+  "_comment": "LinkedIn Automation Safety Limits - NUR VON ADMINS ÄNDERN!",
+  "_randomize_note": "Alle Werte sind min/max Bereiche. Bei jedem Start wird ein zufälliger Wert im Bereich gewählt.",
+
+  "scroll_speed_px": {
+    "label": "Scrollgeschwindigkeit",
+    "unit": "px",
+    "min": 800,
+    "max": 1000
+  },
+  "typing_delay_ms": {
+    "label": "Tippgeschwindigkeit",
+    "unit": "ms",
+    "min": 600,
+    "max": 800
+  },
+  "profile_visits_per_hour": {
+    "label": "Profilbesuche pro Stunde",
+    "unit": "",
+    "min": 59,
+    "max": 60
+  },
+  "page_views_per_minute": {
+    "label": "Seitenaufrufe pro Minute",
+    "unit": "",
+    "min": 90,
+    "max": 110
+  },
+
+  "profile_visit_pause_minutes": {
+    "label": "Pausendauer nach Profilbesuchen",
+    "unit": "Min",
+    "min": 24,
+    "max": 29
+  },
+  "profile_visits_before_pause": {
+    "label": "Profilbesuche vor Pause",
+    "unit": "",
+    "min": 51,
+    "max": 62
+  },
+
+  "withdraw_request_pause_minutes": {
+    "label": "Pausendauer nach Anfragen zurückziehen",
+    "unit": "Min",
+    "min": 59,
+    "max": 70
+  },
+  "withdraw_requests_before_pause": {
+    "label": "Anfragen zurückziehen vor Pause",
+    "unit": "",
+    "min": 93,
+    "max": 100
+  },
+
+  "message_pause_minutes": {
+    "label": "Pausendauer nach Nachrichten",
+    "unit": "Min",
+    "min": 5,
+    "max": 10
+  },
+  "messages_before_pause": {
+    "label": "Nachrichten vor Pause",
+    "unit": "",
+    "min": 25,
+    "max": 37
+  },
+
+  "opener_pause_minutes": {
+    "label": "Pausendauer nach Openern",
+    "unit": "Min",
+    "min": 5,
+    "max": 10
+  },
+  "openers_before_pause": {
+    "label": "Opener vor Pause",
+    "unit": "",
+    "min": 25,
+    "max": 37
+  },
+
+  "followup_pause_minutes": {
+    "label": "Pausendauer nach Follow-Ups",
+    "unit": "Min",
+    "min": 5,
+    "max": 10
+  },
+  "followups_before_pause": {
+    "label": "Follow-Ups vor Pause",
+    "unit": "",
+    "min": 25,
+    "max": 37
+  },
+
+  "congratulation_pause_minutes": {
+    "label": "Pausendauer nach Gratulationen",
+    "unit": "Min",
+    "min": 5,
+    "max": 10
+  },
+  "congratulations_before_pause": {
+    "label": "Gratulationen vor Pause",
+    "unit": "",
+    "min": 5,
+    "max": 10
+  },
+
+  "company_visit_pause_minutes": {
+    "label": "Pausendauer nach Unternehmensbesuchen",
+    "unit": "Min",
+    "min": 5,
+    "max": 10
+  },
+  "company_visits_before_pause": {
+    "label": "Unternehmensbesuche vor Pause",
+    "unit": "",
+    "min": 25,
+    "max": 37
+  }
+}

@@ -99,7 +99,10 @@ async function handleSubmit() {
       {{ error }}
     </div>
 
-    <form class="mt-6 space-y-6" @submit.prevent="handleSubmit">
+    <form
+      class="mt-6 space-y-6"
+      @submit.prevent="handleSubmit"
+    >
       <div>
         <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">Titel</label>
         <input
@@ -108,13 +111,11 @@ async function handleSubmit() {
           required
           class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm dark:bg-gray-700 dark:text-gray-100 focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
           placeholder="z.B. Solar-Carport Vorteile"
-        />
+        >
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
-          >Beschreibung</label
-        >
+        <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">Beschreibung</label>
         <textarea
           v-model="form.description"
           rows="4"
@@ -125,24 +126,28 @@ async function handleSubmit() {
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
-          >Kategorie</label
-        >
+        <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">Kategorie</label>
         <select
           v-model="form.category"
           class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm dark:bg-gray-700 dark:text-gray-100 focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
         >
-          <option value="content">Content</option>
-          <option value="social">Social Media</option>
-          <option value="email">E-Mail</option>
-          <option value="general">Allgemein</option>
+          <option value="content">
+            Content
+          </option>
+          <option value="social">
+            Social Media
+          </option>
+          <option value="email">
+            E-Mail
+          </option>
+          <option value="general">
+            Allgemein
+          </option>
         </select>
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
-          >Plattformen</label
-        >
+        <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">Plattformen</label>
         <div class="mt-2 flex flex-wrap gap-3">
           <label
             v-for="opt in platformOptions"
@@ -159,7 +164,7 @@ async function handleSubmit() {
               class="hidden"
               :checked="form.platforms.includes(opt.value)"
               @change="togglePlatform(opt.value)"
-            />
+            >
             {{ opt.label }}
           </label>
         </div>
@@ -172,34 +177,47 @@ async function handleSubmit() {
             ({{ ['', 'Sehr hoch', 'Hoch', 'Normal', 'Niedrig', 'Sehr niedrig'][form.priority] }})
           </span>
         </label>
-        <input v-model.number="form.priority" type="range" min="1" max="5" class="mt-2 w-full" />
+        <input
+          v-model.number="form.priority"
+          type="range"
+          min="1"
+          max="5"
+          class="mt-2 w-full"
+        >
       </div>
 
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
-          <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
-            >Tags</label
-          >
+          <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">Tags</label>
           <div class="mt-1">
-            <TagSelector v-model="form.tags" placeholder="Tags auswaehlen..." />
+            <TagSelector
+              v-model="form.tags"
+              placeholder="Tags auswaehlen..."
+            />
           </div>
         </div>
         <div>
-          <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
-            >Streams</label
-          >
+          <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">Streams</label>
           <div class="mt-1">
-            <StreamSelector v-model="form.streams" placeholder="Streams auswaehlen..." />
+            <StreamSelector
+              v-model="form.streams"
+              placeholder="Streams auswaehlen..."
+            />
           </div>
         </div>
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
-          >Bild (optional)</label
+        <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">Bild (optional)</label>
+        <div
+          v-if="form.image_url"
+          class="mt-2"
         >
-        <div v-if="form.image_url" class="mt-2">
-          <img :src="form.image_url" alt="Vorschau" class="h-32 rounded-lg object-cover" />
+          <img
+            :src="form.image_url"
+            alt="Vorschau"
+            class="h-32 rounded-lg object-cover"
+          >
           <button
             type="button"
             class="mt-2 text-sm text-red-600 hover:text-red-800"
@@ -208,7 +226,10 @@ async function handleSubmit() {
             Bild entfernen
           </button>
         </div>
-        <div v-else class="mt-2">
+        <div
+          v-else
+          class="mt-2"
+        >
           <label
             class="flex cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 p-6 text-sm text-go4-muted dark:text-gray-400 transition hover:border-go4-primary hover:text-go4-primary"
           >
@@ -218,7 +239,7 @@ async function handleSubmit() {
               class="hidden"
               :disabled="uploadingImage"
               @change="handleImageUpload"
-            />
+            >
             {{ uploadingImage ? 'Hochladen...' : 'Bild auswaehlen oder hierher ziehen' }}
           </label>
         </div>
@@ -228,38 +249,57 @@ async function handleSubmit() {
         class="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-4"
       >
         <label class="flex items-center gap-2">
-          <input v-model="generateAfterSave" type="checkbox" class="rounded" />
+          <input
+            v-model="generateAfterSave"
+            type="checkbox"
+            class="rounded"
+          >
           <span class="text-sm font-medium text-go4-secondary dark:text-gray-100">
             Sofort Content generieren
           </span>
         </label>
-        <div v-if="generateAfterSave" class="mt-3 flex gap-4">
+        <div
+          v-if="generateAfterSave"
+          class="mt-3 flex gap-4"
+        >
           <div class="flex-1">
-            <label class="block text-xs font-medium text-go4-muted dark:text-gray-400"
-              >Plattform</label
-            >
+            <label class="block text-xs font-medium text-go4-muted dark:text-gray-400">Plattform</label>
             <select
               v-model="generatePlatform"
               class="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-gray-100"
             >
-              <option value="facebook">Facebook</option>
-              <option value="instagram">Instagram</option>
-              <option value="linkedin">LinkedIn</option>
-              <option value="email">E-Mail</option>
+              <option value="facebook">
+                Facebook
+              </option>
+              <option value="instagram">
+                Instagram
+              </option>
+              <option value="linkedin">
+                LinkedIn
+              </option>
+              <option value="email">
+                E-Mail
+              </option>
             </select>
           </div>
           <div class="flex-1">
-            <label class="block text-xs font-medium text-go4-muted dark:text-gray-400"
-              >Content-Typ</label
-            >
+            <label class="block text-xs font-medium text-go4-muted dark:text-gray-400">Content-Typ</label>
             <select
               v-model="generateType"
               class="mt-1 block w-full rounded border border-gray-300 dark:border-gray-600 px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-gray-100"
             >
-              <option value="post">Post</option>
-              <option value="story">Story</option>
-              <option value="reel">Reel</option>
-              <option value="email">E-Mail</option>
+              <option value="post">
+                Post
+              </option>
+              <option value="story">
+                Story
+              </option>
+              <option value="reel">
+                Reel
+              </option>
+              <option value="email">
+                E-Mail
+              </option>
             </select>
           </div>
         </div>

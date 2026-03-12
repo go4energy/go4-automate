@@ -33,6 +33,21 @@ class Prompt(TimestampMixin, Base):
         String(50), nullable=False, server_default="general"
     )
 
+    # Module association (e.g., "linkedin", "emailmarketing", "global")
+    module: Mapped[str] = mapped_column(
+        String(50), nullable=False, server_default="global"
+    )
+    # Prompt type: "setup" (onboarding/config) or "productive" (system/n8n calls)
+    prompt_type: Mapped[str] = mapped_column(
+        String(20), nullable=False, server_default="productive"
+    )
+    # Is this a system prompt (from manifest) or user-created?
+    is_system: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false"
+    )
+    # For setup prompts: schema defining which variables to extract
+    variables_schema: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
     # Template fields — placeholders use {{VARIABLE}} syntax
     system_prompt: Mapped[str] = mapped_column(Text, nullable=False)
     user_prompt: Mapped[str] = mapped_column(Text, nullable=False)
@@ -68,6 +83,9 @@ class Prompt(TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default="true"
     )
+
+    # Sort order for UI display
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
 
     # Relationships
     tenant = relationship("Tenant", back_populates="prompts")

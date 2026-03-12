@@ -24,7 +24,12 @@ class Settings(BaseSettings):
     # Security
     secret_key: str = "change-me-in-production"
     backend_secret: str = ""
-    allowed_origins: list[str] = ["http://localhost:5173", "http://localhost:3000"]
+    allowed_origins: list[str] = [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://localhost:8081",
+        "http://192.168.1.227:8081",
+    ]
 
     # API Keys
     anthropic_api_key: str = ""
@@ -98,7 +103,7 @@ class Settings(BaseSettings):
     initial_admin_password: str = "changeme"
 
     # Tenant
-    default_tenant_id: str = "default"
+    default_tenant_id: str = "go4energy"
     active_tenant: str = "go4energy"
     tenant_config_dir: str = "config/tenants"
     template_dir: str = "config/templates"

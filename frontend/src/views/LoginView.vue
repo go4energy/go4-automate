@@ -47,7 +47,9 @@ async function handleLogin() {
         >
           g4
         </div>
-        <h1 class="text-xl font-semibold text-go4-secondary dark:text-white">go4-automate</h1>
+        <h1 class="text-xl font-semibold text-go4-secondary dark:text-white">
+          go4-automate
+        </h1>
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
           Melden Sie sich an, um fortzufahren
         </p>
@@ -55,7 +57,10 @@ async function handleLogin() {
 
       <!-- Login Card -->
       <div class="rounded-2xl bg-white/80 p-8 shadow-xl backdrop-blur dark:bg-gray-800/80">
-        <form class="space-y-5" @submit.prevent="handleLogin">
+        <form
+          class="space-y-5"
+          @submit.prevent="handleLogin"
+        >
           <!-- Error -->
           <div
             v-if="error"
@@ -80,7 +85,7 @@ async function handleLogin() {
               autocomplete="email"
               class="w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-gray-900 transition placeholder:text-gray-400 focus:border-go4-primary focus:outline-none focus:ring-2 focus:ring-go4-primary/20 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:border-go4-primary"
               placeholder="admin@go4.energy"
-            />
+            >
           </div>
 
           <!-- Password -->
@@ -99,7 +104,7 @@ async function handleLogin() {
               autocomplete="current-password"
               class="w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-gray-900 transition placeholder:text-gray-400 focus:border-go4-primary focus:outline-none focus:ring-2 focus:ring-go4-primary/20 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:border-go4-primary"
               placeholder="••••••••"
-            />
+            >
           </div>
 
           <!-- Submit -->

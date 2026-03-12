@@ -2,7 +2,6 @@ import axios from 'axios'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
-  timeout: 30000,
   headers: {
     'Content-Type': 'application/json'
   }
@@ -24,11 +23,22 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    const message = error.response?.data?.detail || error.message || 'Unbekannter Fehler'
+    let message = 'Unbekannter Fehler'
+    const detail = error.response?.data?.detail
+
+    if (typeof detail === 'string') {
+      message = detail
+    } else if (Array.isArray(detail)) {
+      // Validation errors from FastAPI
+      message = detail.map((e) => e.msg || e.message || JSON.stringify(e)).join(', ')
+    } else if (detail && typeof detail === 'object') {
+      message = detail.msg || detail.message || JSON.stringify(detail)
+    } else if (error.message) {
+      message = error.message
+    }
 
     if (error.response?.status === 401 && !error.config?.url?.includes('/auth/login')) {
       localStorage.removeItem('token')
-      // Use router navigation instead of full page reload
       if (window.location.pathname !== '/login') {
         window.location.href = '/login'
       }

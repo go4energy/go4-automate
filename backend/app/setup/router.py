@@ -27,7 +27,7 @@ router = APIRouter(prefix="/setup", tags=["setup"])
 )
 async def create_setup_conversation(
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> ConversationResponse:
     """Create a new setup conversation."""
     try:
@@ -46,7 +46,7 @@ async def create_setup_conversation(
 @router.get("/conversations", response_model=list[ConversationListItem])
 async def list_setup_conversations(
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> list[ConversationListItem]:
     """List setup conversations for the current tenant."""
     try:
@@ -86,7 +86,7 @@ async def list_setup_conversations(
 async def get_setup_conversation(
     conv_id: int,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> ConversationResponse:
     """Get a setup conversation with all messages."""
     try:
@@ -104,7 +104,7 @@ async def get_setup_conversation(
 async def delete_setup_conversation(
     conv_id: int,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> None:
     """Delete a setup conversation."""
     try:
@@ -124,8 +124,8 @@ async def send_setup_message(
     conv_id: int,
     data: ChatMessageCreate,
     tenant_id: str = Depends(get_current_tenant_id),
-    tenant_config: dict = Depends(get_tenant_config),  # noqa: B008
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    tenant_config: dict = Depends(get_tenant_config),
+    db: AsyncSession = Depends(get_db),
 ) -> StreamingResponse:
     """Send a message and stream the setup agent response via SSE."""
     try:
@@ -148,8 +148,8 @@ async def send_setup_message(
 @router.get("/status", response_model=SetupStatusResponse)
 async def get_setup_status(
     tenant_id: str = Depends(get_current_tenant_id),
-    tenant_config: dict = Depends(get_tenant_config),  # noqa: B008
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    tenant_config: dict = Depends(get_tenant_config),
+    db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Get current setup progress."""
     try:

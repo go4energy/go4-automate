@@ -138,3 +138,74 @@ async def update_global_config(
     except Exception as e:
         logger.exception("Unerwarteter Fehler in update_global_config")
         raise HTTPException(status_code=500, detail="Interner Serverfehler") from e
+
+
+# --- Desktop Layout ---
+
+
+@router.get("/desktop-layout")
+async def get_desktop_layout(
+    tenant_id: str = Depends(get_current_tenant_id),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Get desktop layout overrides for all modules."""
+    try:
+        service = SettingsService(db)
+        return await service.get_desktop_layout(tenant_id)
+    except AppError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message) from e
+    except Exception as e:
+        logger.exception("Unerwarteter Fehler in get_desktop_layout")
+        raise HTTPException(status_code=500, detail="Interner Serverfehler") from e
+
+
+@router.put("/desktop-layout/bulk-order")
+async def bulk_update_desktop_order(
+    order_map: dict,
+    tenant_id: str = Depends(get_current_tenant_id),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Bulk update desktop tile order. Expects {module_name: order_int, ...}."""
+    try:
+        service = SettingsService(db)
+        return await service.bulk_update_desktop_order(tenant_id, order_map)
+    except AppError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message) from e
+    except Exception as e:
+        logger.exception("Unerwarteter Fehler in bulk_update_desktop_order")
+        raise HTTPException(status_code=500, detail="Interner Serverfehler") from e
+
+
+@router.put("/desktop-layout/{module_name}")
+async def update_desktop_layout(
+    module_name: str,
+    updates: dict,
+    tenant_id: str = Depends(get_current_tenant_id),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Update desktop layout for a specific module."""
+    try:
+        service = SettingsService(db)
+        return await service.update_desktop_layout(tenant_id, module_name, updates)
+    except AppError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message) from e
+    except Exception as e:
+        logger.exception("Unerwarteter Fehler in update_desktop_layout")
+        raise HTTPException(status_code=500, detail="Interner Serverfehler") from e
+
+
+@router.delete("/desktop-layout/{module_name}")
+async def delete_desktop_override(
+    module_name: str,
+    tenant_id: str = Depends(get_current_tenant_id),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Remove all desktop overrides for a module (reset to defaults)."""
+    try:
+        service = SettingsService(db)
+        return await service.delete_desktop_override(tenant_id, module_name)
+    except AppError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message) from e
+    except Exception as e:
+        logger.exception("Unerwarteter Fehler in delete_desktop_override")
+        raise HTTPException(status_code=500, detail="Interner Serverfehler") from e

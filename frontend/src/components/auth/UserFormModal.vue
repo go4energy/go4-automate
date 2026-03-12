@@ -64,7 +64,10 @@ async function handleSubmit() {
         {{ isEdit ? 'Benutzer bearbeiten' : 'Neuer Benutzer' }}
       </h2>
 
-      <form class="space-y-4" @submit.prevent="handleSubmit">
+      <form
+        class="space-y-4"
+        @submit.prevent="handleSubmit"
+      >
         <div
           v-if="error"
           class="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/30 dark:text-red-400"
@@ -74,53 +77,49 @@ async function handleSubmit() {
 
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >E-Mail</label
-            >
+            <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">E-Mail</label>
             <input
               v-model="form.email"
               type="email"
               required
               class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-            />
+            >
           </div>
           <div>
-            <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >Name</label
-            >
+            <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
             <input
               v-model="form.display_name"
               type="text"
               required
               class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-            />
+            >
           </div>
         </div>
 
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >Rolle</label
-            >
+            <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Rolle</label>
             <select
               v-model="form.role"
               class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
             >
-              <option value="user">Benutzer</option>
-              <option value="admin">Administrator</option>
+              <option value="user">
+                Benutzer
+              </option>
+              <option value="admin">
+                Administrator
+              </option>
             </select>
           </div>
           <div v-if="!isEdit">
-            <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >Passwort</label
-            >
+            <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Passwort</label>
             <input
               v-model="form.password"
               type="password"
               required
               minlength="6"
               class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-            />
+            >
           </div>
         </div>
 
@@ -129,7 +128,10 @@ async function handleSubmit() {
           <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
             Direkte Berechtigungen (optional)
           </label>
-          <PermissionMatrix :permissions="form.permissions" @update="form.permissions = $event" />
+          <PermissionMatrix
+            :permissions="form.permissions"
+            @update="form.permissions = $event"
+          />
         </div>
 
         <div class="flex justify-end gap-3 pt-2">

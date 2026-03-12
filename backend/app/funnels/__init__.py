@@ -8,16 +8,16 @@ from app.funnels.models import (
     FunnelProspect,
     FunnelStage,
 )
-from app.funnels.router import router
 from app.funnels.n8n_router import n8n_router
+from app.funnels.router import router
 
 __all__ = [
     "Funnel",
-    "FunnelStage",
-    "FunnelCompany",
-    "FunnelProspect",
     "FunnelActivity",
+    "FunnelCompany",
     "FunnelHandoff",
-    "router",
+    "FunnelProspect",
+    "FunnelStage",
     "n8n_router",
+    "router",
 ]

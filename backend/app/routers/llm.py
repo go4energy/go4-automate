@@ -23,7 +23,7 @@ router = APIRouter(prefix="/llm", tags=["llm"])
 @router.post("/generate", response_model=LLMGenerateResponse)
 async def generate(
     data: LLMGenerateRequest,
-    tenant_config: dict = Depends(get_tenant_config),  # noqa: B008
+    tenant_config: dict = Depends(get_tenant_config),
 ) -> LLMGenerateResponse:
     """Generate text using LLM with task-based model routing."""
     try:
@@ -44,8 +44,8 @@ async def generate(
 async def execute_prompt(
     data: PromptExecuteRequest,
     tenant_id: str = Depends(get_current_tenant_id),
-    tenant_config: dict = Depends(get_tenant_config),  # noqa: B008
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    tenant_config: dict = Depends(get_tenant_config),
+    db: AsyncSession = Depends(get_db),
 ) -> PromptExecuteResponse:
     """Execute a prompt from the registry by slug. Used by n8n workflows."""
     try:

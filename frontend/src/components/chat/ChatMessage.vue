@@ -12,9 +12,15 @@ function formatTime(dateStr) {
 </script>
 
 <template>
-  <div class="flex" :class="props.message.role === 'user' ? 'justify-end' : 'justify-start'">
+  <div
+    class="flex"
+    :class="props.message.role === 'user' ? 'justify-end' : 'justify-start'"
+  >
     <!-- System message -->
-    <div v-if="props.message.role === 'system'" class="w-full text-center">
+    <div
+      v-if="props.message.role === 'system'"
+      class="w-full text-center"
+    >
       <span
         class="inline-block rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-500 dark:bg-gray-700 dark:text-gray-400"
       >
@@ -23,7 +29,10 @@ function formatTime(dateStr) {
     </div>
 
     <!-- User message -->
-    <div v-else-if="props.message.role === 'user'" class="max-w-[80%]">
+    <div
+      v-else-if="props.message.role === 'user'"
+      class="max-w-[80%]"
+    >
       <div class="rounded-2xl rounded-br-md bg-[#00865a] px-4 py-2.5 text-white">
         <p class="whitespace-pre-wrap text-sm">
           {{ props.message.content }}
@@ -35,7 +44,10 @@ function formatTime(dateStr) {
     </div>
 
     <!-- Assistant message -->
-    <div v-else class="max-w-[80%]">
+    <div
+      v-else
+      class="max-w-[80%]"
+    >
       <div
         class="rounded-2xl rounded-bl-md bg-white px-4 py-2.5 shadow-sm ring-1 ring-gray-100 dark:bg-gray-800 dark:ring-gray-700"
       >

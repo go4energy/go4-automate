@@ -260,7 +260,9 @@ onMounted(async () => {
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h3 class="text-lg font-medium">Meta Conversions API</h3>
+        <h3 class="text-lg font-medium">
+          Meta Conversions API
+        </h3>
         <p class="text-sm text-gray-500">
           Server-side Event-Tracking für bessere Attribution und Ad-Optimierung
         </p>
@@ -271,21 +273,52 @@ onMounted(async () => {
     </div>
 
     <!-- Alerts -->
-    <div v-if="error" class="rounded-lg bg-red-50 p-4 text-red-700">
+    <div
+      v-if="error"
+      class="rounded-lg bg-red-50 p-4 text-red-700"
+    >
       {{ error }}
-      <button class="ml-2 underline" @click="error = null">Schließen</button>
+      <button
+        class="ml-2 underline"
+        @click="error = null"
+      >
+        Schließen
+      </button>
     </div>
-    <div v-if="success" class="rounded-lg bg-green-50 p-4 text-green-700">
+    <div
+      v-if="success"
+      class="rounded-lg bg-green-50 p-4 text-green-700"
+    >
       {{ success }}
-      <button class="ml-2 underline" @click="success = null">Schließen</button>
+      <button
+        class="ml-2 underline"
+        @click="success = null"
+      >
+        Schließen
+      </button>
     </div>
 
     <!-- Not Configured State -->
-    <div v-if="!isConfigured && !showForm" class="rounded-lg border-2 border-dashed border-gray-300 p-8 text-center">
-      <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+    <div
+      v-if="!isConfigured && !showForm"
+      class="rounded-lg border-2 border-dashed border-gray-300 p-8 text-center"
+    >
+      <svg
+        class="mx-auto h-12 w-12 text-gray-400"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M13 10V3L4 14h7v7l9-11h-7z"
+        />
       </svg>
-      <h3 class="mt-4 text-lg font-medium text-gray-900">Meta-Integration einrichten</h3>
+      <h3 class="mt-4 text-lg font-medium text-gray-900">
+        Meta-Integration einrichten
+      </h3>
       <p class="mt-2 text-sm text-gray-500">
         Verbinden Sie Ihr Meta-Pixel für server-seitiges Conversion-Tracking.
       </p>
@@ -298,8 +331,13 @@ onMounted(async () => {
     </div>
 
     <!-- Setup Form -->
-    <div v-if="showForm" class="rounded-lg border bg-white p-6">
-      <h4 class="mb-4 text-lg font-medium">Integration konfigurieren</h4>
+    <div
+      v-if="showForm"
+      class="rounded-lg border bg-white p-6"
+    >
+      <h4 class="mb-4 text-lg font-medium">
+        Integration konfigurieren
+      </h4>
 
       <div class="space-y-4">
         <!-- Pixel ID -->
@@ -313,7 +351,7 @@ onMounted(async () => {
             placeholder="1234567890123456"
             class="w-full rounded-lg border px-3 py-2 focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
             pattern="\d{15,16}"
-          />
+          >
           <p class="mt-1 text-xs text-gray-500">
             15-16-stellige ID aus dem Meta Events Manager
           </p>
@@ -330,18 +368,45 @@ onMounted(async () => {
               :type="showToken ? 'text' : 'password'"
               placeholder="EAAxxxxxxx..."
               class="w-full rounded-lg border px-3 py-2 pr-10 focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
-            />
+            >
             <button
               type="button"
               class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
               @click="showToken = !showToken"
             >
-              <svg v-if="showToken" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+              <svg
+                v-if="showToken"
+                class="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+                />
               </svg>
-              <svg v-else class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              <svg
+                v-else
+                class="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                />
               </svg>
             </button>
           </div>
@@ -360,7 +425,7 @@ onMounted(async () => {
             type="text"
             placeholder="act_1234567890"
             class="w-full rounded-lg border px-3 py-2 focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
-          />
+          >
           <p class="mt-1 text-xs text-gray-500">
             Für Custom Audiences (wird in Phase 9b benötigt)
           </p>
@@ -373,8 +438,11 @@ onMounted(async () => {
             v-model="form.test_mode"
             type="checkbox"
             class="h-4 w-4 rounded border-gray-300 text-go4-primary focus:ring-go4-primary"
-          />
-          <label for="test_mode" class="text-sm text-gray-700">
+          >
+          <label
+            for="test_mode"
+            class="text-sm text-gray-700"
+          >
             Test-Modus (Events erscheinen unter "Test Events" im Events Manager)
           </label>
         </div>
@@ -412,7 +480,10 @@ onMounted(async () => {
               <span>Token:</span>
               <code>{{ integration?.access_token_masked }}</code>
             </div>
-            <div v-if="status?.last_event_at" class="text-sm text-gray-500">
+            <div
+              v-if="status?.last_event_at"
+              class="text-sm text-gray-500"
+            >
               Letztes Event: {{ formatDate(status.last_event_at) }}
             </div>
           </div>
@@ -437,7 +508,9 @@ onMounted(async () => {
       <div class="rounded-lg border bg-white p-4">
         <div class="flex items-center justify-between">
           <div>
-            <h4 class="font-medium">Verbindung testen</h4>
+            <h4 class="font-medium">
+              Verbindung testen
+            </h4>
             <p class="text-sm text-gray-500">
               Sende ein Test-Event an Meta um die Integration zu verifizieren
             </p>
@@ -460,57 +533,114 @@ onMounted(async () => {
           ]"
         >
           <div class="flex items-center gap-2">
-            <svg v-if="testResult.success" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            <svg
+              v-if="testResult.success"
+              class="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M5 13l4 4L19 7"
+              />
             </svg>
-            <svg v-else class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            <svg
+              v-else
+              class="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
             <span>{{ testResult.message }}</span>
           </div>
-          <div v-if="testResult.event_id" class="mt-1 text-sm opacity-75">
+          <div
+            v-if="testResult.event_id"
+            class="mt-1 text-sm opacity-75"
+          >
             Event ID: {{ testResult.event_id }}
           </div>
         </div>
       </div>
 
       <!-- Statistics -->
-      <div v-if="stats" class="rounded-lg border bg-white p-4">
+      <div
+        v-if="stats"
+        class="rounded-lg border bg-white p-4"
+      >
         <div class="mb-4 flex items-center justify-between">
-          <h4 class="font-medium">Statistiken</h4>
+          <h4 class="font-medium">
+            Statistiken
+          </h4>
           <select
             v-model="statsDays"
             class="rounded border px-2 py-1 text-sm"
             @change="loadStats(); loadEvents()"
           >
-            <option :value="7">Letzte 7 Tage</option>
-            <option :value="30">Letzte 30 Tage</option>
-            <option :value="90">Letzte 90 Tage</option>
+            <option :value="7">
+              Letzte 7 Tage
+            </option>
+            <option :value="30">
+              Letzte 30 Tage
+            </option>
+            <option :value="90">
+              Letzte 90 Tage
+            </option>
           </select>
         </div>
 
         <div class="grid grid-cols-4 gap-4">
           <div class="rounded-lg bg-gray-50 p-3 text-center">
-            <div class="text-2xl font-bold text-gray-900">{{ stats.total_events }}</div>
-            <div class="text-sm text-gray-500">Events gesamt</div>
+            <div class="text-2xl font-bold text-gray-900">
+              {{ stats.total_events }}
+            </div>
+            <div class="text-sm text-gray-500">
+              Events gesamt
+            </div>
           </div>
           <div class="rounded-lg bg-green-50 p-3 text-center">
-            <div class="text-2xl font-bold text-green-600">{{ stats.events_sent }}</div>
-            <div class="text-sm text-gray-500">Gesendet</div>
+            <div class="text-2xl font-bold text-green-600">
+              {{ stats.events_sent }}
+            </div>
+            <div class="text-sm text-gray-500">
+              Gesendet
+            </div>
           </div>
           <div class="rounded-lg bg-red-50 p-3 text-center">
-            <div class="text-2xl font-bold text-red-600">{{ stats.events_failed }}</div>
-            <div class="text-sm text-gray-500">Fehlgeschlagen</div>
+            <div class="text-2xl font-bold text-red-600">
+              {{ stats.events_failed }}
+            </div>
+            <div class="text-sm text-gray-500">
+              Fehlgeschlagen
+            </div>
           </div>
           <div class="rounded-lg bg-blue-50 p-3 text-center">
-            <div class="text-2xl font-bold text-blue-600">{{ stats.success_rate.toFixed(1) }}%</div>
-            <div class="text-sm text-gray-500">Erfolgsrate</div>
+            <div class="text-2xl font-bold text-blue-600">
+              {{ stats.success_rate.toFixed(1) }}%
+            </div>
+            <div class="text-sm text-gray-500">
+              Erfolgsrate
+            </div>
           </div>
         </div>
 
         <!-- Events by Type -->
-        <div v-if="Object.keys(stats.events_by_type).length > 0" class="mt-4">
-          <h5 class="mb-2 text-sm font-medium text-gray-700">Nach Event-Typ</h5>
+        <div
+          v-if="Object.keys(stats.events_by_type).length > 0"
+          class="mt-4"
+        >
+          <h5 class="mb-2 text-sm font-medium text-gray-700">
+            Nach Event-Typ
+          </h5>
           <div class="flex flex-wrap gap-2">
             <span
               v-for="(count, eventType) in stats.events_by_type"
@@ -526,32 +656,63 @@ onMounted(async () => {
       <!-- Recent Events -->
       <div class="rounded-lg border bg-white">
         <div class="border-b px-4 py-3">
-          <h4 class="font-medium">Letzte Events</h4>
+          <h4 class="font-medium">
+            Letzte Events
+          </h4>
         </div>
 
-        <div v-if="eventsLoading" class="p-8 text-center text-gray-500">
+        <div
+          v-if="eventsLoading"
+          class="p-8 text-center text-gray-500"
+        >
           Lade Events...
         </div>
 
-        <div v-else-if="events.length === 0" class="p-8 text-center text-gray-500">
+        <div
+          v-else-if="events.length === 0"
+          class="p-8 text-center text-gray-500"
+        >
           Noch keine Events gesendet
         </div>
 
-        <table v-else class="w-full">
+        <table
+          v-else
+          class="w-full"
+        >
           <thead class="bg-gray-50 text-left text-sm text-gray-500">
             <tr>
-              <th class="px-4 py-2">Zeit</th>
-              <th class="px-4 py-2">Event</th>
-              <th class="px-4 py-2">Contact</th>
-              <th class="px-4 py-2">Status</th>
-              <th class="px-4 py-2">Event ID</th>
+              <th class="px-4 py-2">
+                Zeit
+              </th>
+              <th class="px-4 py-2">
+                Event
+              </th>
+              <th class="px-4 py-2">
+                Contact
+              </th>
+              <th class="px-4 py-2">
+                Status
+              </th>
+              <th class="px-4 py-2">
+                Event ID
+              </th>
             </tr>
           </thead>
           <tbody class="divide-y text-sm">
-            <tr v-for="event in events" :key="event.id" class="hover:bg-gray-50">
-              <td class="px-4 py-2 text-gray-500">{{ formatDate(event.event_time) }}</td>
-              <td class="px-4 py-2 font-medium">{{ event.event_name }}</td>
-              <td class="px-4 py-2">{{ event.contact_name || '-' }}</td>
+            <tr
+              v-for="event in events"
+              :key="event.id"
+              class="hover:bg-gray-50"
+            >
+              <td class="px-4 py-2 text-gray-500">
+                {{ formatDate(event.event_time) }}
+              </td>
+              <td class="px-4 py-2 font-medium">
+                {{ event.event_name }}
+              </td>
+              <td class="px-4 py-2">
+                {{ event.contact_name || '-' }}
+              </td>
               <td class="px-4 py-2">
                 <span :class="eventStatusClass(event.status)">
                   {{ event.status === 'sent' ? '✓' : event.status === 'test' ? '🧪' : '✗' }}
@@ -566,7 +727,10 @@ onMounted(async () => {
         </table>
 
         <!-- Pagination -->
-        <div v-if="eventsTotal > 20" class="flex items-center justify-between border-t px-4 py-3">
+        <div
+          v-if="eventsTotal > 20"
+          class="flex items-center justify-between border-t px-4 py-3"
+        >
           <span class="text-sm text-gray-500">
             {{ eventsTotal }} Events gesamt
           </span>
@@ -591,19 +755,30 @@ onMounted(async () => {
     </template>
 
     <!-- Setup Guide (collapsed) -->
-    <details v-if="setupGuide" class="rounded-lg border bg-white">
+    <details
+      v-if="setupGuide"
+      class="rounded-lg border bg-white"
+    >
       <summary class="cursor-pointer px-4 py-3 font-medium">
         Setup-Anleitung
       </summary>
       <div class="border-t px-4 py-4">
         <ol class="space-y-4">
-          <li v-for="step in setupGuide.steps" :key="step.step" class="flex gap-3">
+          <li
+            v-for="step in setupGuide.steps"
+            :key="step.step"
+            class="flex gap-3"
+          >
             <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-go4-primary text-sm text-white">
               {{ step.step }}
             </span>
             <div>
-              <div class="font-medium">{{ step.title }}</div>
-              <div class="text-sm text-gray-500">{{ step.description }}</div>
+              <div class="font-medium">
+                {{ step.title }}
+              </div>
+              <div class="text-sm text-gray-500">
+                {{ step.description }}
+              </div>
               <a
                 v-if="step.link"
                 :href="step.link"

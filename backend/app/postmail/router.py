@@ -240,6 +240,7 @@ async def list_letters(
     status: str | None = Query(None, description="Filter by status"),
     batch_id: int | None = Query(None, description="Filter by batch"),
     contact_id: int | None = Query(None, description="Filter by contact"),
+    pipeline_id: int | None = Query(None, description="Filter by pipeline"),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
     service: PostmailService = Depends(get_service),
@@ -249,6 +250,7 @@ async def list_letters(
         status=status,
         batch_id=batch_id,
         contact_id=contact_id,
+        pipeline_id=pipeline_id,
         limit=limit,
         offset=offset,
     )

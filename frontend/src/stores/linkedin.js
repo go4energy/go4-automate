@@ -26,6 +26,10 @@ import {
   importJobContacts,
   getAllContacts,
   getContact,
+  toggleContactExclude,
+  deleteContact,
+  bulkDeleteContacts,
+  deleteJobContacts,
   // Templates
   getTemplates,
   getTemplate,
@@ -307,7 +311,7 @@ export const useLinkedInStore = defineStore('linkedin', () => {
       jobs.value.unshift(data)
       return data
     } catch (err) {
-      error.value = err.message
+      error.value = err.response?.data?.detail || err.message
       throw err
     } finally {
       loading.value = false
@@ -327,7 +331,7 @@ export const useLinkedInStore = defineStore('linkedin', () => {
       }
       return data
     } catch (err) {
-      error.value = err.message
+      error.value = err.response?.data?.detail || err.message
       throw err
     }
   }
@@ -350,12 +354,13 @@ export const useLinkedInStore = defineStore('linkedin', () => {
     error.value = null
     try {
       const { data } = await startJob(id)
+      // Merge response into existing job — startJob returns partial data (status, message, job_id)
       const index = jobs.value.findIndex((j) => j.id === id)
       if (index !== -1) {
-        jobs.value[index] = data
+        Object.assign(jobs.value[index], { status: data.status || 'running' })
       }
       if (currentJob.value?.id === id) {
-        currentJob.value = data
+        Object.assign(currentJob.value, { status: data.status || 'running' })
       }
       return data
     } catch (err) {
@@ -483,6 +488,56 @@ export const useLinkedInStore = defineStore('linkedin', () => {
       throw err
     } finally {
       loading.value = false
+    }
+  }
+
+  async function toggleExclude(id) {
+    try {
+      const { data } = await toggleContactExclude(id)
+      // Update in contacts list
+      const idx = contacts.value.findIndex((c) => c.id === id)
+      if (idx !== -1) contacts.value[idx].excluded = data.excluded
+      // Update current contact if loaded
+      if (currentContact.value?.id === id) currentContact.value.excluded = data.excluded
+      return data
+    } catch (err) {
+      error.value = err.message
+      throw err
+    }
+  }
+
+  async function removeContact(id) {
+    try {
+      await deleteContact(id)
+      contacts.value = contacts.value.filter((c) => c.id !== id)
+      jobContacts.value = jobContacts.value.filter((c) => c.id !== id)
+      if (currentContact.value?.id === id) currentContact.value = null
+    } catch (err) {
+      error.value = err.message
+      throw err
+    }
+  }
+
+  async function removeContactsBulk(contactIds) {
+    try {
+      const { data } = await bulkDeleteContacts(contactIds)
+      contacts.value = contacts.value.filter((c) => !contactIds.includes(c.id))
+      jobContacts.value = jobContacts.value.filter((c) => !contactIds.includes(c.id))
+      return data
+    } catch (err) {
+      error.value = err.message
+      throw err
+    }
+  }
+
+  async function removeJobContacts(jobId) {
+    try {
+      await deleteJobContacts(jobId)
+      jobContacts.value = []
+      contacts.value = contacts.value.filter((c) => c.scraper_job_id !== jobId)
+    } catch (err) {
+      error.value = err.message
+      throw err
     }
   }
 
@@ -1033,6 +1088,10 @@ export const useLinkedInStore = defineStore('linkedin', () => {
     importContacts,
     fetchAllContacts,
     fetchContact,
+    toggleExclude,
+    removeContact,
+    removeContactsBulk,
+    removeJobContacts,
     // Template Actions
     fetchTemplates,
     fetchTemplate,

@@ -55,7 +55,10 @@ async function handleSubmit() {
         {{ isEdit ? 'Gruppe bearbeiten' : 'Neue Gruppe' }}
       </h2>
 
-      <form class="space-y-4" @submit.prevent="handleSubmit">
+      <form
+        class="space-y-4"
+        @submit.prevent="handleSubmit"
+      >
         <div
           v-if="error"
           class="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/30 dark:text-red-400"
@@ -64,15 +67,13 @@ async function handleSubmit() {
         </div>
 
         <div>
-          <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >Name</label
-          >
+          <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
           <input
             v-model="form.name"
             type="text"
             required
             class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-          />
+          >
         </div>
 
         <div>
@@ -87,10 +88,11 @@ async function handleSubmit() {
         </div>
 
         <div>
-          <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >Berechtigungen</label
-          >
-          <PermissionMatrix :permissions="form.permissions" @update="form.permissions = $event" />
+          <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Berechtigungen</label>
+          <PermissionMatrix
+            :permissions="form.permissions"
+            @update="form.permissions = $event"
+          />
         </div>
 
         <div class="flex justify-end gap-3 pt-2">

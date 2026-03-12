@@ -115,7 +115,11 @@ onMounted(() => {
 
     <!-- Navigation -->
     <nav class="flex-1 overflow-y-auto px-2 py-4">
-      <div v-for="group in navGroups" :key="group.label" class="mb-6">
+      <div
+        v-for="group in navGroups"
+        :key="group.label"
+        class="mb-6"
+      >
         <p
           v-if="!layout.sidebarCollapsed && group.label !== '_top'"
           class="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-gray-400"
@@ -123,7 +127,10 @@ onMounted(() => {
           {{ group.label }}
         </p>
         <div class="space-y-1">
-          <template v-for="item in group.items" :key="item.label">
+          <template
+            v-for="item in group.items"
+            :key="item.label"
+          >
             <!-- External link -->
             <a
               v-if="item.href"
@@ -142,9 +149,16 @@ onMounted(() => {
                 stroke="currentColor"
                 stroke-width="1.5"
               >
-                <path stroke-linecap="round" stroke-linejoin="round" :d="item.icon" />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  :d="item.icon"
+                />
               </svg>
-              <span v-if="!layout.sidebarCollapsed" class="truncate">{{ item.label }}</span>
+              <span
+                v-if="!layout.sidebarCollapsed"
+                class="truncate"
+              >{{ item.label }}</span>
             </a>
             <!-- Router link -->
             <router-link
@@ -165,9 +179,16 @@ onMounted(() => {
                 stroke="currentColor"
                 stroke-width="1.5"
               >
-                <path stroke-linecap="round" stroke-linejoin="round" :d="item.icon" />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  :d="item.icon"
+                />
               </svg>
-              <span v-if="!layout.sidebarCollapsed" class="truncate">{{ item.label }}</span>
+              <span
+                v-if="!layout.sidebarCollapsed"
+                class="truncate"
+              >{{ item.label }}</span>
             </router-link>
           </template>
         </div>
@@ -194,7 +215,10 @@ onMounted(() => {
             d="M18.75 19.5l-7.5-7.5 7.5-7.5m-6 15L5.25 12l7.5-7.5"
           />
         </svg>
-        <span v-if="!layout.sidebarCollapsed" class="truncate">Einklappen</span>
+        <span
+          v-if="!layout.sidebarCollapsed"
+          class="truncate"
+        >Einklappen</span>
       </button>
     </div>
   </aside>

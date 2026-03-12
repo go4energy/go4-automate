@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,10 +14,10 @@ from app.funnels.schemas import (
     BulkImportResult,
     FunnelActivityCreate,
     FunnelActivityResponse,
+    FunnelHandoffResponse,
     FunnelProspectCreate,
     FunnelProspectResponse,
     HandoffInitiateRequest,
-    FunnelHandoffResponse,
     N8nActivityRequest,
     N8nBulkImportRequest,
     N8nEnrichRequest,
@@ -102,7 +102,7 @@ async def n8n_import_companies(
                     imported += 1
 
             except Exception as e:
-                errors.append(f"{item.name}: {str(e)}")
+                errors.append(f"{item.name}: {e!s}")
                 skipped += 1
 
         return BulkImportResult(
@@ -207,7 +207,7 @@ async def n8n_import_prospects(
                 imported += 1
 
             except Exception as e:
-                errors.append(f"{item.name}: {str(e)}")
+                errors.append(f"{item.name}: {e!s}")
                 skipped += 1
 
         return BulkImportResult(

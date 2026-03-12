@@ -73,7 +73,16 @@ alembic upgrade head 2>/dev/null && echo -e "${GREEN}[OK]${NC} Migrationen ausge
 cd ..
 echo ""
 
-echo "8. Healthcheck..."
+echo "8. LinkedIn Scheduler Cron..."
+BACKEND_DIR="$(cd backend && pwd)"
+CRON_LINE="* * * * * ${BACKEND_DIR}/.venv/bin/python ${BACKEND_DIR}/run_linkedin_scheduler.py >> ${BACKEND_DIR}/logs/scheduler.log 2>&1"
+mkdir -p "${BACKEND_DIR}/logs"
+# Add cron only if not already present
+(crontab -l 2>/dev/null | grep -v "run_linkedin_scheduler"; echo "$CRON_LINE") | crontab -
+echo -e "${GREEN}[OK]${NC} LinkedIn Scheduler Cron eingerichtet (jede Minute)"
+echo ""
+
+echo "9. Healthcheck..."
 if curl -sf http://localhost:8000/health > /dev/null; then
     echo -e "${GREEN}[OK]${NC} Backend ist healthy"
 else
@@ -81,6 +90,7 @@ else
 fi
 echo ""
 
+echo ""
 echo "=== Setup abgeschlossen ==="
 echo "Backend:  http://localhost:8000"
 echo "API Docs: http://localhost:8000/docs"

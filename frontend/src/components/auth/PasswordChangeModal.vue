@@ -44,7 +44,9 @@ async function handleSubmit() {
     @click.self="emit('close')"
   >
     <div class="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl dark:bg-gray-800">
-      <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">Passwort aendern</h2>
+      <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
+        Passwort aendern
+      </h2>
 
       <div
         v-if="success"
@@ -53,7 +55,11 @@ async function handleSubmit() {
         Passwort erfolgreich geaendert!
       </div>
 
-      <form v-else class="space-y-4" @submit.prevent="handleSubmit">
+      <form
+        v-else
+        class="space-y-4"
+        @submit.prevent="handleSubmit"
+      >
         <div
           v-if="error"
           class="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/30 dark:text-red-400"
@@ -62,40 +68,34 @@ async function handleSubmit() {
         </div>
 
         <div>
-          <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >Aktuelles Passwort</label
-          >
+          <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Aktuelles Passwort</label>
           <input
             v-model="currentPassword"
             type="password"
             required
             class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-          />
+          >
         </div>
 
         <div>
-          <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >Neues Passwort</label
-          >
+          <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Neues Passwort</label>
           <input
             v-model="newPassword"
             type="password"
             required
             minlength="6"
             class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-          />
+          >
         </div>
 
         <div>
-          <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >Passwort bestaetigen</label
-          >
+          <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Passwort bestaetigen</label>
           <input
             v-model="confirmPassword"
             type="password"
             required
             class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-          />
+          >
         </div>
 
         <div class="flex justify-end gap-3 pt-2">

@@ -27,7 +27,7 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 async def create_conversation(
     data: ConversationCreate,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> ConversationResponse:
     """Create a new conversation."""
     try:
@@ -48,7 +48,7 @@ async def create_conversation(
 @router.get("/conversations", response_model=list[ConversationListItem])
 async def list_conversations(
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
     status_filter: str | None = Query(None, alias="status"),
 ) -> list[ConversationListItem]:
     """List conversations for the current tenant."""
@@ -89,7 +89,7 @@ async def list_conversations(
 async def get_conversation(
     conv_id: int,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> ConversationResponse:
     """Get a conversation with all messages."""
     try:
@@ -107,7 +107,7 @@ async def get_conversation(
 async def delete_conversation(
     conv_id: int,
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> None:
     """Delete a conversation and all its messages."""
     try:
@@ -127,8 +127,8 @@ async def send_message(
     conv_id: int,
     data: ChatMessageCreate,
     tenant_id: str = Depends(get_current_tenant_id),
-    tenant_config: dict = Depends(get_tenant_config),  # noqa: B008
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    tenant_config: dict = Depends(get_tenant_config),
+    db: AsyncSession = Depends(get_db),
 ) -> StreamingResponse:
     """Send a message and stream the assistant response via SSE."""
     try:

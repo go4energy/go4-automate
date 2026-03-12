@@ -3,6 +3,8 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSettingsStore } from '@/stores/settings'
 import { usePromptStore } from '@/stores/prompts'
+import { useAuthStore } from '@/stores/auth'
+import { changePassword } from '@/api/auth'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import SettingsGlobalTab from '@/components/settings/SettingsGlobalTab.vue'
 import SettingsModuleTab from '@/components/settings/SettingsModuleTab.vue'
@@ -13,8 +15,47 @@ const route = useRoute()
 const router = useRouter()
 const store = useSettingsStore()
 const promptStore = usePromptStore()
+const authStore = useAuthStore()
 
 const isPromptsTab = computed(() => route.name === 'settings-prompts')
+
+// --- Password Change ---
+const passwordForm = ref({
+  currentPassword: '',
+  newPassword: '',
+  confirmPassword: ''
+})
+const passwordSaving = ref(false)
+const passwordError = ref(null)
+const passwordSuccess = ref(false)
+
+async function handlePasswordChange() {
+  passwordError.value = null
+  passwordSuccess.value = false
+
+  if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword) {
+    passwordError.value = 'Passwoerter stimmen nicht ueberein'
+    return
+  }
+  if (passwordForm.value.newPassword.length < 6) {
+    passwordError.value = 'Passwort muss mindestens 6 Zeichen haben'
+    return
+  }
+
+  passwordSaving.value = true
+  try {
+    await changePassword({
+      current_password: passwordForm.value.currentPassword,
+      new_password: passwordForm.value.newPassword
+    })
+    passwordSuccess.value = true
+    passwordForm.value = { currentPassword: '', newPassword: '', confirmPassword: '' }
+  } catch (err) {
+    passwordError.value = err.response?.data?.detail || err.message
+  } finally {
+    passwordSaving.value = false
+  }
+}
 
 // --- Tag Management ---
 const tags = ref([])
@@ -188,10 +229,12 @@ const activeTabKey = computed(() => {
 const allTabs = computed(() => {
   const list = store.tabs
   return [
+    { key: 'profil', label: 'Profil' },
     ...list,
     { key: 'tags', label: 'Tags' },
     { key: 'streams', label: 'Streams' },
-    { key: 'prompts', label: 'Prompts' }
+    { key: 'prompts', label: 'Prompts' },
+    { key: 'desktop-layout', label: 'Desktop Layout' }
   ]
 })
 
@@ -211,7 +254,7 @@ onMounted(async () => {
 watch(
   () => store.activeTab,
   (tab) => {
-    if (tab !== 'prompts' && tab !== 'tags' && tab !== 'streams') {
+    if (tab !== 'prompts' && tab !== 'tags' && tab !== 'streams' && tab !== 'profil') {
       store.fetchTabData(tab)
     }
   }
@@ -221,6 +264,17 @@ function switchTab(key) {
   if (key === 'prompts') {
     router.push('/settings/prompts')
     promptStore.fetchPrompts({})
+  } else if (key === 'desktop-layout') {
+    router.push('/settings/desktop-layout')
+  } else if (key === 'profil') {
+    if (isPromptsTab.value) {
+      router.push('/settings')
+    }
+    store.setActiveTab(key)
+    // Reset password form when switching to profile
+    passwordForm.value = { currentPassword: '', newPassword: '', confirmPassword: '' }
+    passwordError.value = null
+    passwordSuccess.value = false
   } else if (key === 'tags') {
     if (isPromptsTab.value) {
       router.push('/settings')
@@ -260,7 +314,10 @@ function goToNewPrompt() {
 
 <template>
   <div class="space-y-6">
-    <PageHeader title="Einstellungen" subtitle="Plattform- und Modul-Konfiguration verwalten" />
+    <PageHeader
+      title="Einstellungen"
+      subtitle="Plattform- und Modul-Konfiguration verwalten"
+    />
 
     <!-- Success Toast -->
     <div
@@ -307,9 +364,128 @@ function goToNewPrompt() {
 
     <!-- Tab Content -->
     <div v-else>
+      <!-- Profil Tab -->
+      <div
+        v-if="activeTabKey === 'profil'"
+        class="space-y-6"
+      >
+        <!-- User Info -->
+        <div class="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+          <h3 class="mb-4 text-lg font-semibold text-go4-secondary dark:text-white">
+            Mein Profil
+          </h3>
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Name</label>
+              <p class="mt-1 text-sm text-go4-secondary dark:text-white">
+                {{ authStore.user?.display_name || '-' }}
+              </p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">E-Mail</label>
+              <p class="mt-1 text-sm text-go4-secondary dark:text-white">
+                {{ authStore.user?.email || '-' }}
+              </p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Rolle</label>
+              <p class="mt-1 text-sm text-go4-secondary dark:text-white">
+                {{ authStore.user?.role || '-' }}
+              </p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-500 dark:text-gray-400">Letzter Login</label>
+              <p class="mt-1 text-sm text-go4-secondary dark:text-white">
+                {{
+                  authStore.user?.last_login_at
+                    ? new Date(authStore.user.last_login_at).toLocaleString('de-DE')
+                    : '-'
+                }}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Password Change -->
+        <div class="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+          <h3 class="mb-4 text-lg font-semibold text-go4-secondary dark:text-white">
+            Passwort aendern
+          </h3>
+
+          <div
+            v-if="passwordSuccess"
+            class="mb-4 rounded-lg bg-green-50 p-3 text-sm text-green-700 dark:bg-green-900/30 dark:text-green-400"
+          >
+            Passwort erfolgreich geaendert!
+          </div>
+
+          <div
+            v-if="passwordError"
+            class="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-400"
+          >
+            {{ passwordError }}
+          </div>
+
+          <form
+            class="max-w-md space-y-4"
+            @submit.prevent="handlePasswordChange"
+          >
+            <div>
+              <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Aktuelles Passwort
+              </label>
+              <input
+                v-model="passwordForm.currentPassword"
+                type="password"
+                required
+                autocomplete="current-password"
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              >
+            </div>
+
+            <div>
+              <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Neues Passwort
+              </label>
+              <input
+                v-model="passwordForm.newPassword"
+                type="password"
+                required
+                minlength="6"
+                autocomplete="new-password"
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              >
+            </div>
+
+            <div>
+              <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Passwort bestaetigen
+              </label>
+              <input
+                v-model="passwordForm.confirmPassword"
+                type="password"
+                required
+                autocomplete="new-password"
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              >
+            </div>
+
+            <div class="pt-2">
+              <button
+                type="submit"
+                :disabled="passwordSaving"
+                class="rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white hover:bg-go4-primary/90 disabled:opacity-50"
+              >
+                {{ passwordSaving ? 'Speichern...' : 'Passwort aendern' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
       <!-- Global Tab -->
       <SettingsGlobalTab
-        v-if="activeTabKey === 'global'"
+        v-else-if="activeTabKey === 'global'"
         :schema="store.globalSchema"
         :config="store.globalConfig"
         :saving="store.saving"
@@ -317,7 +493,10 @@ function goToNewPrompt() {
       />
 
       <!-- Tags Tab -->
-      <div v-else-if="activeTabKey === 'tags'" class="space-y-6">
+      <div
+        v-else-if="activeTabKey === 'tags'"
+        class="space-y-6"
+      >
         <div class="flex items-center justify-between">
           <p class="text-sm text-gray-500 dark:text-gray-400">
             Tags definieren das Routing zwischen Quellen und Ausgabe-Kanaelen.
@@ -336,28 +515,27 @@ function goToNewPrompt() {
           <h3 class="mb-3 text-sm font-semibold text-go4-secondary dark:text-gray-100">
             {{ editingTagId ? 'Tag bearbeiten' : 'Neuer Tag' }}
           </h3>
-          <form class="flex flex-wrap items-end gap-3" @submit.prevent="saveTag">
+          <form
+            class="flex flex-wrap items-end gap-3"
+            @submit.prevent="saveTag"
+          >
             <div class="flex-1">
-              <label class="block text-xs font-medium text-gray-500 dark:text-gray-400"
-                >Label</label
-              >
+              <label class="block text-xs font-medium text-gray-500 dark:text-gray-400">Label</label>
               <input
                 v-model="tagForm.label"
                 type="text"
                 required
                 class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
                 placeholder="z.B. Solar, Speicher, Wettbewerb"
-              />
+              >
             </div>
             <div class="w-24">
-              <label class="block text-xs font-medium text-gray-500 dark:text-gray-400"
-                >Farbe</label
-              >
+              <label class="block text-xs font-medium text-gray-500 dark:text-gray-400">Farbe</label>
               <input
                 v-model="tagForm.color"
                 type="color"
                 class="mt-1 block h-[38px] w-full cursor-pointer rounded-lg border border-gray-300 dark:border-gray-600"
-              />
+              >
             </div>
             <div class="w-32">
               <label class="block text-xs font-medium text-gray-500 dark:text-gray-400">Icon</label>
@@ -366,7 +544,7 @@ function goToNewPrompt() {
                 type="text"
                 class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
                 placeholder="tag"
-              />
+              >
             </div>
             <button
               type="submit"
@@ -387,22 +565,39 @@ function goToNewPrompt() {
         </div>
 
         <!-- Tags List -->
-        <div v-if="tagsLoading" class="flex items-center justify-center p-8">
+        <div
+          v-if="tagsLoading"
+          class="flex items-center justify-center p-8"
+        >
           <span class="text-sm text-gray-500 dark:text-gray-400">Laden...</span>
         </div>
 
-        <EmptyState v-else-if="tags.length === 0" title="Noch keine Tags erstellt" />
+        <EmptyState
+          v-else-if="tags.length === 0"
+          title="Noch keine Tags erstellt"
+        />
 
-        <div v-else class="overflow-hidden rounded-lg bg-white shadow-sm dark:bg-gray-800">
+        <div
+          v-else
+          class="overflow-hidden rounded-lg bg-white shadow-sm dark:bg-gray-800"
+        >
           <table class="w-full text-left text-sm">
             <thead
               class="border-b border-gray-100 bg-gray-50 text-xs uppercase tracking-wider text-go4-muted dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400"
             >
               <tr>
-                <th class="px-4 py-3 font-medium">Tag</th>
-                <th class="px-4 py-3 font-medium">Slug</th>
-                <th class="hidden px-4 py-3 font-medium md:table-cell">Icon</th>
-                <th class="px-4 py-3 text-right font-medium">Aktionen</th>
+                <th class="px-4 py-3 font-medium">
+                  Tag
+                </th>
+                <th class="px-4 py-3 font-medium">
+                  Slug
+                </th>
+                <th class="hidden px-4 py-3 font-medium md:table-cell">
+                  Icon
+                </th>
+                <th class="px-4 py-3 text-right font-medium">
+                  Aktionen
+                </th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-50 dark:divide-gray-700">
@@ -448,7 +643,10 @@ function goToNewPrompt() {
       </div>
 
       <!-- Streams Tab -->
-      <div v-else-if="activeTabKey === 'streams'" class="space-y-6">
+      <div
+        v-else-if="activeTabKey === 'streams'"
+        class="space-y-6"
+      >
         <div class="flex items-center justify-between">
           <p class="text-sm text-gray-500 dark:text-gray-400">
             Streams definieren Informationsfluesse zwischen Modulen (z.B. Collector → Briefing).
@@ -467,39 +665,36 @@ function goToNewPrompt() {
           <h3 class="mb-3 text-sm font-semibold text-go4-secondary dark:text-gray-100">
             {{ editingStreamId ? 'Stream bearbeiten' : 'Neuer Stream' }}
           </h3>
-          <form class="flex flex-wrap items-end gap-3" @submit.prevent="saveStream">
+          <form
+            class="flex flex-wrap items-end gap-3"
+            @submit.prevent="saveStream"
+          >
             <div class="flex-1">
-              <label class="block text-xs font-medium text-gray-500 dark:text-gray-400"
-                >Label</label
-              >
+              <label class="block text-xs font-medium text-gray-500 dark:text-gray-400">Label</label>
               <input
                 v-model="streamForm.label"
                 type="text"
                 required
                 class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
                 placeholder="z.B. Wettbewerber-Monitoring, Management-Briefing"
-              />
+              >
             </div>
             <div class="flex-1">
-              <label class="block text-xs font-medium text-gray-500 dark:text-gray-400"
-                >Beschreibung</label
-              >
+              <label class="block text-xs font-medium text-gray-500 dark:text-gray-400">Beschreibung</label>
               <input
                 v-model="streamForm.description"
                 type="text"
                 class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
                 placeholder="Wofuer wird dieser Stream verwendet?"
-              />
+              >
             </div>
             <div class="w-24">
-              <label class="block text-xs font-medium text-gray-500 dark:text-gray-400"
-                >Farbe</label
-              >
+              <label class="block text-xs font-medium text-gray-500 dark:text-gray-400">Farbe</label>
               <input
                 v-model="streamForm.color"
                 type="color"
                 class="mt-1 block h-[38px] w-full cursor-pointer rounded-lg border border-gray-300 dark:border-gray-600"
-              />
+              >
             </div>
             <div class="w-32">
               <label class="block text-xs font-medium text-gray-500 dark:text-gray-400">Icon</label>
@@ -508,14 +703,17 @@ function goToNewPrompt() {
                 type="text"
                 class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
                 placeholder="stream"
-              />
+              >
             </div>
-            <label v-if="editingStreamId" class="flex items-center gap-2">
+            <label
+              v-if="editingStreamId"
+              class="flex items-center gap-2"
+            >
               <input
                 v-model="streamForm.active"
                 type="checkbox"
                 class="h-4 w-4 rounded border-gray-300 text-go4-primary focus:ring-go4-primary dark:border-gray-600"
-              />
+              >
               <span class="text-xs text-gray-500 dark:text-gray-400">Aktiv</span>
             </label>
             <button
@@ -537,23 +735,42 @@ function goToNewPrompt() {
         </div>
 
         <!-- Streams List -->
-        <div v-if="streamsLoading" class="flex items-center justify-center p-8">
+        <div
+          v-if="streamsLoading"
+          class="flex items-center justify-center p-8"
+        >
           <span class="text-sm text-gray-500 dark:text-gray-400">Laden...</span>
         </div>
 
-        <EmptyState v-else-if="streams.length === 0" title="Noch keine Streams erstellt" />
+        <EmptyState
+          v-else-if="streams.length === 0"
+          title="Noch keine Streams erstellt"
+        />
 
-        <div v-else class="overflow-hidden rounded-lg bg-white shadow-sm dark:bg-gray-800">
+        <div
+          v-else
+          class="overflow-hidden rounded-lg bg-white shadow-sm dark:bg-gray-800"
+        >
           <table class="w-full text-left text-sm">
             <thead
               class="border-b border-gray-100 bg-gray-50 text-xs uppercase tracking-wider text-go4-muted dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400"
             >
               <tr>
-                <th class="px-4 py-3 font-medium">Stream</th>
-                <th class="px-4 py-3 font-medium">Slug</th>
-                <th class="hidden px-4 py-3 font-medium md:table-cell">Beschreibung</th>
-                <th class="px-4 py-3 font-medium">Aktiv</th>
-                <th class="px-4 py-3 text-right font-medium">Aktionen</th>
+                <th class="px-4 py-3 font-medium">
+                  Stream
+                </th>
+                <th class="px-4 py-3 font-medium">
+                  Slug
+                </th>
+                <th class="hidden px-4 py-3 font-medium md:table-cell">
+                  Beschreibung
+                </th>
+                <th class="px-4 py-3 font-medium">
+                  Aktiv
+                </th>
+                <th class="px-4 py-3 text-right font-medium">
+                  Aktionen
+                </th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-50 dark:divide-gray-700">
@@ -610,7 +827,9 @@ function goToNewPrompt() {
       <div v-else-if="activeTabKey === 'prompts'">
         <!-- Prompts Header -->
         <div class="mb-6 flex items-center justify-between">
-          <p class="text-sm text-gray-500 dark:text-gray-400">KI-Prompts verwalten und testen</p>
+          <p class="text-sm text-gray-500 dark:text-gray-400">
+            KI-Prompts verwalten und testen
+          </p>
           <button
             class="rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-go4-primary/90"
             @click="goToNewPrompt"
@@ -620,7 +839,10 @@ function goToNewPrompt() {
         </div>
 
         <!-- Loading -->
-        <div v-if="promptStore.loading" class="flex items-center justify-center p-8">
+        <div
+          v-if="promptStore.loading"
+          class="flex items-center justify-center p-8"
+        >
           <span class="text-sm text-gray-500 dark:text-gray-400">Laden...</span>
         </div>
 
@@ -633,7 +855,10 @@ function goToNewPrompt() {
         </div>
 
         <!-- Empty -->
-        <EmptyState v-else-if="promptStore.prompts.length === 0" title="Keine Prompts gefunden">
+        <EmptyState
+          v-else-if="promptStore.prompts.length === 0"
+          title="Keine Prompts gefunden"
+        >
           <template #action>
             <button
               class="rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-go4-primary/90"
@@ -645,7 +870,10 @@ function goToNewPrompt() {
         </EmptyState>
 
         <!-- Grid -->
-        <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div
+          v-else
+          class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+        >
           <div
             v-for="prompt in promptStore.prompts"
             :key="prompt.id"

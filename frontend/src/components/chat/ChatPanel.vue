@@ -82,7 +82,11 @@ function formatDate(dateStr) {
               stroke="currentColor"
               stroke-width="2"
             >
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
           </button>
           <h2 class="text-sm font-semibold text-gray-800 dark:text-gray-200">
@@ -94,7 +98,10 @@ function formatDate(dateStr) {
           </h2>
         </div>
         <div class="flex items-center gap-1">
-          <div v-if="!chatStore.activeConversation" class="relative">
+          <div
+            v-if="!chatStore.activeConversation"
+            class="relative"
+          >
             <button
               class="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
               @click="showNewMenu = !showNewMenu"
@@ -106,7 +113,11 @@ function formatDate(dateStr) {
                 stroke="currentColor"
                 stroke-width="2"
               >
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M12 4v16m8-8H4"
+                />
               </svg>
             </button>
             <!-- Context type menu -->
@@ -136,15 +147,25 @@ function formatDate(dateStr) {
               stroke="currentColor"
               stroke-width="2"
             >
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
       </div>
 
       <!-- Conversation List -->
-      <div v-if="!chatStore.activeConversation" class="flex-1 overflow-y-auto">
-        <div v-if="chatStore.loading" class="flex items-center justify-center p-8">
+      <div
+        v-if="!chatStore.activeConversation"
+        class="flex-1 overflow-y-auto"
+      >
+        <div
+          v-if="chatStore.loading"
+          class="flex items-center justify-center p-8"
+        >
           <span class="text-sm text-gray-500 dark:text-gray-400">Laden...</span>
         </div>
         <div
@@ -164,8 +185,12 @@ function formatDate(dateStr) {
               d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
             />
           </svg>
-          <p class="mb-1 text-sm font-medium text-gray-600 dark:text-gray-300">Keine Gespraeche</p>
-          <p class="mb-4 text-xs text-gray-400 dark:text-gray-500">Starte ein neues Gespraech</p>
+          <p class="mb-1 text-sm font-medium text-gray-600 dark:text-gray-300">
+            Keine Gespraeche
+          </p>
+          <p class="mb-4 text-xs text-gray-400 dark:text-gray-500">
+            Starte ein neues Gespraech
+          </p>
           <button
             class="rounded-lg bg-[#00865a] px-4 py-2 text-sm font-medium text-white hover:bg-[#006d49]"
             @click="startConversation('general')"
@@ -207,17 +232,25 @@ function formatDate(dateStr) {
 
       <!-- Active Conversation -->
       <template v-else>
-        <div ref="messagesContainer" class="flex-1 overflow-y-auto px-4 py-4">
+        <div
+          ref="messagesContainer"
+          class="flex-1 overflow-y-auto px-4 py-4"
+        >
           <div
             v-if="!chatStore.activeConversation.messages?.length && !chatStore.isStreaming"
             class="flex flex-col items-center justify-center py-12 text-center"
           >
-            <p class="mb-1 text-sm text-gray-500 dark:text-gray-400">Wie kann ich dir helfen?</p>
+            <p class="mb-1 text-sm text-gray-500 dark:text-gray-400">
+              Wie kann ich dir helfen?
+            </p>
             <p class="text-xs text-gray-400 dark:text-gray-500">
               Schreibe eine Nachricht um zu starten
             </p>
           </div>
-          <div v-else class="space-y-3">
+          <div
+            v-else
+            class="space-y-3"
+          >
             <ChatMessage
               v-for="msg in chatStore.activeConversation.messages"
               :key="msg.id"
@@ -247,7 +280,10 @@ function formatDate(dateStr) {
         </div>
 
         <!-- Input -->
-        <ChatInput :disabled="chatStore.isStreaming" @send="handleSend" />
+        <ChatInput
+          :disabled="chatStore.isStreaming"
+          @send="handleSend"
+        />
       </template>
     </div>
   </Transition>

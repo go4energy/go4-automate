@@ -52,3 +52,13 @@ htmlcov/
 .pytest_cache/
 .mypy_cache/
 backend/test.db
+backend/test-results/
+
+# LinkedIn scraping (temp/session data)
+backend/sessions/
+backend/data/
+backend/logs/
+backend/xtts_models/
+
+# Installers
+*.deb

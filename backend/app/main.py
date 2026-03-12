@@ -65,6 +65,26 @@ async def lifespan(app: FastAPI):
                 )
     except Exception as e:
         logger.warning("Prompt seeding uebersprungen: {err}", err=str(e))
+
+    # Auto-seed AI prompts from module manifests
+    try:
+        from app.ai.seeder import seed_module_prompts
+        from app.utils.module_discovery import discover_manifests
+
+        module_manifests = discover_manifests(Path(__file__).parent)
+        async with async_session() as db:
+            created = await seed_module_prompts(
+                db, settings.active_tenant, list(module_manifests.values())
+            )
+            if created > 0:
+                logger.info(
+                    "Seeded {count} AI prompts for {tenant}",
+                    count=created,
+                    tenant=settings.active_tenant,
+                )
+    except Exception as e:
+        logger.warning("AI prompt seeding uebersprungen: {err}", err=str(e))
+
     yield
     logger.info("Shutting down go4-automate API")
 
@@ -77,10 +97,17 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS
+# CORS - extend with common development IPs
+cors_origins = list(settings.allowed_origins)
+for ip in ["192.168.1.227", "127.0.0.1", "localhost"]:
+    for port in [8081, 5173, 3000]:
+        origin = f"http://{ip}:{port}"
+        if origin not in cors_origins:
+            cors_origins.append(origin)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.allowed_origins,
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
     allow_headers=["*"],
@@ -88,13 +115,25 @@ app.add_middleware(
 
 # Auth paths exempt from JWT check
 AUTH_EXEMPT_PATHS = frozenset({"/health", "/docs", "/redoc", "/openapi.json"})
-AUTH_EXEMPT_PREFIXES = ("/api/v1/auth/login", "/api/v1/listen/", "/uploads/")
+AUTH_EXEMPT_PREFIXES = (
+    "/api/v1/auth/login",
+    "/api/v1/listen/",
+    "/api/v1/surveys/public/",
+    "/api/v1/emailmarketing/t/",  # Email tracking (open, click, unsubscribe)
+    "/api/v1/emailmarketing/webhooks/",  # Email provider webhooks
+    "/api/v1/whatsapp/webhook",  # Meta WhatsApp webhook (verification + events)
+    "/uploads/",
+)
 
 
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
     """Enforce JWT auth on all /api/v1/ routes (with exemptions)."""
     path = request.url.path
+
+    # Skip OPTIONS requests (CORS preflight)
+    if request.method == "OPTIONS":
+        return await call_next(request)
 
     # Skip non-API paths and exempt routes
     needs_auth = path.startswith("/api/v1/")
@@ -160,6 +199,7 @@ register_models(manifests)
 register_interfaces(manifests)
 
 # Shared routers (remain in routers/)
+from app.ai.router import router as ai_router  # noqa: E402
 from app.routers import (  # noqa: E402
     activity_router,
     chat_router,
@@ -181,6 +221,7 @@ app.include_router(activity_router, prefix="/api/v1")
 app.include_router(modules_router, prefix="/api/v1")
 app.include_router(tags_router, prefix="/api/v1")
 app.include_router(streams_router, prefix="/api/v1")
+app.include_router(ai_router, prefix="/api/v1")
 
 # Domain module routers (auto-discovered from __manifest__.py)
 register_routers(app, manifests, prefix="/api/v1")

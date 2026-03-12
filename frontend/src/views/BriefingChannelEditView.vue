@@ -107,40 +107,37 @@ async function handleSubmit() {
       {{ store.error }}
     </div>
 
-    <form class="mt-6 max-w-2xl space-y-6" @submit.prevent="handleSubmit">
+    <form
+      class="mt-6 max-w-2xl space-y-6"
+      @submit.prevent="handleSubmit"
+    >
       <!-- Name + Slug -->
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
-          <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
-            >Name *</label
-          >
+          <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">Name *</label>
           <input
             v-model="form.name"
             required
             class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 focus:border-go4-primary focus:ring-1 focus:ring-go4-primary"
             placeholder="Management Briefing"
             @blur="!isEdit && !form.slug && generateSlug()"
-          />
+          >
         </div>
         <div>
-          <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
-            >Slug *</label
-          >
+          <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">Slug *</label>
           <input
             v-model="form.slug"
             required
             :disabled="isEdit"
             class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 focus:border-go4-primary focus:ring-1 focus:ring-go4-primary disabled:bg-gray-50 dark:disabled:bg-gray-800/50"
             placeholder="management-briefing"
-          />
+          >
         </div>
       </div>
 
       <!-- Description -->
       <div>
-        <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
-          >Beschreibung</label
-        >
+        <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">Beschreibung</label>
         <textarea
           v-model="form.description"
           rows="2"
@@ -152,21 +149,22 @@ async function handleSubmit() {
       <!-- Target Audience + Categories -->
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
-          <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
-            >Zielgruppe</label
-          >
+          <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">Zielgruppe</label>
           <input
             v-model="form.target_audience"
             class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 focus:border-go4-primary focus:ring-1 focus:ring-go4-primary"
             placeholder="Geschaeftsfuehrung"
-          />
+          >
         </div>
         <div>
           <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">
             Tags
           </label>
           <div class="mt-1">
-            <TagSelector v-model="form.tags" placeholder="Tags auswaehlen..." />
+            <TagSelector
+              v-model="form.tags"
+              placeholder="Tags auswaehlen..."
+            />
           </div>
         </div>
       </div>
@@ -177,20 +175,21 @@ async function handleSubmit() {
           Streams
         </label>
         <div class="mt-1">
-          <StreamSelector v-model="form.streams" placeholder="Streams auswaehlen..." />
+          <StreamSelector
+            v-model="form.streams"
+            placeholder="Streams auswaehlen..."
+          />
         </div>
       </div>
 
       <!-- Schedule -->
       <div>
-        <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
-          >Schedule (Cron)</label
-        >
+        <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">Schedule (Cron)</label>
         <input
           v-model="form.schedule"
           class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 focus:border-go4-primary focus:ring-1 focus:ring-go4-primary"
           placeholder="0 6 * * 1-5"
-        />
+        >
         <p class="mt-1 text-xs text-go4-muted dark:text-gray-400">
           z.B. "0 6 * * 1-5" = Mo-Fr um 06:00
         </p>
@@ -199,42 +198,54 @@ async function handleSubmit() {
       <!-- TTS Engine + Voice/Speaker -->
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
-          <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
-            >TTS-Engine</label
-          >
+          <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">TTS-Engine</label>
           <select
             v-model="form.tts_engine"
             class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 focus:border-go4-primary focus:ring-1 focus:ring-go4-primary"
           >
-            <option :value="null">Standard (global)</option>
-            <option value="piper">Piper</option>
-            <option value="xtts">XTTS v2</option>
-            <option value="disabled">Deaktiviert</option>
+            <option :value="null">
+              Standard (global)
+            </option>
+            <option value="piper">
+              Piper
+            </option>
+            <option value="xtts">
+              XTTS v2
+            </option>
+            <option value="disabled">
+              Deaktiviert
+            </option>
           </select>
         </div>
         <div v-if="effectiveEngine !== 'xtts'">
-          <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
-            >Piper-Stimme</label
-          >
+          <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">Piper-Stimme</label>
           <select
             v-model="form.voice"
             class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 focus:border-go4-primary focus:ring-1 focus:ring-go4-primary"
           >
-            <option v-for="v in availableVoices" :key="v.value" :value="v.value">
+            <option
+              v-for="v in availableVoices"
+              :key="v.value"
+              :value="v.value"
+            >
               {{ v.label }}
             </option>
           </select>
         </div>
         <div v-else>
-          <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
-            >XTTS-Sprecher</label
-          >
+          <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">XTTS-Sprecher</label>
           <select
             v-model="form.xtts_speaker_id"
             class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 focus:border-go4-primary focus:ring-1 focus:ring-go4-primary"
           >
-            <option :value="null">Kein Sprecher</option>
-            <option v-for="s in store.speakers" :key="s.id" :value="s.id">
+            <option :value="null">
+              Kein Sprecher
+            </option>
+            <option
+              v-for="s in store.speakers"
+              :key="s.id"
+              :value="s.id"
+            >
               {{ s.name }} ({{ s.language === 'de' ? 'DE' : 'EN' }})
             </option>
           </select>
@@ -259,7 +270,7 @@ async function handleSubmit() {
             min="1"
             max="50"
             class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 focus:border-go4-primary focus:ring-1 focus:ring-go4-primary"
-          />
+          >
         </div>
         <div>
           <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">
@@ -271,7 +282,7 @@ async function handleSubmit() {
             min="1"
             max="30"
             class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 focus:border-go4-primary focus:ring-1 focus:ring-go4-primary"
-          />
+          >
         </div>
       </div>
 
@@ -285,9 +296,15 @@ async function handleSubmit() {
             v-model="form.output_format"
             class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 focus:border-go4-primary focus:ring-1 focus:ring-go4-primary"
           >
-            <option value="audio">Audio</option>
-            <option value="text">Text</option>
-            <option value="both">Audio + Text</option>
+            <option value="audio">
+              Audio
+            </option>
+            <option value="text">
+              Text
+            </option>
+            <option value="both">
+              Audio + Text
+            </option>
           </select>
         </div>
         <div v-if="form.output_format !== 'audio'">
@@ -298,8 +315,12 @@ async function handleSubmit() {
             v-model="form.text_format"
             class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-800 dark:text-gray-200 focus:border-go4-primary focus:ring-1 focus:ring-go4-primary"
           >
-            <option value="markdown">Markdown</option>
-            <option value="html">HTML</option>
+            <option value="markdown">
+              Markdown
+            </option>
+            <option value="html">
+              HTML
+            </option>
           </select>
         </div>
       </div>
@@ -307,9 +328,7 @@ async function handleSubmit() {
       <!-- Intro + Outro -->
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
-          <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
-            >Intro-Text</label
-          >
+          <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">Intro-Text</label>
           <textarea
             v-model="form.intro_text"
             rows="2"
@@ -318,9 +337,7 @@ async function handleSubmit() {
           />
         </div>
         <div>
-          <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
-            >Outro-Text</label
-          >
+          <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">Outro-Text</label>
           <textarea
             v-model="form.outro_text"
             rows="2"
@@ -340,10 +357,8 @@ async function handleSubmit() {
             v-model="orgWide"
             type="checkbox"
             class="h-4 w-4 rounded border-gray-300 text-go4-primary focus:ring-go4-primary dark:border-gray-600"
-          />
-          <span class="text-sm font-medium text-sky-700 dark:text-sky-400"
-            >Org-weiter Channel (fuer alle Mitarbeiter sichtbar)</span
           >
+          <span class="text-sm font-medium text-sky-700 dark:text-sky-400">Org-weiter Channel (fuer alle Mitarbeiter sichtbar)</span>
         </label>
       </div>
 

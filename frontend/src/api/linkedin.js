@@ -70,6 +70,15 @@ export const getAllContacts = (params = {}) => api.get(`${BASE}/contacts`, { par
 
 export const getContact = (id) => api.get(`${BASE}/contacts/${id}`)
 
+export const toggleContactExclude = (id) => api.patch(`${BASE}/contacts/${id}/exclude`)
+
+export const deleteContact = (id) => api.delete(`${BASE}/contacts/${id}`)
+
+export const bulkDeleteContacts = (contactIds) =>
+  api.post(`${BASE}/contacts/bulk-delete`, { contact_ids: contactIds })
+
+export const deleteJobContacts = (jobId) => api.delete(`${BASE}/jobs/${jobId}/contacts`)
+
 // ============== Templates ==============
 
 export const getTemplates = (params = {}) => api.get(`${BASE}/templates`, { params })

@@ -9,8 +9,8 @@ Create Date: 2026-03-08
 from alembic import op
 import sqlalchemy as sa
 
-revision = "048_linkedin_contact_bridge"
-down_revision = "047_postmail_module"
+revision = "048"
+down_revision = "047"
 branch_labels = None
 depends_on = None
 

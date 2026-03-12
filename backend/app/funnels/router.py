@@ -32,7 +32,6 @@ from app.funnels.schemas import (
     FunnelStageUpdate,
     FunnelUpdate,
     HandoffInitiateRequest,
-    HandoffRetryRequest,
     KanbanBoardResponse,
     KanbanStageResponse,
     ProspectMoveRequest,
@@ -834,7 +833,7 @@ async def bulk_import_prospects(
                 imported += 1
 
             except Exception as e:
-                errors.append(f"{item.name}: {str(e)}")
+                errors.append(f"{item.name}: {e!s}")
                 skipped += 1
 
         return BulkImportResult(

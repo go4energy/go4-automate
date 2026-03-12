@@ -287,7 +287,7 @@ class HandoffService:
             result = await self.db.execute(
                 select(CrmPipeline).where(
                     CrmPipeline.tenant_id == tenant_id,
-                    CrmPipeline.is_default == True,
+                    CrmPipeline.is_default.is_(True),
                 )
             )
             pipeline = result.scalar_one_or_none()

@@ -281,12 +281,17 @@ class EmailCampaignService:
         return campaign
 
     async def list_campaigns(
-        self, tenant_id: str, status: str | None = None
+        self,
+        tenant_id: str,
+        status: str | None = None,
+        pipeline_id: int | None = None,
     ) -> list[EmailCampaign]:
         """List campaigns for a tenant."""
         query = select(EmailCampaign).where(EmailCampaign.tenant_id == tenant_id)
         if status:
             query = query.where(EmailCampaign.status == status)
+        if pipeline_id is not None:
+            query = query.where(EmailCampaign.pipeline_id == pipeline_id)
         query = query.order_by(EmailCampaign.created_at.desc())
 
         result = await self.db.execute(query)
@@ -754,12 +759,17 @@ class EmailSequenceService:
         return sequence
 
     async def list_sequences(
-        self, tenant_id: str, status: str | None = None
+        self,
+        tenant_id: str,
+        status: str | None = None,
+        pipeline_id: int | None = None,
     ) -> list[dict]:
         """List sequences with step count."""
         query = select(EmailSequence).where(EmailSequence.tenant_id == tenant_id)
         if status:
             query = query.where(EmailSequence.status == status)
+        if pipeline_id is not None:
+            query = query.where(EmailSequence.pipeline_id == pipeline_id)
         query = query.order_by(EmailSequence.created_at.desc())
 
         result = await self.db.execute(query)

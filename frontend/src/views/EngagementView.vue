@@ -231,10 +231,11 @@ async function deletePipeline() {
   if (!pipelineToDelete.value) return
   try {
     await store.removePipeline(pipelineToDelete.value.id)
-    showDeleteConfirm.value = false
-    pipelineToDelete.value = null
   } catch {
     // Error is in store
+  } finally {
+    showDeleteConfirm.value = false
+    pipelineToDelete.value = null
   }
 }
 

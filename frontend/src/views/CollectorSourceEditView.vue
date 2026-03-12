@@ -179,7 +179,10 @@ async function handleDelete() {
 <template>
   <div class="mx-auto max-w-2xl">
     <PageHeader :title="isEdit ? 'Quelle bearbeiten' : 'Neue Quelle'">
-      <template v-if="isEdit && store.sources.length > 1" #actions>
+      <template
+        v-if="isEdit && store.sources.length > 1"
+        #actions
+      >
         <div class="flex items-center gap-1">
           <button
             :disabled="!prevSource"
@@ -187,7 +190,12 @@ async function handleDelete() {
             title="Vorherige Quelle"
             @click="router.push(`/collector/sources/${prevSource.id}`)"
           >
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              class="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path
                 stroke-linecap="round"
                 stroke-linejoin="round"
@@ -205,7 +213,12 @@ async function handleDelete() {
             title="Naechste Quelle"
             @click="router.push(`/collector/sources/${nextSource.id}`)"
           >
-            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              class="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path
                 stroke-linecap="round"
                 stroke-linejoin="round"
@@ -218,7 +231,12 @@ async function handleDelete() {
       </template>
     </PageHeader>
 
-    <div v-if="loading" class="mt-8 text-center text-go4-muted dark:text-gray-400">Laden...</div>
+    <div
+      v-if="loading"
+      class="mt-8 text-center text-go4-muted dark:text-gray-400"
+    >
+      Laden...
+    </div>
 
     <div
       v-else-if="error"
@@ -227,7 +245,11 @@ async function handleDelete() {
       {{ error }}
     </div>
 
-    <form v-if="!loading" class="mt-6 space-y-6" @submit.prevent="handleSubmit">
+    <form
+      v-if="!loading"
+      class="mt-6 space-y-6"
+      @submit.prevent="handleSubmit"
+    >
       <div>
         <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">Name</label>
         <input
@@ -236,7 +258,7 @@ async function handleDelete() {
           required
           class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm dark:bg-gray-700 dark:text-gray-100 focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
           placeholder="z.B. PV Magazine RSS"
-        />
+        >
       </div>
 
       <div>
@@ -245,10 +267,18 @@ async function handleDelete() {
           v-model="form.source_type"
           class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm dark:bg-gray-700 dark:text-gray-100 focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
         >
-          <option value="rss">RSS Feed</option>
-          <option value="website">Website</option>
-          <option value="websearch">Websuche</option>
-          <option value="inbox">Inbox</option>
+          <option value="rss">
+            RSS Feed
+          </option>
+          <option value="website">
+            Website
+          </option>
+          <option value="websearch">
+            Websuche
+          </option>
+          <option value="inbox">
+            Inbox
+          </option>
         </select>
       </div>
 
@@ -260,7 +290,7 @@ async function handleDelete() {
           required
           class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm dark:bg-gray-700 dark:text-gray-100 focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
           placeholder="https://www.pv-magazine.de/feed/"
-        />
+        >
       </div>
 
       <div>
@@ -280,7 +310,7 @@ async function handleDelete() {
             class="block flex-1 rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm dark:bg-gray-700 dark:text-gray-100 focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
             placeholder="Keyword eingeben..."
             @keydown.enter.prevent="addKeyword"
-          />
+          >
           <button
             type="button"
             class="rounded-lg bg-gray-100 dark:bg-gray-700 px-4 py-2 text-sm font-medium text-go4-secondary dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600"
@@ -317,34 +347,40 @@ async function handleDelete() {
           min="1"
           max="168"
           class="mt-1 block w-32 rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm dark:bg-gray-700 dark:text-gray-100 focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
-        />
+        >
       </div>
 
       <div>
         <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">Tags</label>
         <div class="mt-1">
-          <TagSelector v-model="form.tags" placeholder="Tags auswaehlen..." />
+          <TagSelector
+            v-model="form.tags"
+            placeholder="Tags auswaehlen..."
+          />
         </div>
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
-          >Streams</label
-        >
+        <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">Streams</label>
         <div class="mt-1">
-          <StreamSelector v-model="form.streams" placeholder="Streams auswaehlen..." />
+          <StreamSelector
+            v-model="form.streams"
+            placeholder="Streams auswaehlen..."
+          />
         </div>
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
-          >Gruppe</label
-        >
+        <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">Gruppe</label>
         <select
           v-model="form.group_id"
           class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm dark:bg-gray-700 dark:text-gray-100 focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
         >
-          <option v-for="g in store.groups" :key="g.id" :value="g.id">
+          <option
+            v-for="g in store.groups"
+            :key="g.id"
+            :value="g.id"
+          >
             {{ g.name }}
           </option>
         </select>
@@ -358,7 +394,7 @@ async function handleDelete() {
           v-model="configInput"
           rows="4"
           class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 font-mono text-sm dark:bg-gray-700 dark:text-gray-100 focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
-          placeholder='{"selector": ".article-list article"}'
+          placeholder="{&quot;selector&quot;: &quot;.article-list article&quot;}"
         />
       </div>
 

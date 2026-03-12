@@ -8,7 +8,7 @@ const props = defineProps({
 
 const emit = defineEmits(['update'])
 
-const modules = ['collector', 'creator', 'briefing', 'distributor', 'crm']
+const modules = ['collector', 'creator', 'briefing', 'campaigns', 'crm', 'contacts']
 const actions = ['view', 'edit', 'delete', 'settings']
 const actionLabels = {
   view: 'Ansehen',
@@ -20,8 +20,9 @@ const moduleLabels = {
   collector: 'Collector',
   creator: 'Creator',
   briefing: 'Briefing',
-  distributor: 'Distributor',
-  crm: 'CRM'
+  campaigns: 'Campaigns',
+  crm: 'CRM',
+  contacts: 'Kontakte'
 }
 
 const matrix = computed(() => {
@@ -49,7 +50,9 @@ function toggle(mod, action) {
     <table class="w-full text-sm">
       <thead>
         <tr class="border-b border-gray-200 dark:border-gray-700">
-          <th class="py-2 pr-4 text-left font-medium text-gray-600 dark:text-gray-400">Modul</th>
+          <th class="py-2 pr-4 text-left font-medium text-gray-600 dark:text-gray-400">
+            Modul
+          </th>
           <th
             v-for="action in actions"
             :key="action"
@@ -68,7 +71,11 @@ function toggle(mod, action) {
           <td class="py-2.5 pr-4 font-medium text-gray-900 dark:text-gray-200">
             {{ moduleLabels[mod] }}
           </td>
-          <td v-for="action in actions" :key="action" class="px-3 py-2.5 text-center">
+          <td
+            v-for="action in actions"
+            :key="action"
+            class="px-3 py-2.5 text-center"
+          >
             <button
               type="button"
               :class="[
@@ -88,7 +95,11 @@ function toggle(mod, action) {
                 stroke="currentColor"
                 stroke-width="3"
               >
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M4.5 12.75l6 6 9-13.5"
+                />
               </svg>
             </button>
           </td>

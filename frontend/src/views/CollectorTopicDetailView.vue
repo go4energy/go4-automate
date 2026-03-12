@@ -161,7 +161,10 @@ async function handleReanalyze() {
 <template>
   <div>
     <!-- Loading -->
-    <div v-if="loading" class="flex items-center justify-center py-16">
+    <div
+      v-if="loading"
+      class="flex items-center justify-center py-16"
+    >
       <span class="text-go4-muted dark:text-gray-400">Laden...</span>
     </div>
 
@@ -176,7 +179,10 @@ async function handleReanalyze() {
     <!-- Content -->
     <div v-else-if="topic">
       <!-- 1. Header -->
-      <PageHeader :title="topic.title" subtitle="Thema-Detail">
+      <PageHeader
+        :title="topic.title"
+        subtitle="Thema-Detail"
+      >
         <template #actions>
           <button
             class="rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium text-go4-secondary dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700"
@@ -222,7 +228,10 @@ async function handleReanalyze() {
             {{ topic.description }}
           </p>
 
-          <div v-if="topic.detail" class="mt-4">
+          <div
+            v-if="topic.detail"
+            class="mt-4"
+          >
             <h3
               class="text-sm font-semibold uppercase tracking-wider text-go4-muted dark:text-gray-400"
             >
@@ -241,7 +250,10 @@ async function handleReanalyze() {
           >
             Quellartikel
           </h3>
-          <div v-if="topic.finding_url" class="mt-2">
+          <div
+            v-if="topic.finding_url"
+            class="mt-2"
+          >
             <p
               v-if="topic.finding_title"
               class="text-sm font-medium text-go4-secondary dark:text-gray-100"
@@ -253,7 +265,12 @@ async function handleReanalyze() {
               target="_blank"
               class="mt-1 inline-flex items-center gap-1 text-sm text-go4-primary hover:underline"
             >
-              <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg
+                class="h-3.5 w-3.5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
                 <path
                   stroke-linecap="round"
                   stroke-linejoin="round"
@@ -264,7 +281,10 @@ async function handleReanalyze() {
               Quellartikel oeffnen
             </a>
           </div>
-          <p v-else class="mt-2 text-sm text-go4-muted dark:text-gray-400">
+          <p
+            v-else
+            class="mt-2 text-sm text-go4-muted dark:text-gray-400"
+          >
             Kein Quellartikel vorhanden (manuelles Thema).
           </p>
         </div>
@@ -280,9 +300,7 @@ async function handleReanalyze() {
           <div class="mt-4 grid gap-4 md:grid-cols-2">
             <!-- Tags -->
             <div>
-              <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
-                >Tags</label
-              >
+              <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">Tags</label>
               <div class="mt-1">
                 <TagSelector v-model="metaForm.tags" />
               </div>
@@ -290,9 +308,7 @@ async function handleReanalyze() {
 
             <!-- Streams -->
             <div>
-              <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
-                >Streams</label
-              >
+              <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">Streams</label>
               <div class="mt-1">
                 <StreamSelector v-model="metaForm.streams" />
               </div>
@@ -300,15 +316,19 @@ async function handleReanalyze() {
 
             <!-- Gruppe -->
             <div>
-              <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
-                >Gruppe</label
-              >
+              <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">Gruppe</label>
               <select
                 v-model="metaForm.group_id"
                 class="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm dark:text-gray-100"
               >
-                <option :value="null">Keine Gruppe</option>
-                <option v-for="g in store.groups" :key="g.id" :value="g.id">
+                <option :value="null">
+                  Keine Gruppe
+                </option>
+                <option
+                  v-for="g in store.groups"
+                  :key="g.id"
+                  :value="g.id"
+                >
                   {{ g.name }}
                 </option>
               </select>
@@ -317,17 +337,13 @@ async function handleReanalyze() {
             <!-- Status + Prioritaet (read-only) -->
             <div class="flex gap-6">
               <div>
-                <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
-                  >Status</label
-                >
+                <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">Status</label>
                 <div class="mt-1.5">
                   <StatusBadge :status="topic.status" />
                 </div>
               </div>
               <div>
-                <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100"
-                  >Prioritaet</label
-                >
+                <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">Prioritaet</label>
                 <p class="mt-1.5 text-sm text-go4-secondary dark:text-gray-200">
                   {{ priorityLabels[topic.priority] || '-' }}
                 </p>
@@ -355,14 +371,20 @@ async function handleReanalyze() {
           </h3>
 
           <!-- Kein Prompt -->
-          <div v-if="!topic.prompt_slug" class="mt-2">
+          <div
+            v-if="!topic.prompt_slug"
+            class="mt-2"
+          >
             <p class="text-sm text-go4-muted dark:text-gray-400">
               Kein Prompt verknuepft (manuelles Thema).
             </p>
           </div>
 
           <!-- Prompt loading -->
-          <div v-else-if="promptLoading" class="mt-2">
+          <div
+            v-else-if="promptLoading"
+            class="mt-2"
+          >
             <span class="text-sm text-go4-muted dark:text-gray-400">Prompt laden...</span>
           </div>
 
@@ -375,7 +397,10 @@ async function handleReanalyze() {
           </div>
 
           <!-- Prompt loaded -->
-          <div v-else-if="promptData" class="mt-3 space-y-4">
+          <div
+            v-else-if="promptData"
+            class="mt-3 space-y-4"
+          >
             <!-- Info chips -->
             <div class="flex flex-wrap gap-2">
               <span
@@ -398,31 +423,23 @@ async function handleReanalyze() {
             <!-- Read-only mode -->
             <div v-if="!promptEditing">
               <div>
-                <label class="text-xs font-medium text-go4-muted dark:text-gray-400"
-                  >System-Prompt</label
-                >
+                <label class="text-xs font-medium text-go4-muted dark:text-gray-400">System-Prompt</label>
                 <pre
                   class="mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded-lg bg-gray-50 dark:bg-gray-900 p-3 text-xs text-go4-secondary dark:text-gray-200"
-                  >{{ promptData.system_prompt }}</pre
-                >
+                >{{ promptData.system_prompt }}</pre>
               </div>
               <div class="mt-3">
-                <label class="text-xs font-medium text-go4-muted dark:text-gray-400"
-                  >User-Prompt</label
-                >
+                <label class="text-xs font-medium text-go4-muted dark:text-gray-400">User-Prompt</label>
                 <pre
                   class="mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded-lg bg-gray-50 dark:bg-gray-900 p-3 text-xs text-go4-secondary dark:text-gray-200"
-                  >{{ promptData.user_prompt }}</pre
-                >
+                >{{ promptData.user_prompt }}</pre>
               </div>
             </div>
 
             <!-- Edit mode -->
             <div v-else>
               <div>
-                <label class="text-xs font-medium text-go4-muted dark:text-gray-400"
-                  >System-Prompt</label
-                >
+                <label class="text-xs font-medium text-go4-muted dark:text-gray-400">System-Prompt</label>
                 <textarea
                   v-model="editedSystemPrompt"
                   rows="6"
@@ -430,9 +447,7 @@ async function handleReanalyze() {
                 />
               </div>
               <div class="mt-3">
-                <label class="text-xs font-medium text-go4-muted dark:text-gray-400"
-                  >User-Prompt</label
-                >
+                <label class="text-xs font-medium text-go4-muted dark:text-gray-400">User-Prompt</label>
                 <textarea
                   v-model="editedUserPrompt"
                   rows="10"

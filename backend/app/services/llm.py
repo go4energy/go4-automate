@@ -255,6 +255,83 @@ class LLMService:
             if delta:
                 yield delta
 
+    async def generate_with_messages(
+        self,
+        provider: str,
+        model: str,
+        system_prompt: str,
+        messages: list[dict],
+        temperature: float = 0.7,
+        max_tokens: int = 2048,
+    ) -> str:
+        """Generate text with conversation history (multiple messages)."""
+        logger.info(
+            "LLM messages request: provider={provider} model={model} msgs={count}",
+            provider=provider,
+            model=model,
+            count=len(messages),
+        )
+        try:
+            if provider == "anthropic":
+                return await self._call_anthropic_messages(
+                    model, system_prompt, messages, temperature, max_tokens
+                )
+            return await self._call_openai_messages(
+                model, system_prompt, messages, temperature, max_tokens
+            )
+        except ExternalServiceError:
+            raise
+        except Exception as e:
+            logger.exception("LLM-Fehler: {err}", err=str(e))
+            raise ExternalServiceError("LLM", str(e)) from e
+
+    async def _call_anthropic_messages(
+        self,
+        model: str,
+        system: str,
+        messages: list[dict],
+        temperature: float,
+        max_tokens: int,
+    ) -> str:
+        """Call Anthropic Claude API with message history."""
+        if not settings.anthropic_api_key:
+            raise ExternalServiceError("Anthropic", "API Key nicht konfiguriert")
+
+        from anthropic import AsyncAnthropic
+
+        client = AsyncAnthropic(api_key=settings.anthropic_api_key)
+        response = await client.messages.create(
+            model=model,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            system=system,
+            messages=messages,
+        )
+        return response.content[0].text
+
+    async def _call_openai_messages(
+        self,
+        model: str,
+        system: str,
+        messages: list[dict],
+        temperature: float,
+        max_tokens: int,
+    ) -> str:
+        """Call OpenAI API with message history."""
+        if not settings.openai_api_key:
+            raise ExternalServiceError("OpenAI", "API Key nicht konfiguriert")
+
+        from openai import AsyncOpenAI
+
+        client = AsyncOpenAI(api_key=settings.openai_api_key)
+        response = await client.chat.completions.create(
+            model=model,
+            messages=[{"role": "system", "content": system}, *messages],
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        return response.choices[0].message.content
+
     async def generate_json(self, task: str, prompt: str) -> dict:
         """Generate text and parse as JSON. Strips markdown fences."""
         import json

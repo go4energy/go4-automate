@@ -39,7 +39,10 @@ const hint = computed(() => {
   <div class="space-y-1">
     <label class="block text-sm font-medium text-go4-secondary dark:text-gray-200">
       {{ param.description }}
-      <span v-if="isReadOnly" class="ml-1 text-xs text-gray-400">(nur lesen)</span>
+      <span
+        v-if="isReadOnly"
+        class="ml-1 text-xs text-gray-400"
+      >(nur lesen)</span>
     </label>
 
     <!-- Boolean: Toggle -->
@@ -70,7 +73,11 @@ const hint = computed(() => {
       class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-go4-secondary shadow-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
       @change="onSelect"
     >
-      <option v-for="opt in param.options" :key="opt" :value="opt">
+      <option
+        v-for="opt in param.options"
+        :key="opt"
+        :value="opt"
+      >
         {{ opt }}
       </option>
     </select>
@@ -88,7 +95,7 @@ const hint = computed(() => {
       "
       class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-go4-secondary shadow-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
       @input="onInput"
-    />
+    >
 
     <!-- Integer: Number input -->
     <input
@@ -101,7 +108,7 @@ const hint = computed(() => {
       step="1"
       class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-go4-secondary shadow-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
       @input="onInput"
-    />
+    >
 
     <!-- Number: Float input -->
     <input
@@ -114,7 +121,7 @@ const hint = computed(() => {
       step="0.1"
       class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-go4-secondary shadow-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
       @input="onInput"
-    />
+    >
 
     <!-- String: Text input (default) -->
     <input
@@ -124,8 +131,13 @@ const hint = computed(() => {
       :disabled="isReadOnly"
       class="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-go4-secondary shadow-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
       @input="onInput"
-    />
+    >
 
-    <p v-if="hint" class="text-xs text-gray-400">Bereich: {{ hint }}</p>
+    <p
+      v-if="hint"
+      class="text-xs text-gray-400"
+    >
+      Bereich: {{ hint }}
+    </p>
   </div>
 </template>

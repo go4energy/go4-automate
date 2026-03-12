@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build
+dist/
+
+# IDE
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Logs
+*.log
+npm-debug.log*
+
+# Local env
+.env.local
+.env.*.local
+
+# Playwright
+playwright-report/
+test-results/
+.playwright/
+
+# Vitest
+coverage/

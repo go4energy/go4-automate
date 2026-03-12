@@ -19,44 +19,105 @@ manifest = {
     "frontend": {
         "base_route": "/briefing",
         "routes": [
+            # Tab routes
             {
                 "path": "",
                 "name": "briefing",
                 "view": "BriefingView",
-                "meta": {"title": "Briefing"},
+                "meta": {
+                    "title": "Briefing",
+                    "breadcrumb": {"label": "Briefing"},
+                    "tab": "sources",
+                },
             },
+            {
+                "path": "sources",
+                "name": "briefing-sources",
+                "view": "BriefingView",
+                "meta": {
+                    "title": "Quellen",
+                    "breadcrumb": {"label": "Quellen", "parent": "briefing"},
+                    "tab": "sources",
+                },
+            },
+            {
+                "path": "findings",
+                "name": "briefing-findings",
+                "view": "BriefingView",
+                "meta": {
+                    "title": "Findings",
+                    "breadcrumb": {"label": "Findings", "parent": "briefing"},
+                    "tab": "findings",
+                },
+            },
+            {
+                "path": "channels",
+                "name": "briefing-channels",
+                "view": "BriefingView",
+                "meta": {
+                    "title": "Channels",
+                    "breadcrumb": {"label": "Channels", "parent": "briefing"},
+                    "tab": "channels",
+                },
+            },
+            {
+                "path": "speakers",
+                "name": "briefing-speakers",
+                "view": "BriefingView",
+                "meta": {
+                    "title": "Sprecher",
+                    "breadcrumb": {"label": "Sprecher", "parent": "briefing"},
+                    "tab": "speakers",
+                },
+            },
+            # Detail/Edit routes
             {
                 "path": "channels/new",
                 "name": "briefing-channel-new",
                 "view": "BriefingChannelEditView",
-                "meta": {"title": "Neuer Channel", "parent": "briefing"},
+                "meta": {
+                    "title": "Neuer Channel",
+                    "breadcrumb": {"label": "Neu", "parent": "briefing-channels"},
+                },
             },
             {
                 "path": "channels/:id",
                 "name": "briefing-channel-detail",
                 "view": "BriefingChannelDetailView",
                 "props": True,
-                "meta": {"title": "Channel Detail", "parent": "briefing"},
+                "meta": {
+                    "title": "Channel Detail",
+                    "breadcrumb": {"label": "Details", "parent": "briefing-channels"},
+                },
             },
             {
                 "path": "channels/:id/edit",
                 "name": "briefing-channel-edit",
                 "view": "BriefingChannelEditView",
                 "props": True,
-                "meta": {"title": "Channel bearbeiten", "parent": "briefing"},
+                "meta": {
+                    "title": "Channel bearbeiten",
+                    "breadcrumb": {"label": "Bearbeiten", "parent": "briefing-channels"},
+                },
             },
             {
                 "path": "sources/new",
                 "name": "briefing-source-new",
                 "view": "BriefingSourceEditView",
-                "meta": {"title": "Neue Quelle", "parent": "briefing"},
+                "meta": {
+                    "title": "Neue Quelle",
+                    "breadcrumb": {"label": "Neu", "parent": "briefing-sources"},
+                },
             },
             {
                 "path": "sources/:id/edit",
                 "name": "briefing-source-edit",
                 "view": "BriefingSourceEditView",
                 "props": True,
-                "meta": {"title": "Quelle bearbeiten", "parent": "briefing"},
+                "meta": {
+                    "title": "Quelle bearbeiten",
+                    "breadcrumb": {"label": "Bearbeiten", "parent": "briefing-sources"},
+                },
             },
         ],
     },

@@ -17,7 +17,7 @@ async def get_current_tenant_id(
 
 async def get_tenant_config(
     tenant_id: str = Depends(get_current_tenant_id),
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Load tenant configuration (DB config merged with .env file config)."""
     service = TenantService(db)

@@ -2,6 +2,13 @@
 
 > Marketing Automation Platform powered by n8n, FastAPI und Vue 3.
 
+## ABSOLUT VERBOTEN ohne explizites GO vom User
+1. **Keine LinkedIn-Aktionen starten** — kein Scheduler, kein Worker, kein Browser öffnen ohne Freigabe
+2. **Keine Software-Änderungen** — kein Code schreiben/editieren ohne explizites GO
+3. **Kein Debugging ausführen** — jeden einzelnen Schritt vorher beschreiben und auf Freigabe warten
+4. **Keine Endlos-Schleifen** — niemals Retry-Loops ohne Abbruchbedingung und User-Kontrolle
+5. **Cron-Jobs** — niemals automatisch aktivieren, immer manuell und mit Freigabe
+
 ## Stack
 Python 3.12 / FastAPI / Vue 3 (Composition API, JS) / Tailwind CSS / PostgreSQL 16 / Redis 7 / Docker + Caddy / n8n
 Design System: https://github.com/go4energy/go4-design-system.git
@@ -25,6 +32,11 @@ ruff check . && ruff format .
 # Background Workers
 python run_engagement_worker.py   # Engagement Brain (alle 15 Min)
 python run_email_worker.py        # Email-Kampagnen (alle 5 Sek)
+
+# LinkedIn Scheduler (Cron, jede Minute)
+# Wird automatisch via scripts/setup.sh eingerichtet
+# Manuell: crontab -l (anzeigen) / scripts/setup.sh (einrichten)
+python run_linkedin_scheduler.py  # Einmal-Check + Worker
 
 # Frontend
 cd frontend && npm run dev -- --host 0.0.0.0 --port 8081

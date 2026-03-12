@@ -12,6 +12,8 @@ register_models(_manifests)
 from app.models.activity_log import ActivityLog  # noqa: E402
 from app.models.chat_message import ChatMessage  # noqa: E402
 from app.models.conversation import Conversation  # noqa: E402
+from app.models.module_context import ModuleContext  # noqa: E402
+from app.models.module_parameter import ModuleParameter  # noqa: E402
 from app.models.prompt import Prompt  # noqa: E402
 from app.models.stream import Stream  # noqa: E402
 from app.models.tag import Tag  # noqa: E402
@@ -21,6 +23,8 @@ __all__ = [
     "ActivityLog",
     "ChatMessage",
     "Conversation",
+    "ModuleContext",
+    "ModuleParameter",
     "Prompt",
     "Stream",
     "Tag",

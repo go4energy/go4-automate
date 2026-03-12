@@ -2,7 +2,7 @@
 import { onMounted } from 'vue'
 import { useCrmStore } from '@/stores/crm'
 import { useCreatorStore } from '@/stores/creator'
-import { useDistributorStore } from '@/stores/distributor'
+import { useCampaignsStore } from '@/stores/campaigns'
 import { useCollectorStore } from '@/stores/collector'
 import { useActivityStore } from '@/stores/activity'
 import { useBriefingStore } from '@/stores/briefing'
@@ -12,7 +12,7 @@ import ActivityFeed from '@/components/ui/ActivityFeed.vue'
 
 const crmStore = useCrmStore()
 const creatorStore = useCreatorStore()
-const distributorStore = useDistributorStore()
+const campaignsStore = useCampaignsStore()
 const collectorStore = useCollectorStore()
 const activityStore = useActivityStore()
 const briefingStore = useBriefingStore()
@@ -20,7 +20,7 @@ const briefingStore = useBriefingStore()
 onMounted(() => {
   crmStore.fetchContacts()
   creatorStore.fetchPieces()
-  distributorStore.fetchDashboard()
+  campaignsStore.fetchDashboard()
   collectorStore.fetchTopics()
   collectorStore.fetchSources()
   activityStore.fetchActivities(null, 15)
@@ -31,7 +31,10 @@ onMounted(() => {
 
 <template>
   <div>
-    <PageHeader title="Dashboard" subtitle="Marketing Automation Platform" />
+    <PageHeader
+      title="Dashboard"
+      subtitle="Marketing Automation Platform"
+    />
 
     <!-- Stats Row -->
     <div class="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -53,10 +56,10 @@ onMounted(() => {
       />
       <StatCard
         label="Ad Spend heute"
-        :value="`${distributorStore.totalSpendToday} EUR`"
+        :value="`${campaignsStore.totalSpendToday} EUR`"
         :trend="
-          distributorStore.totalLeadsToday > 0
-            ? `${distributorStore.totalLeadsToday} Leads heute`
+          campaignsStore.totalLeadsToday > 0
+            ? `${campaignsStore.totalLeadsToday} Leads heute`
             : null
         "
       />
@@ -104,24 +107,26 @@ onMounted(() => {
           </div>
         </router-link>
 
-        <!-- Distributor -->
+        <!-- Campaigns -->
         <router-link
-          to="/distributor"
+          to="/campaigns"
           class="block rounded-lg bg-white p-5 shadow-sm transition hover:shadow-md dark:bg-gray-800 dark:hover:bg-gray-750"
         >
           <div class="flex items-center justify-between">
             <div>
-              <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Distributor</h3>
+              <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                Campaigns
+              </h3>
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                {{ distributorStore.activeCampaigns.length }} aktive Kampagnen &middot;
-                {{ distributorStore.totalSpendToday }} EUR Spend heute
+                {{ campaignsStore.activeCampaigns.length }} aktive Kampagnen &middot;
+                {{ campaignsStore.totalSpendToday }} EUR Spend heute
               </p>
             </div>
             <span
-              v-if="distributorStore.activeCampaigns.length > 0"
+              v-if="campaignsStore.activeCampaigns.length > 0"
               class="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400"
             >
-              {{ distributorStore.activeCampaigns.length }} aktiv
+              {{ campaignsStore.activeCampaigns.length }} aktiv
             </span>
           </div>
         </router-link>
@@ -133,7 +138,9 @@ onMounted(() => {
         >
           <div class="flex items-center justify-between">
             <div>
-              <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Collector</h3>
+              <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                Collector
+              </h3>
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {{ collectorStore.activeSources.length }} aktive Quellen &middot;
                 {{ collectorStore.suggestedTopics.length }} Topic-Vorschlaege
@@ -155,7 +162,9 @@ onMounted(() => {
         >
           <div class="flex items-center justify-between">
             <div>
-              <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Briefing</h3>
+              <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                Briefing
+              </h3>
               <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {{ briefingStore.activeChannels.length }} aktive Channels &middot;
                 {{ briefingStore.totalEpisodes }} Episoden
@@ -176,7 +185,9 @@ onMounted(() => {
             to="/crm"
             class="rounded-lg bg-white p-4 shadow-sm transition hover:shadow-md dark:bg-gray-800 dark:hover:bg-gray-750"
           >
-            <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">CRM</h3>
+            <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">
+              CRM
+            </h3>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ crmStore.activeContacts.length }} aktive Kontakte
             </p>
@@ -185,8 +196,12 @@ onMounted(() => {
             to="/settings/prompts"
             class="rounded-lg bg-white p-4 shadow-sm transition hover:shadow-md dark:bg-gray-800 dark:hover:bg-gray-750"
           >
-            <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Prompt Registry</h3>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Prompts verwalten</p>
+            <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">
+              Prompt Registry
+            </h3>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Prompts verwalten
+            </p>
           </router-link>
         </div>
       </div>

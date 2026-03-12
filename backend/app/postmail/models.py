@@ -142,7 +142,9 @@ class PostmailLetter(Base):
     contact_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("contacts.id"), nullable=True, index=True
     )
-    pipeline_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pipeline_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("engagement_pipelines.id", ondelete="SET NULL"), nullable=True
+    )
     pending_action_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     batch_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("postmail_batches.id"), nullable=True, index=True

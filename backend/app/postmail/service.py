@@ -138,6 +138,7 @@ class PostmailService:
         status: str | None = None,
         batch_id: int | None = None,
         contact_id: int | None = None,
+        pipeline_id: int | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> tuple[list[PostmailLetter], int]:
@@ -154,6 +155,8 @@ class PostmailService:
             query = query.where(PostmailLetter.batch_id == batch_id)
         if contact_id:
             query = query.where(PostmailLetter.contact_id == contact_id)
+        if pipeline_id is not None:
+            query = query.where(PostmailLetter.pipeline_id == pipeline_id)
 
         # Count
         count_result = await self.db.execute(

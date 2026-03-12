@@ -62,7 +62,11 @@ function summarizeInput(input) {
         stroke="currentColor"
         stroke-width="2"
       >
-        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M5 13l4 4L19 7"
+        />
       </svg>
       <svg
         v-else
@@ -72,7 +76,11 @@ function summarizeInput(input) {
         stroke="currentColor"
         stroke-width="2"
       >
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M6 18L18 6M6 6l12 12"
+        />
       </svg>
 
       <!-- Tool name -->
@@ -81,7 +89,10 @@ function summarizeInput(input) {
       </span>
 
       <!-- Summary -->
-      <span v-if="summarizeInput(props.toolCall.input)" class="text-gray-500">
+      <span
+        v-if="summarizeInput(props.toolCall.input)"
+        class="text-gray-500"
+      >
         — {{ summarizeInput(props.toolCall.input) }}
       </span>
 
@@ -94,20 +105,34 @@ function summarizeInput(input) {
         stroke="currentColor"
         stroke-width="2"
       >
-        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M19 9l-7 7-7-7"
+        />
       </svg>
     </button>
 
     <!-- Expanded details -->
-    <div v-if="expanded" class="border-t border-gray-200 px-3 py-2 text-xs">
-      <div v-if="props.toolCall.input && Object.keys(props.toolCall.input).length" class="mb-2">
-        <p class="mb-1 font-semibold text-gray-500">Input:</p>
+    <div
+      v-if="expanded"
+      class="border-t border-gray-200 px-3 py-2 text-xs"
+    >
+      <div
+        v-if="props.toolCall.input && Object.keys(props.toolCall.input).length"
+        class="mb-2"
+      >
+        <p class="mb-1 font-semibold text-gray-500">
+          Input:
+        </p>
         <pre class="overflow-auto rounded bg-white p-2 text-gray-600">{{
           JSON.stringify(props.toolCall.input, null, 2)
         }}</pre>
       </div>
       <div v-if="props.toolCall.result">
-        <p class="mb-1 font-semibold text-gray-500">Ergebnis:</p>
+        <p class="mb-1 font-semibold text-gray-500">
+          Ergebnis:
+        </p>
         <pre class="overflow-auto rounded bg-white p-2 text-gray-600">{{
           JSON.stringify(props.toolCall.result, null, 2)
         }}</pre>

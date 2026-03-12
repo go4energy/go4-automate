@@ -195,7 +195,10 @@ onMounted(async () => {
     </div>
 
     <!-- Loading / Error -->
-    <div v-if="loading" class="flex items-center justify-center py-12">
+    <div
+      v-if="loading"
+      class="flex items-center justify-center py-12"
+    >
       <span class="text-sm text-gray-500">Laden...</span>
     </div>
     <div
@@ -211,7 +214,9 @@ onMounted(async () => {
         <table class="w-full text-sm">
           <thead class="bg-gray-50 dark:bg-gray-800">
             <tr>
-              <th class="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-400">Name</th>
+              <th class="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-400">
+                Name
+              </th>
               <th class="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-400">
                 E-Mail
               </th>
@@ -227,7 +232,11 @@ onMounted(async () => {
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-            <tr v-for="u in users" :key="u.id" class="bg-white dark:bg-gray-900">
+            <tr
+              v-for="u in users"
+              :key="u.id"
+              class="bg-white dark:bg-gray-900"
+            >
               <td class="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">
                 {{ u.display_name }}
               </td>
@@ -339,7 +348,10 @@ onMounted(async () => {
               <h3 class="font-medium text-gray-900 dark:text-gray-100">
                 {{ g.name }}
               </h3>
-              <p v-if="g.description" class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+              <p
+                v-if="g.description"
+                class="mt-0.5 text-sm text-gray-500 dark:text-gray-400"
+              >
                 {{ g.description }}
               </p>
               <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">
@@ -408,8 +420,14 @@ onMounted(async () => {
           </div>
 
           <!-- Permission preview -->
-          <div v-if="g.permissions" class="mt-3 flex flex-wrap gap-1">
-            <template v-for="(actions, mod) in g.permissions" :key="mod">
+          <div
+            v-if="g.permissions"
+            class="mt-3 flex flex-wrap gap-1"
+          >
+            <template
+              v-for="(actions, mod) in g.permissions"
+              :key="mod"
+            >
               <span
                 v-if="Object.values(actions).some(Boolean)"
                 class="inline-flex rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-400"

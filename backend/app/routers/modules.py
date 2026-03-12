@@ -2,9 +2,12 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import lazyload
 
 from app.database import get_db
+from app.models.tenant import Tenant
 from app.utils.dependencies import get_current_tenant_id
 from app.utils.module_registry import get_all_manifests, get_all_modules, get_manifest
 
@@ -15,8 +18,8 @@ STATIC_MODULES = [
     {
         "name": "n8n",
         "label": "n8n Workflows",
-        "icon": "M6 13.5V3.75m0 9.75a1.5 1.5 0 010 3m0-3a1.5 1.5 0 000 3m0 3.75V16.5m12-3V3.75m0 9.75a1.5 1.5 0 010 3m0-3a1.5 1.5 0 000 3m0 3.75V16.5m-6-9V3.75m0 3.75a1.5 1.5 0 010 3m0-3a1.5 1.5 0 000 3m0 9.75V10.5",
-        "color": "#D4A574",
+        "icon": "M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5",
+        "color": "#FF6A00",
         "category": "system",
         "application": True,
         "depends": [],
@@ -51,21 +54,33 @@ async def get_desktop_modules(
     """Return application modules with badge counts for desktop view."""
     manifests = get_all_manifests()
     interfaces = get_all_modules()
+
+    # Get desktop layout overrides from tenant config
+    layout_overrides = await _get_desktop_layout(db, tenant_id)
+
     result = []
 
     for name, manifest in manifests.items():
         if not manifest.get("application", False):
             continue
 
+        # Get overrides for this module
+        overrides = layout_overrides.get(name, {})
+
+        # Check visibility (hidden modules are skipped)
+        if overrides.get("visible") is False:
+            continue
+
         entry = {
             "name": name,
-            "label": manifest.get("label", name),
-            "icon": manifest.get("icon", ""),
-            "color": manifest.get("color", "#6B7280"),
+            "label": overrides.get("label", manifest.get("label", name)),
+            "icon": overrides.get("icon", manifest.get("icon", "")),
+            "color": overrides.get("color", manifest.get("color", "#6B7280")),
             "category": manifest.get("category", ""),
-            "order": manifest.get("sidebar", {}).get("order", 99),
+            "order": overrides.get("order", manifest.get("sidebar", {}).get("order", 99)),
             "badge_count": 0,
             "frontend": manifest.get("frontend"),
+            "external_url": overrides.get("external_url"),
         }
 
         # Try to get badge count from module interface metrics
@@ -87,21 +102,29 @@ async def get_desktop_modules(
     # Add static desktop modules
     for static_mod in STATIC_MODULES:
         if static_mod.get("application", False):
+            name = static_mod["name"]
+            overrides = layout_overrides.get(name, {})
+
+            # Check visibility
+            if overrides.get("visible") is False:
+                continue
+
             result.append(
                 {
-                    "name": static_mod["name"],
-                    "label": static_mod.get("label", static_mod["name"]),
-                    "icon": static_mod.get("icon", ""),
-                    "color": static_mod.get("color", "#6B7280"),
+                    "name": name,
+                    "label": overrides.get("label", static_mod.get("label", name)),
+                    "icon": overrides.get("icon", static_mod.get("icon", "")),
+                    "color": overrides.get("color", static_mod.get("color", "#6B7280")),
                     "category": static_mod.get("category", ""),
+                    "order": overrides.get("order", 99),
                     "badge_count": 0,
                     "frontend": static_mod.get("frontend"),
-                    "external_url": static_mod.get("external_url"),
+                    "external_url": overrides.get("external_url", static_mod.get("external_url")),
                 }
             )
 
-    # Sort: marketing first, then system; within category by order
-    category_order = {"marketing": 0, "system": 1}
+    # Sort: marketing first, then sales, then system; within category by order
+    category_order = {"marketing": 0, "sales": 1, "system": 2}
     result.sort(
         key=lambda m: (
             category_order.get(m.get("category", ""), 99),
@@ -109,6 +132,17 @@ async def get_desktop_modules(
         )
     )
     return result
+
+
+async def _get_desktop_layout(db: AsyncSession, tenant_id: str) -> dict:
+    """Get desktop layout overrides from tenant config."""
+    result = await db.execute(
+        select(Tenant).where(Tenant.tenant_id == tenant_id).options(lazyload("*"))
+    )
+    tenant = result.scalar_one_or_none()
+    if not tenant or not tenant.config:
+        return {}
+    return tenant.config.get("desktop_layout", {})
 
 
 @router.get("/{name}")

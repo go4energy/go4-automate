@@ -80,10 +80,29 @@ class Tenant(TimestampMixin, Base):
         "FunnelHandoff", back_populates="tenant", lazy="selectin"
     )
 
+    # LinkedIn
+    linkedin_accounts = relationship(
+        "LinkedInAccount", back_populates="tenant", lazy="selectin"
+    )
+    linkedin_scraper_jobs = relationship(
+        "LinkedInScraperJob", back_populates="tenant", lazy="selectin"
+    )
+    linkedin_contacts = relationship(
+        "LinkedInContact", back_populates="tenant", lazy="selectin"
+    )
+
+    # Engagement
+    engagement_pipelines = relationship(
+        "EngagementPipeline", back_populates="tenant", lazy="selectin"
+    )
+
     # Shared
     prompts = relationship("Prompt", back_populates="tenant", lazy="selectin")
     conversations = relationship(
         "Conversation", back_populates="tenant", lazy="selectin"
+    )
+    module_contexts = relationship(
+        "ModuleContext", back_populates="tenant", lazy="selectin"
     )
 
     def __repr__(self) -> str:

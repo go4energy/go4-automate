@@ -86,7 +86,10 @@ onMounted(() => {
 
 <template>
   <div>
-    <PageHeader title="Creator" subtitle="Content erstellen und verwalten">
+    <PageHeader
+      title="Creator"
+      subtitle="Content erstellen und verwalten"
+    >
       <template #actions>
         <button
           class="rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white hover:bg-go4-primary-dark"
@@ -99,14 +102,33 @@ onMounted(() => {
 
     <!-- Stats Bar -->
     <div class="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-      <StatCard label="Entwuerfe" :value="store.stats.draft" color="text-yellow-600" />
-      <StatCard label="Geplant" :value="store.stats.scheduled" color="text-blue-600" />
-      <StatCard label="Veroeffentlicht" :value="store.stats.published" color="text-green-600" />
-      <StatCard label="Fehlgeschlagen" :value="store.stats.failed" color="text-red-600" />
+      <StatCard
+        label="Entwuerfe"
+        :value="store.stats.draft"
+        color="text-yellow-600"
+      />
+      <StatCard
+        label="Geplant"
+        :value="store.stats.scheduled"
+        color="text-blue-600"
+      />
+      <StatCard
+        label="Veroeffentlicht"
+        :value="store.stats.published"
+        color="text-green-600"
+      />
+      <StatCard
+        label="Fehlgeschlagen"
+        :value="store.stats.failed"
+        color="text-red-600"
+      />
     </div>
 
     <!-- Generate Form -->
-    <div v-if="showGenerateForm" class="mt-6 rounded-lg bg-white dark:bg-gray-800 p-6 shadow-sm">
+    <div
+      v-if="showGenerateForm"
+      class="mt-6 rounded-lg bg-white dark:bg-gray-800 p-6 shadow-sm"
+    >
       <h2 class="text-sm font-semibold text-go4-secondary dark:text-gray-100">
         Neuen Post generieren
       </h2>
@@ -118,33 +140,43 @@ onMounted(() => {
             type="text"
             placeholder="z.B. Energieeffizienz im Buero"
             class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
-          />
+          >
         </div>
         <div>
-          <label class="block text-xs font-medium text-go4-muted dark:text-gray-400"
-            >Plattform</label
-          >
+          <label class="block text-xs font-medium text-go4-muted dark:text-gray-400">Plattform</label>
           <select
             v-model="generateForm.platform"
             class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
           >
-            <option value="facebook">Facebook</option>
-            <option value="instagram">Instagram</option>
-            <option value="linkedin">LinkedIn</option>
+            <option value="facebook">
+              Facebook
+            </option>
+            <option value="instagram">
+              Instagram
+            </option>
+            <option value="linkedin">
+              LinkedIn
+            </option>
           </select>
         </div>
         <div>
-          <label class="block text-xs font-medium text-go4-muted dark:text-gray-400"
-            >Content-Typ</label
-          >
+          <label class="block text-xs font-medium text-go4-muted dark:text-gray-400">Content-Typ</label>
           <select
             v-model="generateForm.content_type"
             class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
           >
-            <option value="post">Post</option>
-            <option value="story">Story</option>
-            <option value="reel">Reel</option>
-            <option value="carousel">Carousel</option>
+            <option value="post">
+              Post
+            </option>
+            <option value="story">
+              Story
+            </option>
+            <option value="reel">
+              Reel
+            </option>
+            <option value="carousel">
+              Carousel
+            </option>
           </select>
         </div>
       </div>
@@ -163,7 +195,10 @@ onMounted(() => {
           Abbrechen
         </button>
       </div>
-      <p v-if="store.error" class="mt-2 text-sm text-red-600 dark:text-red-400">
+      <p
+        v-if="store.error"
+        class="mt-2 text-sm text-red-600 dark:text-red-400"
+      >
         {{ store.error }}
       </p>
     </div>
@@ -175,26 +210,47 @@ onMounted(() => {
         class="rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
         @change="loadPieces"
       >
-        <option value="">Alle Status</option>
-        <option value="draft">Entwurf</option>
-        <option value="scheduled">Geplant</option>
-        <option value="published">Veroeffentlicht</option>
-        <option value="failed">Fehlgeschlagen</option>
+        <option value="">
+          Alle Status
+        </option>
+        <option value="draft">
+          Entwurf
+        </option>
+        <option value="scheduled">
+          Geplant
+        </option>
+        <option value="published">
+          Veroeffentlicht
+        </option>
+        <option value="failed">
+          Fehlgeschlagen
+        </option>
       </select>
       <select
         v-model="platformFilter"
         class="rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary"
         @change="loadPieces"
       >
-        <option value="">Alle Plattformen</option>
-        <option value="facebook">Facebook</option>
-        <option value="instagram">Instagram</option>
-        <option value="linkedin">LinkedIn</option>
+        <option value="">
+          Alle Plattformen
+        </option>
+        <option value="facebook">
+          Facebook
+        </option>
+        <option value="instagram">
+          Instagram
+        </option>
+        <option value="linkedin">
+          LinkedIn
+        </option>
       </select>
     </div>
 
     <!-- Loading -->
-    <div v-if="store.loading" class="mt-8 flex items-center justify-center p-8">
+    <div
+      v-if="store.loading"
+      class="mt-8 flex items-center justify-center p-8"
+    >
       <span class="text-go4-muted dark:text-gray-400">Laden...</span>
     </div>
 
@@ -207,12 +263,18 @@ onMounted(() => {
     </div>
 
     <!-- Empty -->
-    <div v-else-if="store.pieces.length === 0" class="mt-8">
+    <div
+      v-else-if="store.pieces.length === 0"
+      class="mt-8"
+    >
       <EmptyState title="Keine Content-Pieces gefunden" />
     </div>
 
     <!-- Card Grid -->
-    <div v-else class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div
+      v-else
+      class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+    >
       <ContentCard
         v-for="piece in store.pieces"
         :key="piece.id"

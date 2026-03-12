@@ -13,7 +13,7 @@ manifest = {
     "has_frontend": True,
     "has_models": True,
     "has_config_schema": True,
-    "routers": ["router", "outreach_router"],
+    "routers": ["router", "outreach_router", "debug_router"],
     "router_prefix": "/linkedin",
     "sidebar": {"group": "SALES", "order": 17},
     "frontend": {
@@ -139,6 +139,16 @@ manifest = {
                     "title": "Setup",
                     "breadcrumb": {"label": "Setup", "parent": "linkedin"},
                     "tab": "setup",
+                },
+            },
+            {
+                "path": "debug",
+                "name": "linkedin-debug",
+                "view": "LinkedInView",
+                "meta": {
+                    "title": "Debug",
+                    "breadcrumb": {"label": "Debug", "parent": "linkedin"},
+                    "tab": "debug",
                 },
             },
             # Detail/Edit routes

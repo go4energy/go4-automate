@@ -1,28 +1,25 @@
 <script setup>
-import { onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, ref } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useBriefingStore } from '@/stores/briefing'
 import { useAuthStore } from '@/stores/auth'
-import { useTabState } from '@/composables/useTabState'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 
 const router = useRouter()
+const route = useRoute()
 const store = useBriefingStore()
 const authStore = useAuthStore()
 
-const activeTab = useTabState('briefing', 'sources', [
-  'sources',
-  'findings',
-  'channels',
-  'speakers'
-])
+// Tab state from route
+const activeTab = computed(() => route.meta?.tab || 'sources')
+
 const tabs = [
-  { key: 'sources', label: 'Quellen' },
-  { key: 'findings', label: 'Findings' },
-  { key: 'channels', label: 'Channels' },
-  { key: 'speakers', label: 'Sprecher' }
+  { key: 'sources', label: 'Quellen', route: '/briefing/sources' },
+  { key: 'findings', label: 'Findings', route: '/briefing/findings' },
+  { key: 'channels', label: 'Channels', route: '/briefing/channels' },
+  { key: 'speakers', label: 'Sprecher', route: '/briefing/speakers' }
 ]
 
 const statusFilter = ref('')
@@ -168,7 +165,10 @@ const filteredFindings = () => {
 
 <template>
   <div>
-    <PageHeader title="Briefing" subtitle="Internes Briefing fuer Ihre Zielgruppen">
+    <PageHeader
+      title="Briefing"
+      subtitle="Internes Briefing fuer Ihre Zielgruppen"
+    >
       <template #actions>
         <router-link
           v-if="activeTab === 'channels'"
@@ -204,20 +204,23 @@ const filteredFindings = () => {
     </div>
 
     <!-- Tabs with arrow separators -->
-    <div class="mt-6 border-b border-gray-200 dark:border-gray-700">
+    <div class="mt-4 border-b border-gray-200 dark:border-gray-700">
       <nav class="-mb-px flex items-center">
-        <template v-for="(tab, index) in tabs" :key="tab.key">
-          <button
+        <template
+          v-for="(tab, index) in tabs"
+          :key="tab.key"
+        >
+          <router-link
+            :to="tab.route"
             class="border-b-2 px-1 pb-3 text-sm font-medium transition"
             :class="
               activeTab === tab.key
                 ? 'border-go4-primary text-go4-primary'
                 : 'border-transparent text-go4-muted dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600 hover:text-go4-secondary dark:hover:text-gray-100'
             "
-            @click="activeTab = tab.key"
           >
             {{ tab.label }}
-          </button>
+          </router-link>
           <span
             v-if="index < tabs.length - 1"
             class="mx-3 pb-3 text-go4-muted dark:text-gray-500 select-none"
@@ -229,8 +232,14 @@ const filteredFindings = () => {
     </div>
 
     <!-- Sources Tab -->
-    <div v-if="activeTab === 'sources'" class="mt-6">
-      <div v-if="store.sourcesLoading" class="flex items-center justify-center py-12">
+    <div
+      v-if="activeTab === 'sources'"
+      class="mt-6"
+    >
+      <div
+        v-if="store.sourcesLoading"
+        class="flex items-center justify-center py-12"
+      >
         <span class="text-go4-muted dark:text-gray-400">Laden...</span>
       </div>
 
@@ -242,7 +251,10 @@ const filteredFindings = () => {
 
       <template v-else>
         <!-- Meine Quellen -->
-        <div v-if="store.mySources.length > 0" class="mb-8">
+        <div
+          v-if="store.mySources.length > 0"
+          class="mb-8"
+        >
           <h3
             class="mb-3 text-sm font-semibold uppercase tracking-wider text-go4-muted dark:text-gray-400"
           >
@@ -275,7 +287,10 @@ const filteredFindings = () => {
                 </span>
               </div>
               <!-- OAuth status for calendar/email -->
-              <div v-if="['calendar', 'email'].includes(source.source_type)" class="mt-2">
+              <div
+                v-if="['calendar', 'email'].includes(source.source_type)"
+                class="mt-2"
+              >
                 <span
                   v-if="source.oauth_connected"
                   class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400"
@@ -369,7 +384,10 @@ const filteredFindings = () => {
                 </span>
               </div>
               <!-- OAuth status for calendar/email -->
-              <div v-if="['calendar', 'email'].includes(source.source_type)" class="mt-2">
+              <div
+                v-if="['calendar', 'email'].includes(source.source_type)"
+                class="mt-2"
+              >
                 <span
                   v-if="source.oauth_connected"
                   class="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400"
@@ -442,33 +460,61 @@ const filteredFindings = () => {
     </div>
 
     <!-- Findings Tab -->
-    <div v-else-if="activeTab === 'findings'" class="mt-6">
+    <div
+      v-else-if="activeTab === 'findings'"
+      class="mt-6"
+    >
       <!-- Filters -->
       <div class="mb-4 flex flex-wrap items-center gap-3">
         <select
           v-model="statusFilter"
           class="rounded-lg border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
         >
-          <option value="">Alle Status</option>
-          <option value="new">Neu</option>
-          <option value="used">Verwendet</option>
-          <option value="dismissed">Verworfen</option>
+          <option value="">
+            Alle Status
+          </option>
+          <option value="new">
+            Neu
+          </option>
+          <option value="used">
+            Verwendet
+          </option>
+          <option value="dismissed">
+            Verworfen
+          </option>
         </select>
         <select
           v-model="sourceTypeFilter"
           class="rounded-lg border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
         >
-          <option value="">Alle Typen</option>
-          <option value="rss">RSS</option>
-          <option value="website">Website</option>
-          <option value="websearch">Websuche</option>
-          <option value="calendar">Kalender</option>
-          <option value="email">E-Mail</option>
-          <option value="kpi">KPI</option>
+          <option value="">
+            Alle Typen
+          </option>
+          <option value="rss">
+            RSS
+          </option>
+          <option value="website">
+            Website
+          </option>
+          <option value="websearch">
+            Websuche
+          </option>
+          <option value="calendar">
+            Kalender
+          </option>
+          <option value="email">
+            E-Mail
+          </option>
+          <option value="kpi">
+            KPI
+          </option>
         </select>
       </div>
 
-      <div v-if="store.findingsLoading" class="flex items-center justify-center py-12">
+      <div
+        v-if="store.findingsLoading"
+        class="flex items-center justify-center py-12"
+      >
         <span class="text-go4-muted dark:text-gray-400">Laden...</span>
       </div>
 
@@ -478,17 +524,30 @@ const filteredFindings = () => {
         description="Erstellen Sie Quellen und fetchen Sie diese, um Findings zu erhalten."
       />
 
-      <div v-else class="overflow-hidden rounded-lg bg-white shadow-sm dark:bg-gray-800">
+      <div
+        v-else
+        class="overflow-hidden rounded-lg bg-white shadow-sm dark:bg-gray-800"
+      >
         <table class="w-full text-left text-sm">
           <thead
             class="border-b border-gray-100 bg-gray-50 text-xs uppercase tracking-wider text-go4-muted dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400"
           >
             <tr>
-              <th class="px-4 py-3 font-medium">Titel</th>
-              <th class="hidden px-4 py-3 font-medium md:table-cell">Typ</th>
-              <th class="px-4 py-3 font-medium">Status</th>
-              <th class="hidden px-4 py-3 font-medium lg:table-cell">Gefunden</th>
-              <th class="px-4 py-3 text-right font-medium">Aktionen</th>
+              <th class="px-4 py-3 font-medium">
+                Titel
+              </th>
+              <th class="hidden px-4 py-3 font-medium md:table-cell">
+                Typ
+              </th>
+              <th class="px-4 py-3 font-medium">
+                Status
+              </th>
+              <th class="hidden px-4 py-3 font-medium lg:table-cell">
+                Gefunden
+              </th>
+              <th class="px-4 py-3 text-right font-medium">
+                Aktionen
+              </th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-50 dark:divide-gray-700">
@@ -506,7 +565,10 @@ const filteredFindings = () => {
                 >
                   {{ finding.title }}
                 </a>
-                <p v-else class="font-medium text-go4-secondary dark:text-gray-100">
+                <p
+                  v-else
+                  class="font-medium text-go4-secondary dark:text-gray-100"
+                >
                   {{ finding.title }}
                 </p>
                 <p
@@ -543,8 +605,14 @@ const filteredFindings = () => {
     </div>
 
     <!-- Channels Tab -->
-    <div v-else-if="activeTab === 'channels'" class="mt-6">
-      <div v-if="store.loading" class="flex items-center justify-center py-12">
+    <div
+      v-else-if="activeTab === 'channels'"
+      class="mt-6"
+    >
+      <div
+        v-if="store.loading"
+        class="flex items-center justify-center py-12"
+      >
         <span class="text-go4-muted dark:text-gray-400">Laden...</span>
       </div>
 
@@ -556,7 +624,10 @@ const filteredFindings = () => {
 
       <template v-else>
         <!-- Meine Briefings -->
-        <div v-if="store.myChannels.length > 0" class="mb-8">
+        <div
+          v-if="store.myChannels.length > 0"
+          class="mb-8"
+        >
           <h3
             class="mb-3 text-sm font-semibold uppercase tracking-wider text-go4-muted dark:text-gray-400"
           >
@@ -723,8 +794,14 @@ const filteredFindings = () => {
     </div>
 
     <!-- Speakers Tab -->
-    <div v-else-if="activeTab === 'speakers'" class="mt-6">
-      <div v-if="store.speakersLoading" class="flex items-center justify-center py-12">
+    <div
+      v-else-if="activeTab === 'speakers'"
+      class="mt-6"
+    >
+      <div
+        v-if="store.speakersLoading"
+        class="flex items-center justify-center py-12"
+      >
         <span class="text-go4-muted dark:text-gray-400">Laden...</span>
       </div>
 
@@ -737,52 +814,51 @@ const filteredFindings = () => {
           <h3 class="mb-4 text-sm font-semibold text-go4-secondary dark:text-gray-100">
             Neuen Sprecher hochladen
           </h3>
-          <form class="space-y-4" @submit.prevent="handleUploadSpeaker">
+          <form
+            class="space-y-4"
+            @submit.prevent="handleUploadSpeaker"
+          >
             <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div>
-                <label class="block text-xs font-medium text-go4-muted dark:text-gray-400"
-                  >Name *</label
-                >
+                <label class="block text-xs font-medium text-go4-muted dark:text-gray-400">Name *</label>
                 <input
                   v-model="speakerName"
                   required
                   class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 focus:border-go4-primary focus:ring-1 focus:ring-go4-primary dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
                   placeholder="Thomas"
-                />
+                >
               </div>
               <div>
-                <label class="block text-xs font-medium text-go4-muted dark:text-gray-400"
-                  >Sprache</label
-                >
+                <label class="block text-xs font-medium text-go4-muted dark:text-gray-400">Sprache</label>
                 <select
                   v-model="speakerLanguage"
                   class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 focus:border-go4-primary focus:ring-1 focus:ring-go4-primary dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
                 >
-                  <option value="de">Deutsch</option>
-                  <option value="en">Englisch</option>
+                  <option value="de">
+                    Deutsch
+                  </option>
+                  <option value="en">
+                    Englisch
+                  </option>
                 </select>
               </div>
               <div>
-                <label class="block text-xs font-medium text-go4-muted dark:text-gray-400"
-                  >WAV-Datei * (6-30s)</label
-                >
+                <label class="block text-xs font-medium text-go4-muted dark:text-gray-400">WAV-Datei * (6-30s)</label>
                 <input
                   type="file"
                   accept=".wav"
                   class="mt-1 block w-full text-sm text-gray-500 file:mr-3 file:rounded file:border-0 file:bg-go4-primary/10 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-go4-primary dark:text-gray-400"
                   @change="onSpeakerFileChange"
-                />
+                >
               </div>
             </div>
             <div>
-              <label class="block text-xs font-medium text-go4-muted dark:text-gray-400"
-                >Beschreibung</label
-              >
+              <label class="block text-xs font-medium text-go4-muted dark:text-gray-400">Beschreibung</label>
               <input
                 v-model="speakerDescription"
                 class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 focus:border-go4-primary focus:ring-1 focus:ring-go4-primary dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
                 placeholder="Maennliche Stimme, ruhig und professionell"
-              />
+              >
             </div>
             <button
               type="submit"
@@ -800,17 +876,30 @@ const filteredFindings = () => {
           title="Noch keine Sprecher"
           description="Laden Sie eine WAV-Datei (6-30s) hoch, um XTTS Voice Cloning zu nutzen."
         />
-        <div v-else class="overflow-hidden rounded-lg bg-white shadow-sm dark:bg-gray-800">
+        <div
+          v-else
+          class="overflow-hidden rounded-lg bg-white shadow-sm dark:bg-gray-800"
+        >
           <table class="w-full text-left text-sm">
             <thead
               class="border-b border-gray-100 bg-gray-50 text-xs uppercase tracking-wider text-go4-muted dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400"
             >
               <tr>
-                <th class="px-4 py-3 font-medium">Name</th>
-                <th class="px-4 py-3 font-medium">Sprache</th>
-                <th class="hidden px-4 py-3 font-medium md:table-cell">Dauer</th>
-                <th class="hidden px-4 py-3 font-medium md:table-cell">Groesse</th>
-                <th class="px-4 py-3 text-right font-medium">Aktionen</th>
+                <th class="px-4 py-3 font-medium">
+                  Name
+                </th>
+                <th class="px-4 py-3 font-medium">
+                  Sprache
+                </th>
+                <th class="hidden px-4 py-3 font-medium md:table-cell">
+                  Dauer
+                </th>
+                <th class="hidden px-4 py-3 font-medium md:table-cell">
+                  Groesse
+                </th>
+                <th class="px-4 py-3 text-right font-medium">
+                  Aktionen
+                </th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-50 dark:divide-gray-700">

@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -105,7 +105,13 @@ async def list_accounts(
                 status=a.status,
                 is_sales_navigator=a.is_sales_navigator,
                 profiles_scraped_today=a.profiles_scraped_today,
+                connections_sent_today=a.connections_sent_today,
+                messages_sent_today=a.messages_sent_today,
                 daily_profile_limit=a.daily_profile_limit,
+                daily_connection_limit=a.daily_connection_limit,
+                daily_message_limit=a.daily_message_limit,
+                warmup_enabled=a.warmup_enabled,
+                warmup_day=a.warmup_day,
                 last_login_at=a.last_login_at,
                 has_valid_session=_has_valid_session(a),
                 job_count=len(a.scraper_jobs),
@@ -406,11 +412,6 @@ async def auto_login(
     import struct
     from datetime import timedelta
 
-    from cryptography.fernet import Fernet
-
-    from app.config import settings
-    from app.linkedin.scraper.browser import LinkedInBrowser
-
     def extract_li_at_expiry(cookies: list[dict]) -> datetime | None:
         """Extract expiration from li_at cookie."""
         for cookie in cookies:
@@ -440,73 +441,82 @@ async def auto_login(
         # Get password - either from request or stored
         password = data.password
         if not password and account.password_encrypted:
-            # Decrypt stored password
-            key = settings.secret_key.encode()[:32].ljust(32, b"=")
-            fernet = Fernet(base64.urlsafe_b64encode(key))
-            password = fernet.decrypt(account.password_encrypted.encode()).decode()
+            try:
+                svc = AccountService(db)
+                password = svc._decrypt_password(account.password_encrypted)
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Gespeichertes Passwort konnte nicht entschluesselt werden. "
+                    "Bitte Passwort im Account neu speichern.",
+                ) from exc
 
         if not password:
             raise HTTPException(
                 status_code=400,
-                detail="Kein Passwort angegeben und keins gespeichert",
+                detail="Kein Passwort gespeichert. Bitte zuerst das Passwort im Account hinterlegen.",
             )
 
-        # Start browser and login
-        browser = LinkedInBrowser(headless=False)
-        try:
-            await browser.start(account.email)
+        # Get browser from global manager (same browser as worker/debug)
+        from app.linkedin.browser_manager import browser_manager
 
-            result = await browser.login(
-                email=account.email,
-                password=password,
-                wait_for_2fa_timeout=data.wait_for_2fa_timeout,
-            )
+        browser = await browser_manager.get_browser(
+            account_id=account.id,
+            account_email=account.email,
+            session_data=account.session_data,
+            tenant_id=account.tenant_id,
+        )
 
-            if not result.get("success"):
-                account.last_error = result.get("error", "Login fehlgeschlagen")
-                await db.commit()
+        result = await browser.login(
+            email=account.email,
+            password=password,
+            wait_for_2fa_timeout=data.wait_for_2fa_timeout,
+        )
 
-                return LinkedInAutoLoginResponse(
-                    success=False,
-                    message=result.get("error", "Login fehlgeschlagen"),
-                    needs_manual_intervention=result.get("needs_manual_intervention", False),
-                )
-
-            # Extract session data
-            session_data = result.get("session_data")
-            if session_data:
-                # Try to extract real expiry from cookies
-                cookies = session_data.get("storage_state", {}).get("cookies", [])
-                expires_at = extract_li_at_expiry(cookies)
-                if not expires_at:
-                    expires_at = datetime.utcnow() + timedelta(days=7)
-
-                account.session_data = session_data
-                account.session_expires_at = expires_at
-                account.status = "active"
-                account.last_login_at = datetime.utcnow()
-                account.last_error = None
-                await db.commit()
-
-                logger.info(
-                    "Auto-login successful for {email}, expires {expires}",
-                    email=account.email,
-                    expires=expires_at,
-                )
-
-                return LinkedInAutoLoginResponse(
-                    success=True,
-                    message="Login erfolgreich",
-                    session_expires_at=expires_at,
-                )
+        if not result.get("success"):
+            account.last_error = result.get("error", "Login fehlgeschlagen")
+            await db.commit()
 
             return LinkedInAutoLoginResponse(
                 success=False,
-                message="Login erfolgreich, aber Session konnte nicht gespeichert werden",
+                message=result.get("error", "Login fehlgeschlagen"),
+                needs_manual_intervention=result.get("needs_manual_intervention", False),
             )
 
-        finally:
-            await browser.stop()
+        # Save session via browser_manager
+        session_data = await browser_manager.save_session(
+            account.id, db=db, account=account
+        )
+
+        if session_data:
+            # Try to extract real expiry from cookies
+            cookies = session_data.get("storage_state", {}).get("cookies", [])
+            expires_at = extract_li_at_expiry(cookies)
+            if not expires_at:
+                expires_at = datetime.utcnow() + timedelta(days=7)
+
+            account.session_expires_at = expires_at
+            account.status = "active"
+            account.last_login_at = datetime.utcnow()
+            account.last_error = None
+            await db.commit()
+
+            logger.info(
+                "Auto-login successful for {email}, expires {expires}",
+                email=account.email,
+                expires=expires_at,
+            )
+
+            return LinkedInAutoLoginResponse(
+                success=True,
+                message="Login erfolgreich",
+                session_expires_at=expires_at,
+            )
+
+        return LinkedInAutoLoginResponse(
+            success=False,
+            message="Login erfolgreich, aber Session konnte nicht gespeichert werden",
+        )
 
     except AppError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message) from e
@@ -624,38 +634,31 @@ async def delete_job(
 @router.post("/jobs/{job_id}/start", response_model=LinkedInJobStartResponse)
 async def start_job(
     job_id: int,
-    run_now: bool = Query(False, description="Job sofort ausführen statt in Queue"),
+    background_tasks: BackgroundTasks,
     tenant_id: str = Depends(get_current_tenant_id),
     db: AsyncSession = Depends(get_db),
 ) -> LinkedInJobStartResponse:
-    """Start/queue a scraper job.
+    """Start a scraper job.
 
-    If run_now=true, the job will be processed immediately in the foreground.
-    Otherwise, it will be queued for the background worker.
+    Sets job to queued, then runs it as a background task.
+    If debug mode is active (WebSocket connected), the worker will
+    pause at each step for approval. Otherwise it runs automatically.
     """
     try:
         service = JobService(db)
         await service.start_job(tenant_id, job_id)
 
-        if run_now:
-            # Process immediately (for testing)
-            from app.database import async_session
-            from app.linkedin.scraper.worker import process_job_now
+        # Run job in background (non-blocking)
+        from app.database import async_session
+        from app.linkedin.scraper.worker import process_job_now
 
-            result = await process_job_now(async_session, job_id)
-            return LinkedInJobStartResponse(
-                status=result.get("status", "unknown"),
-                message=result.get("error_message")
-                or f"Verarbeitet: {result.get('profiles_scraped', 0)} Profile",
-                job_id=job_id,
-            )
-        else:
-            # Queue for background worker
-            return LinkedInJobStartResponse(
-                status="queued",
-                message="Job wurde in die Warteschlange eingereiht",
-                job_id=job_id,
-            )
+        background_tasks.add_task(process_job_now, async_session, job_id)
+
+        return LinkedInJobStartResponse(
+            status="running",
+            message="Job gestartet",
+            job_id=job_id,
+        )
 
     except AppError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message) from e
@@ -850,7 +853,33 @@ async def list_all_contacts(
         contacts = await service.list_contacts(
             tenant_id, status=status_filter, imported=imported
         )
-        return [_contact_to_list_response(c) for c in contacts]
+        # Load pipeline counts for contacts with central_contact_id
+        central_ids = [
+            c.central_contact_id for c in contacts if c.central_contact_id
+        ]
+        pipeline_counts: dict[int, int] = {}
+        if central_ids:
+            from sqlalchemy import func as sa_func
+            from sqlalchemy import select as sa_select
+
+            from app.engagement.models import PipelineEnrollment
+
+            count_result = await db.execute(
+                sa_select(
+                    PipelineEnrollment.contact_id,
+                    sa_func.count(PipelineEnrollment.id),
+                )
+                .where(PipelineEnrollment.contact_id.in_(central_ids))
+                .group_by(PipelineEnrollment.contact_id)
+            )
+            pipeline_counts = dict(count_result.all())
+
+        return [
+            _contact_to_list_response(
+                c, pipeline_counts.get(c.central_contact_id or 0, 0)
+            )
+            for c in contacts
+        ]
     except AppError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message) from e
     except Exception as e:
@@ -868,11 +897,126 @@ async def get_contact(
     try:
         service = ContactService(db)
         contact = await service.get_by_id(tenant_id, contact_id)
-        return LinkedInContactResponse.model_validate(contact)
+        resp = LinkedInContactResponse.model_validate(contact)
+
+        # Load pipeline enrollments
+        if contact.central_contact_id:
+            from sqlalchemy import select as sa_select
+
+            from app.engagement.models import (
+                EngagementPipeline,
+                PipelineEnrollment,
+            )
+
+            enroll_result = await db.execute(
+                sa_select(PipelineEnrollment, EngagementPipeline.name)
+                .join(
+                    EngagementPipeline,
+                    PipelineEnrollment.pipeline_id == EngagementPipeline.id,
+                )
+                .where(
+                    PipelineEnrollment.contact_id == contact.central_contact_id
+                )
+            )
+            enrollments = enroll_result.all()
+            resp.pipeline_count = len(enrollments)
+            resp.pipelines = [
+                {
+                    "id": e.PipelineEnrollment.pipeline_id,
+                    "name": e.name,
+                    "stage": e.PipelineEnrollment.stage,
+                    "status": e.PipelineEnrollment.status,
+                }
+                for e in enrollments
+            ]
+
+        return resp
     except AppError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message) from e
     except Exception as e:
         logger.exception("Unerwarteter Fehler in get_contact")
+        raise HTTPException(status_code=500, detail="Interner Serverfehler") from e
+
+
+@router.patch("/contacts/{contact_id}/exclude")
+async def toggle_exclude_contact(
+    contact_id: int,
+    tenant_id: str = Depends(get_current_tenant_id),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Toggle excluded status of a LinkedIn contact."""
+    try:
+        service = ContactService(db)
+        contact = await service.get_by_id(tenant_id, contact_id)
+        contact.excluded = not contact.excluded
+        await db.commit()
+        return {"id": contact.id, "excluded": contact.excluded}
+    except AppError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message) from e
+    except Exception as e:
+        logger.exception("Unerwarteter Fehler in toggle_exclude_contact")
+        raise HTTPException(status_code=500, detail="Interner Serverfehler") from e
+
+
+# ============== Contact Delete ==============
+
+
+@router.delete("/contacts/{contact_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_contact(
+    contact_id: int,
+    tenant_id: str = Depends(get_current_tenant_id),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Delete a single LinkedIn contact."""
+    try:
+        service = ContactService(db)
+        await service.delete_contact(tenant_id, contact_id)
+    except AppError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message) from e
+    except Exception as e:
+        logger.exception("Unerwarteter Fehler in delete_contact")
+        raise HTTPException(status_code=500, detail="Interner Serverfehler") from e
+
+
+@router.post("/contacts/bulk-delete")
+async def bulk_delete_contacts(
+    data: dict,
+    tenant_id: str = Depends(get_current_tenant_id),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Delete multiple LinkedIn contacts by IDs."""
+    try:
+        contact_ids = data.get("contact_ids", [])
+        if not contact_ids:
+            raise HTTPException(status_code=400, detail="Keine Kontakt-IDs angegeben")
+        service = ContactService(db)
+        deleted = await service.delete_contacts_bulk(tenant_id, contact_ids)
+        return {"deleted": deleted}
+    except AppError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message) from e
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Unerwarteter Fehler in bulk_delete_contacts")
+        raise HTTPException(status_code=500, detail="Interner Serverfehler") from e
+
+
+@router.delete(
+    "/jobs/{job_id}/contacts", status_code=status.HTTP_204_NO_CONTENT
+)
+async def delete_job_contacts(
+    job_id: int,
+    tenant_id: str = Depends(get_current_tenant_id),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """Delete all contacts for a specific job."""
+    try:
+        service = ContactService(db)
+        await service.delete_contacts_by_job(tenant_id, job_id)
+    except AppError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message) from e
+    except Exception as e:
+        logger.exception("Unerwarteter Fehler in delete_job_contacts")
         raise HTTPException(status_code=500, detail="Interner Serverfehler") from e
 
 
@@ -1026,8 +1170,14 @@ def _account_to_response(
         status=account.status,
         is_sales_navigator=account.is_sales_navigator,
         daily_profile_limit=account.daily_profile_limit,
+        daily_connection_limit=account.daily_connection_limit,
+        daily_message_limit=account.daily_message_limit,
         profiles_scraped_today=account.profiles_scraped_today,
+        connections_sent_today=account.connections_sent_today,
+        messages_sent_today=account.messages_sent_today,
         total_profiles_scraped=account.total_profiles_scraped,
+        warmup_enabled=account.warmup_enabled,
+        warmup_day=account.warmup_day,
         last_login_at=account.last_login_at,
         last_scrape_date=account.last_scrape_date,
         last_error=account.last_error,
@@ -1050,6 +1200,7 @@ def _job_to_response(job) -> LinkedInJobResponse:
         tenant_id=job.tenant_id,
         account_id=job.account_id,
         funnel_id=job.funnel_id,
+        pipeline_id=job.pipeline_id,
         name=job.name,
         job_type=job.job_type,
         search_url=job.search_url,
@@ -1057,7 +1208,6 @@ def _job_to_response(job) -> LinkedInJobResponse:
         max_profiles=job.max_profiles,
         daily_limit=job.daily_limit,
         min_delay_seconds=job.min_delay_seconds,
-        max_delay_seconds=job.max_delay_seconds,
         status=job.status,
         started_at=job.started_at,
         completed_at=job.completed_at,
@@ -1069,6 +1219,7 @@ def _job_to_response(job) -> LinkedInJobResponse:
         retry_count=job.retry_count,
         auto_import=job.auto_import,
         import_stage_id=job.import_stage_id,
+        auto_enroll_pipeline=job.auto_enroll_pipeline,
         scrape_full_profiles=job.scrape_full_profiles,
         # Schedule settings
         schedule_enabled=job.schedule_enabled,
@@ -1079,6 +1230,7 @@ def _job_to_response(job) -> LinkedInJobResponse:
         # Computed
         account_name=job.account.name if job.account else None,
         funnel_name=job.funnel.name if job.funnel else None,
+        pipeline_name=job.pipeline.name if job.pipeline else None,
         import_stage_name=job.import_stage.name if job.import_stage else None,
         progress_percent=progress,
         created_at=job.created_at,
@@ -1096,6 +1248,7 @@ def _job_to_list_response(job) -> LinkedInJobListResponse:
         id=job.id,
         account_id=job.account_id,
         funnel_id=job.funnel_id,
+        pipeline_id=job.pipeline_id,
         name=job.name,
         job_type=job.job_type,
         status=job.status,
@@ -1106,16 +1259,20 @@ def _job_to_list_response(job) -> LinkedInJobListResponse:
         current_page=job.current_page,
         schedule_enabled=job.schedule_enabled,
         max_pages_per_run=job.max_pages_per_run,
+        auto_enroll_pipeline=job.auto_enroll_pipeline,
         progress_percent=progress,
         account_name=job.account.name if job.account else None,
         funnel_name=job.funnel.name if job.funnel else None,
+        pipeline_name=job.pipeline.name if job.pipeline else None,
         started_at=job.started_at,
         completed_at=job.completed_at,
         created_at=job.created_at,
     )
 
 
-def _contact_to_list_response(contact) -> LinkedInContactListResponse:
+def _contact_to_list_response(
+    contact, pipeline_count: int = 0
+) -> LinkedInContactListResponse:
     """Convert contact model to list response."""
     return LinkedInContactListResponse(
         id=contact.id,
@@ -1130,7 +1287,9 @@ def _contact_to_list_response(contact) -> LinkedInContactListResponse:
         is_premium=contact.is_premium,
         gender=contact.gender,
         status=contact.status,
-        funnel_prospect_id=contact.funnel_prospect_id,
+        excluded=contact.excluded,
+        central_contact_id=contact.central_contact_id,
+        pipeline_count=pipeline_count,
         imported_at=contact.imported_at,
         created_at=contact.created_at,
     )
@@ -1434,3 +1593,19 @@ async def execute_engagement_action(
     except Exception as e:
         logger.exception("Error executing engagement action")
         raise HTTPException(status_code=500, detail="Interner Serverfehler") from e
+
+
+# ============== Scheduler Endpoints ==============
+
+
+@router.get("/scheduler/status")
+async def get_scheduler_status(
+    tenant_id: str = Depends(get_current_tenant_id),
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    """Get scheduler status for all scheduled jobs."""
+    from app.database import async_session
+    from app.linkedin.scheduler import LinkedInScheduler
+
+    scheduler = LinkedInScheduler(async_session)
+    return await scheduler.get_status()

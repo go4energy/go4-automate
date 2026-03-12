@@ -140,7 +140,7 @@ function handleBlur() {
         :placeholder="selectedSlugs.length === 0 ? placeholder : ''"
         @focus="handleFocus"
         @blur="handleBlur"
-      />
+      >
     </div>
 
     <!-- Dropdown -->
@@ -170,9 +170,7 @@ function handleBlur() {
         @mousedown.prevent="createAndAdd"
       >
         <span class="text-blue-500">+</span>
-        <span
-          >Stream erstellen: <strong>{{ search.trim() }}</strong></span
-        >
+        <span>Stream erstellen: <strong>{{ search.trim() }}</strong></span>
       </button>
     </div>
 

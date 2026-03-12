@@ -140,7 +140,7 @@ function handleBlur() {
         :placeholder="selectedSlugs.length === 0 ? placeholder : ''"
         @focus="handleFocus"
         @blur="handleBlur"
-      />
+      >
     </div>
 
     <!-- Dropdown -->
@@ -155,7 +155,10 @@ function handleBlur() {
         class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700"
         @mousedown.prevent="addTag(tag)"
       >
-        <span class="inline-block h-3 w-3 rounded-full" :style="{ backgroundColor: tag.color }" />
+        <span
+          class="inline-block h-3 w-3 rounded-full"
+          :style="{ backgroundColor: tag.color }"
+        />
         <span class="text-gray-800 dark:text-gray-200">{{ tag.label }}</span>
         <span class="text-xs text-gray-400 dark:text-gray-500">{{ tag.slug }}</span>
       </button>
@@ -167,9 +170,7 @@ function handleBlur() {
         @mousedown.prevent="createAndAdd"
       >
         <span class="text-green-500">+</span>
-        <span
-          >Tag erstellen: <strong>{{ search.trim() }}</strong></span
-        >
+        <span>Tag erstellen: <strong>{{ search.trim() }}</strong></span>
       </button>
     </div>
 

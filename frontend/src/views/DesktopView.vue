@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useModuleStore } from '@/stores/modules'
 import { useAuthStore } from '@/stores/auth'
+import { bulkUpdateDesktopOrder } from '@/api/settings'
 
 const router = useRouter()
 const moduleStore = useModuleStore()
@@ -30,25 +31,92 @@ function moveInteractive() {
   animationId = requestAnimationFrame(moveInteractive)
 }
 
-const categoryLabels = {
-  marketing: 'Marketing',
-  sales: 'Sales & CRM',
-  system: 'System & Tools'
-}
+// Edit mode for drag-and-drop
+const editMode = ref(false)
+const dragIndex = ref(null)
+const dropIndex = ref(null)
+const localOrder = ref([])
+const saving = ref(false)
 
-// Filter desktop modules by user permissions
-const filteredDesktopGrouped = computed(() => {
-  const result = {}
-  for (const [category, mods] of Object.entries(moduleStore.desktopGrouped)) {
-    const filtered = mods.filter(
-      (mod) => !mod.name || authStore.isAdmin || authStore.canViewModule(mod.name)
-    )
-    if (filtered.length > 0) result[category] = filtered
-  }
-  return result
+// Flat filtered list — no categories
+const filteredModules = computed(() => {
+  return moduleStore.desktopSorted.filter(
+    (mod) => !mod.name || authStore.isAdmin || authStore.canViewModule(mod.name)
+  )
 })
 
+// In edit mode, use local reorderable list
+const displayModules = computed(() => {
+  if (editMode.value && localOrder.value.length) return localOrder.value
+  return filteredModules.value
+})
+
+function enterEditMode() {
+  localOrder.value = [...filteredModules.value]
+  editMode.value = true
+}
+
+function cancelEditMode() {
+  editMode.value = false
+  localOrder.value = []
+  dragIndex.value = null
+  dropIndex.value = null
+}
+
+async function saveOrder() {
+  saving.value = true
+  try {
+    const orderMap = {}
+    localOrder.value.forEach((mod, idx) => {
+      orderMap[mod.name] = idx + 1
+    })
+    await bulkUpdateDesktopOrder(orderMap)
+    await moduleStore.fetchDesktop()
+    editMode.value = false
+    localOrder.value = []
+  } catch (err) {
+    console.error('Failed to save order:', err)
+  } finally {
+    saving.value = false
+  }
+}
+
+// HTML5 Drag-and-Drop handlers
+function onDragStart(e, index) {
+  dragIndex.value = index
+  e.dataTransfer.effectAllowed = 'move'
+  e.dataTransfer.setData('text/plain', index)
+  e.target.closest('[data-tile]').classList.add('opacity-40')
+}
+
+function onDragEnd(e) {
+  e.target.closest('[data-tile]')?.classList.remove('opacity-40')
+  dragIndex.value = null
+  dropIndex.value = null
+}
+
+function onDragOver(e, index) {
+  e.preventDefault()
+  e.dataTransfer.dropEffect = 'move'
+  dropIndex.value = index
+}
+
+function onDragLeave() {
+  dropIndex.value = null
+}
+
+function onDrop(e, index) {
+  e.preventDefault()
+  const from = dragIndex.value
+  if (from === null || from === index) return
+  const item = localOrder.value.splice(from, 1)[0]
+  localOrder.value.splice(index, 0, item)
+  dragIndex.value = null
+  dropIndex.value = null
+}
+
 function navigateTo(mod) {
+  if (editMode.value) return
   if (mod.external_url) {
     window.open(mod.external_url, '_blank')
     return
@@ -77,16 +145,26 @@ onUnmounted(() => {
     />
 
     <!-- SVG blur filter -->
-    <svg class="absolute" style="width: 0; height: 0">
+    <svg
+      class="absolute"
+      style="width: 0; height: 0"
+    >
       <defs>
         <filter id="desktopBlur">
-          <feGaussianBlur in="SourceGraphic" stdDeviation="40" result="blur" />
+          <feGaussianBlur
+            in="SourceGraphic"
+            stdDeviation="40"
+            result="blur"
+          />
         </filter>
       </defs>
     </svg>
 
     <!-- Animated gradient blobs — opacity 20% -->
-    <div class="absolute inset-0 opacity-20" style="filter: url(#desktopBlur)">
+    <div
+      class="absolute inset-0 opacity-20"
+      style="filter: url(#desktopBlur)"
+    >
       <!-- First: Blue — moves vertically, top-center -->
       <div
         class="absolute left-[5%] top-0 h-[80%] w-[80%] animate-first rounded-full mix-blend-hard-light"
@@ -158,8 +236,54 @@ onUnmounted(() => {
 
     <!-- Content overlay -->
     <div class="relative flex min-h-[calc(100vh-3.5rem)] flex-col items-center">
+      <!-- Edit mode toolbar -->
+      <div
+        v-if="authStore.isAdmin"
+        class="absolute right-4 top-4 z-10 flex items-center gap-2"
+      >
+        <template v-if="editMode">
+          <button
+            class="rounded-lg bg-white/80 px-3 py-1.5 text-sm font-medium text-gray-600 backdrop-blur transition hover:bg-white dark:bg-white/10 dark:text-gray-300 dark:hover:bg-white/20"
+            :disabled="saving"
+            @click="cancelEditMode"
+          >
+            Abbrechen
+          </button>
+          <button
+            class="rounded-lg bg-go4-primary px-3 py-1.5 text-sm font-medium text-white transition hover:bg-go4-primary/90 disabled:opacity-50"
+            :disabled="saving"
+            @click="saveOrder"
+          >
+            {{ saving ? 'Speichern...' : 'Speichern' }}
+          </button>
+        </template>
+        <button
+          v-else
+          class="rounded-lg bg-white/60 p-2 text-gray-500 backdrop-blur transition hover:bg-white/80 hover:text-gray-700 dark:bg-white/10 dark:text-gray-400 dark:hover:bg-white/20 dark:hover:text-white"
+          title="Reihenfolge ändern"
+          @click="enterEditMode"
+        >
+          <svg
+            class="h-5 w-5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
+            />
+          </svg>
+        </button>
+      </div>
+
       <div class="flex w-full max-w-3xl flex-1 flex-col items-center justify-center px-6 pb-[33vh]">
-        <div v-if="moduleStore.loading" class="flex items-center justify-center py-12">
+        <div
+          v-if="moduleStore.loading"
+          class="flex items-center justify-center py-12"
+        >
           <span class="text-sm text-gray-400 dark:text-gray-500">Module laden...</span>
         </div>
         <div
@@ -168,56 +292,119 @@ onUnmounted(() => {
         >
           {{ moduleStore.error }}
         </div>
-        <div v-else class="w-full space-y-10">
-          <div v-for="(mods, category) in filteredDesktopGrouped" :key="category">
-            <p
-              class="mb-5 text-center text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-600 dark:text-gray-400/60"
-            >
-              {{ categoryLabels[category] || category }}
-            </p>
+        <div
+          v-else
+          class="w-full"
+        >
+          <!-- Edit mode hint -->
+          <p
+            v-if="editMode"
+            class="mb-6 text-center text-sm text-gray-500 dark:text-gray-400"
+          >
+            Kacheln per Drag & Drop verschieben
+          </p>
+          <div
+            class="grid grid-cols-2 justify-items-center gap-x-14 gap-y-12 sm:grid-cols-3 lg:grid-cols-5"
+          >
             <div
-              class="grid grid-cols-2 justify-items-center gap-x-14 gap-y-12 sm:grid-cols-3 lg:grid-cols-5"
+              v-for="(mod, index) in displayModules"
+              :key="mod.name"
+              data-tile
+              class="flex w-[120px] flex-col items-center gap-4 transition-transform"
+              :class="[
+                editMode ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer',
+                dropIndex === index && dragIndex !== index ? 'scale-105' : '',
+              ]"
+              :draggable="editMode"
+              @dragstart="editMode && onDragStart($event, index)"
+              @dragend="onDragEnd"
+              @dragover="editMode && onDragOver($event, index)"
+              @dragleave="onDragLeave"
+              @drop="editMode && onDrop($event, index)"
+              @click="navigateTo(mod)"
             >
-              <button
-                v-for="mod in mods"
-                :key="mod.name"
-                class="group flex w-[120px] flex-col items-center gap-4"
-                @click="navigateTo(mod)"
-              >
-                <div class="relative">
+              <div class="relative">
+                <div
+                  class="relative flex h-[102px] w-[102px] items-center justify-center rounded-[27px] transition-all duration-300"
+                  :class="editMode ? 'group-hover:scale-100' : 'group hover:scale-110'"
+                >
                   <div
-                    class="relative flex h-[102px] w-[102px] items-center justify-center rounded-[27px] transition-all duration-300 group-hover:scale-110"
+                    class="absolute inset-0 rounded-[27px] shadow-lg transition-all duration-300"
+                    :class="editMode ? 'opacity-30' : 'opacity-[0.15] group-hover:opacity-100 group-hover:shadow-xl'"
+                    :style="{
+                      background: `linear-gradient(135deg, ${mod.color}, ${mod.color}CC)`,
+                      boxShadow: `0 6px 20px ${mod.color}30`
+                    }"
+                  />
+                  <svg
+                    class="relative h-11 w-11 text-go4-secondary drop-shadow dark:text-white"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.125"
+                    overflow="visible"
                   >
-                    <div
-                      class="absolute inset-0 rounded-[27px] opacity-[0.15] shadow-lg transition-all duration-300 group-hover:opacity-100 group-hover:shadow-xl"
-                      :style="{
-                        background: `linear-gradient(135deg, ${mod.color}, ${mod.color}CC)`,
-                        boxShadow: `0 6px 20px ${mod.color}30`
-                      }"
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      :d="mod.icon"
                     />
-                    <svg
-                      class="relative h-11 w-11 text-go4-secondary drop-shadow dark:text-white"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="1.5"
-                    >
-                      <path stroke-linecap="round" stroke-linejoin="round" :d="mod.icon" />
-                    </svg>
-                  </div>
-                  <span
-                    v-if="mod.badge_count > 0"
-                    class="absolute -right-1 -top-1 flex h-6 min-w-6 animate-pulse items-center justify-center rounded-full bg-red-500 px-1.5 text-sm font-bold text-white"
-                  >
-                    {{ mod.badge_count > 99 ? '99+' : mod.badge_count }}
-                  </span>
+                  </svg>
                 </div>
                 <span
-                  class="text-center text-base font-medium text-go4-secondary transition-colors dark:text-white"
+                  v-if="mod.badge_count > 0 && !editMode"
+                  class="absolute -right-1 -top-1 flex h-6 min-w-6 animate-pulse items-center justify-center rounded-full bg-red-500 px-1.5 text-sm font-bold text-white"
                 >
-                  {{ mod.label }}
+                  {{ mod.badge_count > 99 ? '99+' : mod.badge_count }}
                 </span>
-              </button>
+                <!-- Drag handle indicator in edit mode -->
+                <div
+                  v-if="editMode"
+                  class="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white/80 text-gray-400 shadow dark:bg-gray-700 dark:text-gray-300"
+                >
+                  <svg
+                    class="h-3.5 w-3.5"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <circle
+                      cx="9"
+                      cy="5"
+                      r="1.5"
+                    />
+                    <circle
+                      cx="15"
+                      cy="5"
+                      r="1.5"
+                    />
+                    <circle
+                      cx="9"
+                      cy="12"
+                      r="1.5"
+                    />
+                    <circle
+                      cx="15"
+                      cy="12"
+                      r="1.5"
+                    />
+                    <circle
+                      cx="9"
+                      cy="19"
+                      r="1.5"
+                    />
+                    <circle
+                      cx="15"
+                      cy="19"
+                      r="1.5"
+                    />
+                  </svg>
+                </div>
+              </div>
+              <span
+                class="text-center text-base font-medium text-go4-secondary transition-colors dark:text-white"
+              >
+                {{ mod.label }}
+              </span>
             </div>
           </div>
         </div>

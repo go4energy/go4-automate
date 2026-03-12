@@ -787,6 +787,7 @@ class WhatsAppCampaignService:
         status: str | None = None,
         limit: int = 50,
         offset: int = 0,
+        pipeline_id: int | None = None,
     ) -> list[WhatsAppCampaign]:
         """List campaigns."""
         query = select(WhatsAppCampaign).where(
@@ -794,6 +795,8 @@ class WhatsAppCampaignService:
         )
         if status:
             query = query.where(WhatsAppCampaign.status == status)
+        if pipeline_id is not None:
+            query = query.where(WhatsAppCampaign.pipeline_id == pipeline_id)
         query = query.order_by(WhatsAppCampaign.created_at.desc())
         query = query.limit(limit).offset(offset)
 

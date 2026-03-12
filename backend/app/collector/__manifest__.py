@@ -19,37 +19,95 @@ manifest = {
     "frontend": {
         "base_route": "/collector",
         "routes": [
+            # Tab routes
             {
                 "path": "",
                 "name": "collector",
                 "view": "CollectorView",
-                "meta": {"title": "Collector"},
+                "meta": {
+                    "title": "Collector",
+                    "breadcrumb": {"label": "Collector"},
+                    "tab": "sources",
+                },
             },
+            {
+                "path": "sources",
+                "name": "collector-sources",
+                "view": "CollectorView",
+                "meta": {
+                    "title": "Quellen",
+                    "breadcrumb": {"label": "Quellen", "parent": "collector"},
+                    "tab": "sources",
+                },
+            },
+            {
+                "path": "findings",
+                "name": "collector-findings",
+                "view": "CollectorView",
+                "meta": {
+                    "title": "Findings",
+                    "breadcrumb": {"label": "Findings", "parent": "collector"},
+                    "tab": "findings",
+                },
+            },
+            {
+                "path": "prompts",
+                "name": "collector-prompts",
+                "view": "CollectorView",
+                "meta": {
+                    "title": "KI-Analyse",
+                    "breadcrumb": {"label": "KI", "parent": "collector"},
+                    "tab": "prompts",
+                },
+            },
+            {
+                "path": "topics",
+                "name": "collector-topics",
+                "view": "CollectorView",
+                "meta": {
+                    "title": "Themen",
+                    "breadcrumb": {"label": "Themen", "parent": "collector"},
+                    "tab": "topics",
+                },
+            },
+            # Detail/Edit routes
             {
                 "path": "sources/new",
                 "name": "collector-source-new",
                 "view": "CollectorSourceEditView",
-                "meta": {"title": "Neue Quelle", "parent": "collector"},
+                "meta": {
+                    "title": "Neue Quelle",
+                    "breadcrumb": {"label": "Neu", "parent": "collector-sources"},
+                },
             },
             {
                 "path": "sources/:id",
                 "name": "collector-source-edit",
                 "view": "CollectorSourceEditView",
                 "props": True,
-                "meta": {"title": "Quelle bearbeiten", "parent": "collector"},
+                "meta": {
+                    "title": "Quelle bearbeiten",
+                    "breadcrumb": {"label": "Bearbeiten", "parent": "collector-sources"},
+                },
             },
             {
                 "path": "topics/new",
                 "name": "collector-topic-new",
                 "view": "CollectorTopicCreateView",
-                "meta": {"title": "Eigenes Thema", "parent": "collector"},
+                "meta": {
+                    "title": "Eigenes Thema",
+                    "breadcrumb": {"label": "Neu", "parent": "collector-topics"},
+                },
             },
             {
                 "path": "topics/:id",
                 "name": "collector-topic-detail",
                 "view": "CollectorTopicDetailView",
                 "props": True,
-                "meta": {"title": "Thema", "parent": "collector"},
+                "meta": {
+                    "title": "Thema",
+                    "breadcrumb": {"label": "Details", "parent": "collector-topics"},
+                },
             },
         ],
     },

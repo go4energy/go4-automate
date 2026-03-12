@@ -191,7 +191,9 @@ onMounted(() => {
     <!-- Header -->
     <div class="flex items-center justify-between">
       <div>
-        <h2 class="text-lg font-semibold text-gray-900">Custom Audiences</h2>
+        <h2 class="text-lg font-semibold text-gray-900">
+          Custom Audiences
+        </h2>
         <p class="text-sm text-gray-500">
           Synchronisiere Contact-Segmente zu Meta für Retargeting
         </p>
@@ -232,7 +234,10 @@ onMounted(() => {
     </div>
 
     <!-- Loading -->
-    <div v-if="loading" class="text-center py-12 text-gray-500">
+    <div
+      v-if="loading"
+      class="text-center py-12 text-gray-500"
+    >
       Laden...
     </div>
 
@@ -242,11 +247,23 @@ onMounted(() => {
       class="text-center py-12"
     >
       <div class="text-gray-400 mb-4">
-        <svg class="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+        <svg
+          class="mx-auto h-12 w-12"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+          />
         </svg>
       </div>
-      <p class="text-gray-500">Noch keine Custom Audiences erstellt</p>
+      <p class="text-gray-500">
+        Noch keine Custom Audiences erstellt
+      </p>
       <button
         class="mt-4 px-4 py-2 bg-go4-primary text-white rounded-lg hover:bg-go4-primary/90"
         @click="showCreateModal = true"
@@ -256,7 +273,10 @@ onMounted(() => {
     </div>
 
     <!-- Audiences List -->
-    <div v-else class="space-y-4">
+    <div
+      v-else
+      class="space-y-4"
+    >
       <div
         v-for="audience in audiences"
         :key="audience.id"
@@ -265,7 +285,9 @@ onMounted(() => {
         <div class="flex items-start justify-between">
           <div class="flex-1">
             <div class="flex items-center gap-3">
-              <h3 class="font-medium text-gray-900">{{ audience.name }}</h3>
+              <h3 class="font-medium text-gray-900">
+                {{ audience.name }}
+              </h3>
               <span
                 v-if="audience.is_active"
                 class="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-700"
@@ -279,7 +301,10 @@ onMounted(() => {
                 Inaktiv
               </span>
             </div>
-            <p v-if="audience.description" class="text-sm text-gray-500 mt-1">
+            <p
+              v-if="audience.description"
+              class="text-sm text-gray-500 mt-1"
+            >
               {{ audience.description }}
             </p>
             <div class="flex items-center gap-4 mt-2 text-sm text-gray-500">
@@ -318,7 +343,12 @@ onMounted(() => {
                 stroke="currentColor"
                 viewBox="0 0 24 24"
               >
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
               </svg>
             </button>
             <button
@@ -326,8 +356,18 @@ onMounted(() => {
               title="Logs anzeigen"
               @click="loadSyncLogs(audience.id)"
             >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              <svg
+                class="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                />
               </svg>
             </button>
             <button
@@ -335,11 +375,33 @@ onMounted(() => {
               :title="audience.is_active ? 'Deaktivieren' : 'Aktivieren'"
               @click="handleToggleActive(audience)"
             >
-              <svg v-if="audience.is_active" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+              <svg
+                v-if="audience.is_active"
+                class="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
+                />
               </svg>
-              <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <svg
+                v-else
+                class="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
               </svg>
             </button>
             <button
@@ -347,15 +409,28 @@ onMounted(() => {
               title="Löschen"
               @click="handleDelete(audience)"
             >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              <svg
+                class="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                />
               </svg>
             </button>
           </div>
         </div>
 
         <!-- Last Sync Info -->
-        <div v-if="audience.last_sync_at" class="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-400">
+        <div
+          v-if="audience.last_sync_at"
+          class="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-400"
+        >
           Letzter Sync: {{ formatDate(audience.last_sync_at) }} ({{ audience.last_sync_count }} Kontakte)
         </div>
       </div>
@@ -380,7 +455,7 @@ onMounted(() => {
               type="text"
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-go4-primary focus:border-transparent"
               placeholder="z.B. Solar Leads - Engagiert"
-            />
+            >
           </div>
 
           <div>
@@ -407,7 +482,7 @@ onMounted(() => {
                   type="checkbox"
                   :value="option.value"
                   class="sr-only"
-                />
+                >
                 <span class="text-sm">{{ option.label }}</span>
               </label>
             </div>
@@ -422,7 +497,11 @@ onMounted(() => {
               v-model="form.sync_mode"
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-go4-primary focus:border-transparent"
             >
-              <option v-for="option in syncModeOptions" :key="option.value" :value="option.value">
+              <option
+                v-for="option in syncModeOptions"
+                :key="option.value"
+                :value="option.value"
+              >
                 {{ option.label }}
               </option>
             </select>
@@ -434,8 +513,11 @@ onMounted(() => {
               v-model="form.create_in_meta"
               type="checkbox"
               class="rounded border-gray-300 text-go4-primary focus:ring-go4-primary"
-            />
-            <label for="createInMeta" class="text-sm text-gray-700">
+            >
+            <label
+              for="createInMeta"
+              class="text-sm text-gray-700"
+            >
               Direkt in Meta erstellen
             </label>
           </div>
@@ -467,13 +549,25 @@ onMounted(() => {
     >
       <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 p-6 max-h-[80vh] overflow-hidden flex flex-col">
         <div class="flex items-center justify-between mb-4">
-          <h3 class="text-lg font-semibold text-gray-900">Sync-Logs</h3>
+          <h3 class="text-lg font-semibold text-gray-900">
+            Sync-Logs
+          </h3>
           <button
             class="text-gray-400 hover:text-gray-600"
             @click="showLogsModal = false"
           >
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            <svg
+              class="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
@@ -482,16 +576,31 @@ onMounted(() => {
           <table class="w-full text-sm">
             <thead class="bg-gray-50 sticky top-0">
               <tr>
-                <th class="text-left px-3 py-2 font-medium text-gray-500">Audience</th>
-                <th class="text-left px-3 py-2 font-medium text-gray-500">Datum</th>
-                <th class="text-left px-3 py-2 font-medium text-gray-500">Kontakte</th>
-                <th class="text-left px-3 py-2 font-medium text-gray-500">Status</th>
+                <th class="text-left px-3 py-2 font-medium text-gray-500">
+                  Audience
+                </th>
+                <th class="text-left px-3 py-2 font-medium text-gray-500">
+                  Datum
+                </th>
+                <th class="text-left px-3 py-2 font-medium text-gray-500">
+                  Kontakte
+                </th>
+                <th class="text-left px-3 py-2 font-medium text-gray-500">
+                  Status
+                </th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
-              <tr v-for="log in syncLogs" :key="log.id">
-                <td class="px-3 py-2">{{ log.audience_name }}</td>
-                <td class="px-3 py-2">{{ formatDate(log.started_at) }}</td>
+              <tr
+                v-for="log in syncLogs"
+                :key="log.id"
+              >
+                <td class="px-3 py-2">
+                  {{ log.audience_name }}
+                </td>
+                <td class="px-3 py-2">
+                  {{ formatDate(log.started_at) }}
+                </td>
                 <td class="px-3 py-2">
                   {{ log.contacts_added }} / {{ log.contacts_processed }}
                 </td>
@@ -502,7 +611,10 @@ onMounted(() => {
                 </td>
               </tr>
               <tr v-if="syncLogs.length === 0">
-                <td colspan="4" class="px-3 py-8 text-center text-gray-400">
+                <td
+                  colspan="4"
+                  class="px-3 py-8 text-center text-gray-400"
+                >
                   Keine Sync-Logs vorhanden
                 </td>
               </tr>

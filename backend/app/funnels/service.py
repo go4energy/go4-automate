@@ -33,7 +33,6 @@ from app.funnels.schemas import (
     ProspectMoveRequest,
 )
 
-
 # Default funnel stages
 DEFAULT_STAGES = [
     {"name": "Imported", "position": 0, "color": "#6B7280"},

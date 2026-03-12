@@ -57,7 +57,10 @@ onMounted(() => {
 
 <template>
   <div>
-    <PageHeader title="Prompt Registry" subtitle="KI-Prompts verwalten und testen">
+    <PageHeader
+      title="Prompt Registry"
+      subtitle="KI-Prompts verwalten und testen"
+    >
       <template #actions>
         <button
           class="rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-go4-primary/90"
@@ -76,14 +79,20 @@ onMounted(() => {
         placeholder="Suchen..."
         class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
         @input="loadPrompts"
-      />
+      >
       <select
         v-model="categoryFilter"
         class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
         @change="loadPrompts"
       >
-        <option value="">Alle Kategorien</option>
-        <option v-for="cat in categoryOptions" :key="cat" :value="cat">
+        <option value="">
+          Alle Kategorien
+        </option>
+        <option
+          v-for="cat in categoryOptions"
+          :key="cat"
+          :value="cat"
+        >
           {{ cat }}
         </option>
       </select>
@@ -92,14 +101,23 @@ onMounted(() => {
         class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-go4-primary focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
         @change="loadPrompts"
       >
-        <option :value="null">Alle Status</option>
-        <option :value="true">Aktiv</option>
-        <option :value="false">Inaktiv</option>
+        <option :value="null">
+          Alle Status
+        </option>
+        <option :value="true">
+          Aktiv
+        </option>
+        <option :value="false">
+          Inaktiv
+        </option>
       </select>
     </div>
 
     <!-- Loading -->
-    <div v-if="store.loading" class="mt-8 flex items-center justify-center p-8">
+    <div
+      v-if="store.loading"
+      class="mt-8 flex items-center justify-center p-8"
+    >
       <span class="text-go4-muted dark:text-gray-400">Laden...</span>
     </div>
 
@@ -112,7 +130,10 @@ onMounted(() => {
     </div>
 
     <!-- Empty State -->
-    <div v-else-if="filteredPrompts.length === 0" class="mt-8">
+    <div
+      v-else-if="filteredPrompts.length === 0"
+      class="mt-8"
+    >
       <EmptyState title="Keine Prompts gefunden">
         <template #action>
           <button
@@ -126,7 +147,10 @@ onMounted(() => {
     </div>
 
     <!-- Grid -->
-    <div v-else class="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div
+      v-else
+      class="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+    >
       <div
         v-for="prompt in filteredPrompts"
         :key="prompt.id"

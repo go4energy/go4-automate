@@ -79,13 +79,21 @@ const chartSeries = computed(() => [
 
 <template>
   <div class="rounded-lg bg-white p-6 shadow-sm">
-    <h3 class="mb-4 text-sm font-medium text-go4-muted">Performance (letzten 30 Tage)</h3>
+    <h3 class="mb-4 text-sm font-medium text-go4-muted">
+      Performance (letzten 30 Tage)
+    </h3>
     <div
       v-if="props.data.length === 0"
       class="flex h-64 items-center justify-center text-go4-muted"
     >
       Keine Performance-Daten vorhanden
     </div>
-    <VueApexCharts v-else type="line" height="350" :options="chartOptions" :series="chartSeries" />
+    <VueApexCharts
+      v-else
+      type="line"
+      height="350"
+      :options="chartOptions"
+      :series="chartSeries"
+    />
   </div>
 </template>

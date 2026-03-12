@@ -1,0 +1,17 @@
+# go4-automate Reverse Proxy mit automatischem HTTPS
+# Kopieren nach /etc/caddy/Caddyfile
+
+automate.go4.energy {
+    # Frontend (Vite Dev Server)
+    reverse_proxy localhost:8081
+
+    # Logging
+    log {
+        output file /var/log/caddy/automate.log
+        format json
+    }
+}
+
+n8n.go4.energy {
+    reverse_proxy localhost:5678
+}

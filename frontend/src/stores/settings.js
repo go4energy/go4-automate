@@ -14,7 +14,7 @@ import {
 export const useSettingsStore = defineStore('settings', () => {
   // State
   const modules = ref([])
-  const activeTab = ref('global')
+  const activeTab = ref('profil')
   const schemas = ref({})
   const configs = ref({})
   const statuses = ref({})

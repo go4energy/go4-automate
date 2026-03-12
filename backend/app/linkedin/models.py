@@ -137,12 +137,15 @@ class LinkedInScraperJob(TimestampMixin, Base):
     funnel_id: Mapped[int | None] = mapped_column(
         ForeignKey("funnel_funnels.id", ondelete="SET NULL"), nullable=True
     )
+    pipeline_id: Mapped[int | None] = mapped_column(
+        ForeignKey("engagement_pipelines.id", ondelete="SET NULL"), nullable=True
+    )
 
     # Job configuration
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     job_type: Mapped[str] = mapped_column(
         String(30), default="search", nullable=False
-    )  # search, profile_list
+    )  # search, profile_list, connections
     search_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     profile_urls: Mapped[list | None] = mapped_column(JSONB, nullable=True)
 
@@ -180,6 +183,10 @@ class LinkedInScraperJob(TimestampMixin, Base):
     import_stage_id: Mapped[int | None] = mapped_column(
         ForeignKey("funnel_stages.id", ondelete="SET NULL"), nullable=True
     )
+    # Auto-enroll in pipeline (scrape → central contact → pipeline enrollment)
+    auto_enroll_pipeline: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
 
     # Schedule settings
     schedule_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -196,10 +203,14 @@ class LinkedInScraperJob(TimestampMixin, Base):
         Integer, default=10, nullable=False
     )  # Pages per execution
 
+    # Connections job settings
+    connections_since_date: Mapped[datetime | None] = mapped_column(nullable=True)
+
     # Relationships
     tenant = relationship("Tenant", back_populates="linkedin_scraper_jobs")
     account = relationship("LinkedInAccount", back_populates="scraper_jobs")
     funnel = relationship("Funnel")
+    pipeline = relationship("EngagementPipeline")
     import_stage = relationship("FunnelStage")
     contacts = relationship(
         "LinkedInContact",
@@ -239,6 +250,7 @@ class LinkedInContact(TimestampMixin, Base):
     # LinkedIn identifiers
     linkedin_url: Mapped[str] = mapped_column(String(500), nullable=False)
     linkedin_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    profile_urn: Mapped[str | None] = mapped_column(String(100), nullable=True)
     sales_navigator_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     # Basic info
@@ -273,16 +285,24 @@ class LinkedInContact(TimestampMixin, Base):
     # About/Summary
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Connection timing
+    connected_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    connected_at_text: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
     # Experience & Education (JSONB for flexibility)
     experience: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     education: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     skills: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     languages: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    interests: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     # Status
     status: Mapped[str] = mapped_column(
         String(20), default="scraped", nullable=False
     )  # scraped, imported, failed, skipped
+    excluded: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )  # If True, contact is excluded from messaging/pipelines
 
     # Central contact integration
     central_contact_id: Mapped[int | None] = mapped_column(
@@ -596,6 +616,9 @@ class LinkedInCampaign(TimestampMixin, Base):
     )
     account_id: Mapped[int] = mapped_column(
         ForeignKey("linkedin_accounts.id", ondelete="CASCADE"), nullable=False
+    )
+    pipeline_id: Mapped[int | None] = mapped_column(
+        ForeignKey("engagement_pipelines.id", ondelete="SET NULL"), nullable=True
     )
 
     name: Mapped[str] = mapped_column(String(200), nullable=False)

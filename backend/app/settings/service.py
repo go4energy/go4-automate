@@ -143,3 +143,105 @@ class SettingsService:
 
         lines = [f"{k}={v}" for k, v in sorted(existing.items())]
         env_path.write_text("\n".join(lines) + "\n")
+
+    # --- Desktop Layout ---
+
+    async def get_desktop_layout(self, tenant_id: str) -> dict:
+        """Get desktop layout overrides for modules."""
+        tenant = await self._get_tenant(tenant_id)
+        if not tenant:
+            return {"modules": {}}
+        config = tenant.config or {}
+        return {"modules": config.get("desktop_layout", {})}
+
+    async def bulk_update_desktop_order(self, tenant_id: str, order_map: dict) -> dict:
+        """Bulk update desktop tile order in a single transaction."""
+        tenant = await self._get_tenant(tenant_id)
+        if not tenant:
+            raise NotFoundError("Tenant", tenant_id)
+
+        config = dict(tenant.config or {})
+        desktop_layout = dict(config.get("desktop_layout", {}))
+
+        for module_name, order in order_map.items():
+            if not isinstance(order, int):
+                continue
+            module_overrides = dict(desktop_layout.get(module_name, {}))
+            module_overrides["order"] = order
+            desktop_layout[module_name] = module_overrides
+
+        config["desktop_layout"] = desktop_layout
+        tenant.config = config
+        await self.db.flush()
+        await self.db.refresh(tenant)
+
+        logger.info(
+            "Desktop order bulk-updated for {count} modules (tenant: {tenant})",
+            count=len(order_map),
+            tenant=tenant_id,
+        )
+        return {"modules": desktop_layout}
+
+    async def update_desktop_layout(
+        self, tenant_id: str, module_name: str, updates: dict
+    ) -> dict:
+        """Update desktop layout for a specific module."""
+        tenant = await self._get_tenant(tenant_id)
+        if not tenant:
+            raise NotFoundError("Tenant", tenant_id)
+
+        config = dict(tenant.config or {})
+        desktop_layout = dict(config.get("desktop_layout", {}))
+
+        # Get current module overrides or empty dict
+        module_overrides = dict(desktop_layout.get(module_name, {}))
+
+        # Apply updates (only valid keys)
+        valid_keys = {"icon", "label", "color", "visible", "order", "external_url"}
+        for key, value in updates.items():
+            if key in valid_keys:
+                if value is None:
+                    # Remove override if value is None
+                    module_overrides.pop(key, None)
+                else:
+                    module_overrides[key] = value
+
+        # Update or remove module entry
+        if module_overrides:
+            desktop_layout[module_name] = module_overrides
+        else:
+            desktop_layout.pop(module_name, None)
+
+        config["desktop_layout"] = desktop_layout
+        tenant.config = config
+        await self.db.flush()
+        await self.db.refresh(tenant)
+
+        logger.info(
+            "Desktop layout updated for {module} (tenant: {tenant})",
+            module=module_name,
+            tenant=tenant_id,
+        )
+        return {"modules": desktop_layout}
+
+    async def delete_desktop_override(self, tenant_id: str, module_name: str) -> dict:
+        """Remove all desktop overrides for a module (reset to defaults)."""
+        tenant = await self._get_tenant(tenant_id)
+        if not tenant:
+            raise NotFoundError("Tenant", tenant_id)
+
+        config = dict(tenant.config or {})
+        desktop_layout = dict(config.get("desktop_layout", {}))
+        desktop_layout.pop(module_name, None)
+
+        config["desktop_layout"] = desktop_layout
+        tenant.config = config
+        await self.db.flush()
+        await self.db.refresh(tenant)
+
+        logger.info(
+            "Desktop override removed for {module} (tenant: {tenant})",
+            module=module_name,
+            tenant=tenant_id,
+        )
+        return {"modules": desktop_layout}

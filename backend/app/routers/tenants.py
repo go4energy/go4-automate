@@ -14,7 +14,7 @@ router = APIRouter(prefix="/tenants", tags=["tenants"])
 
 @router.get("/", response_model=list[TenantResponse])
 async def list_tenants(
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> list[TenantResponse]:
     """List all tenants."""
     try:
@@ -31,7 +31,7 @@ async def list_tenants(
 @router.get("/{tenant_id}", response_model=TenantResponse)
 async def get_tenant(
     tenant_id: str,
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> TenantResponse:
     """Get a tenant by ID."""
     try:
@@ -50,7 +50,7 @@ async def get_tenant(
 @router.post("/", response_model=TenantResponse, status_code=status.HTTP_201_CREATED)
 async def create_tenant(
     data: TenantCreate,
-    db: AsyncSession = Depends(get_db),  # noqa: B008
+    db: AsyncSession = Depends(get_db),
 ) -> TenantResponse:
     """Create a new tenant."""
     try:
