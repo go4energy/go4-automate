@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAssistantStore } from '@/stores/assistant'
 import PageHeader from '@/components/ui/PageHeader.vue'
@@ -30,6 +30,15 @@ const ruleForm = ref({
   action_payload_json: null,
 })
 
+// Provider menu
+const showProviderMenu = ref(false)
+const providers = [
+  { key: 'microsoft', label: 'Microsoft 365', icon: '📧', enabled: true },
+  { key: 'google', label: 'Google Workspace', icon: '📬', enabled: true },
+  { key: 'imap', label: 'IMAP / SMTP', icon: '📨', enabled: false },
+  { key: 'exchange', label: 'Exchange (On-Premise)', icon: '🏢', enabled: false },
+]
+
 // Profile form
 const profileForm = ref({})
 const profileLoaded = ref(false)
@@ -41,7 +50,20 @@ onMounted(async () => {
   if (activeTab.value === 'activity') await store.fetchItems()
   if (activeTab.value === 'approvals') await store.fetchPendingActions()
   if (activeTab.value === 'settings') await loadProfile()
+
+  // Close provider menu on click outside
+  document.addEventListener('click', closeProviderMenu)
 })
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', closeProviderMenu)
+})
+
+function closeProviderMenu(e) {
+  if (showProviderMenu.value && !e.target.closest('.relative')) {
+    showProviderMenu.value = false
+  }
+}
 
 watch(activeTab, async (tab) => {
   if (tab === 'dashboard') await store.fetchDashboard()
@@ -100,8 +122,11 @@ async function handleToggleRule(rule) {
   await store.editRule(rule.id, { enabled: !rule.enabled })
 }
 
-async function handleConnectAccount(provider) {
-  await store.connectAccount(provider)
+async function handleConnectAccount(providerKey) {
+  const provider = providers.find((p) => p.key === providerKey)
+  if (!provider?.enabled) return
+  showProviderMenu.value = false
+  await store.connectAccount(providerKey)
 }
 
 async function handleApprove(id) {
@@ -194,26 +219,44 @@ function formatDate(d) {
         <p class="text-sm text-gray-500">
           {{ store.sources.length }} Konto{{ store.sources.length !== 1 ? 'en' : '' }} verbunden
         </p>
-        <div class="flex gap-2">
+        <div class="relative">
           <button
             class="rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white hover:bg-go4-primary/90"
-            @click="handleConnectAccount('microsoft')"
+            @click="showProviderMenu = !showProviderMenu"
           >
-            + Microsoft 365
+            + Konto verbinden
           </button>
-          <button
-            class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            @click="handleConnectAccount('google')"
+          <div
+            v-if="showProviderMenu"
+            class="absolute right-0 z-10 mt-2 w-56 rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
           >
-            + Google
-          </button>
+            <button
+              v-for="p in providers"
+              :key="p.key"
+              class="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
+              :disabled="!p.enabled"
+              :class="{ 'opacity-40 cursor-not-allowed': !p.enabled }"
+              @click="handleConnectAccount(p.key)"
+            >
+              <span class="text-lg">{{ p.icon }}</span>
+              <div>
+                <span class="font-medium">{{ p.label }}</span>
+                <span
+                  v-if="!p.enabled"
+                  class="ml-1 text-xs text-gray-400"
+                >
+                  (bald)
+                </span>
+              </div>
+            </button>
+          </div>
         </div>
       </div>
 
       <EmptyState
         v-if="store.sources.length === 0"
         title="Keine Quellen verbunden"
-        description="Verbinde ein Microsoft 365 oder Google Konto, um den Assistant zu nutzen."
+        description="Verbinde ein Mail- oder Kalenderkonto, um den Assistant zu nutzen."
       />
       <div v-else class="space-y-3">
         <div
