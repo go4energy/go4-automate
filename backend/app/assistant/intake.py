@@ -78,7 +78,7 @@ class AssistantIntakeService:
                 thread_id=msg.thread_id,
                 payload_hash=payload_hash,
                 payload=msg.raw,
-                occurred_at=msg.received_at,
+                occurred_at=self._strip_tz(msg.received_at),
             )
             if not is_new:
                 continue
@@ -94,7 +94,7 @@ class AssistantIntakeService:
                 title=msg.subject,
                 content_snippet=msg.snippet,
                 sender=msg.from_email,
-                occurred_at=msg.received_at,
+                occurred_at=self._strip_tz(msg.received_at),
                 payload_hash=payload_hash,
                 raw_metadata=msg.raw,
             )
@@ -126,7 +126,7 @@ class AssistantIntakeService:
                 thread_id=None,
                 payload_hash=payload_hash,
                 payload=evt.raw,
-                occurred_at=evt.starts_at,
+                occurred_at=self._strip_tz(evt.starts_at),
             )
             if not is_new:
                 continue
@@ -142,7 +142,7 @@ class AssistantIntakeService:
                 title=evt.title,
                 content_snippet=evt.location,
                 sender=evt.organizer_email,
-                occurred_at=evt.starts_at,
+                occurred_at=self._strip_tz(evt.starts_at),
                 payload_hash=payload_hash,
                 raw_metadata=evt.raw,
             )
@@ -431,6 +431,15 @@ class AssistantIntakeService:
         )
         self.db.add(item)
         return item
+
+    @staticmethod
+    def _strip_tz(dt: datetime | None) -> datetime | None:
+        """Remove timezone info for naive-datetime DB columns."""
+        if dt is None:
+            return None
+        if dt.tzinfo is not None:
+            return dt.replace(tzinfo=None)
+        return dt
 
     @staticmethod
     def _hash_payload(payload: dict | None) -> str:
