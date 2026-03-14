@@ -60,6 +60,19 @@ export const getOAuthAuthUrl = (sourceId, provider = 'microsoft') =>
 export const disconnectOAuth = (sourceId) =>
   api.post(`/v1/briefing/sources/${sourceId}/oauth/disconnect`)
 
+// --- Personal Briefing ---
+export const getPersonalSettings = () => api.get('/v1/briefing/personal/settings')
+export const updatePersonalSettings = (data) => api.put('/v1/briefing/personal/settings', data)
+export const getPersonalConnections = () => api.get('/v1/briefing/personal/connections')
+export const getAvailableOllamaModels = () => api.get('/v1/briefing/personal/admin/ollama-models')
+export const getPersonalOAuthAuthUrl = (provider, integrationType) =>
+  api.get('/v1/briefing/personal/oauth/authorize', {
+    params: { provider, integration_type: integrationType }
+  })
+export const disconnectPersonalConnection = (connectionId) =>
+  api.post(`/v1/briefing/personal/connections/${connectionId}/disconnect`)
+export const runPersonalBriefing = () => api.post('/v1/briefing/personal/run')
+
 // --- Module Interface ---
 export const getStatus = () => api.get('/v1/briefing/status')
 export const getMetrics = (days = 7) => api.get('/v1/briefing/metrics', { params: { days } })

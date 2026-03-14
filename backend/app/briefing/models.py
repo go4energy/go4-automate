@@ -64,6 +64,86 @@ class BriefingSource(TimestampMixin, Base):
         return f"<BriefingSource {self.name!r} ({self.source_type})>"
 
 
+class BriefingAccountConnection(TimestampMixin, Base):
+    """Personal email/calendar integration for morning briefings."""
+
+    __tablename__ = "briefing_account_connections"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(
+        String(50), ForeignKey("tenants.tenant_id"), nullable=False
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    provider: Mapped[str] = mapped_column(String(20), nullable=False)
+    integration_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    connected_email: Mapped[str | None] = mapped_column(String(255))
+    encrypted_token: Mapped[str | None] = mapped_column(Text)
+    scopes: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+    last_synced_at: Mapped[datetime | None] = mapped_column()
+    last_error: Mapped[str | None] = mapped_column(Text)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "user_id",
+            "provider",
+            "integration_type",
+            name="uq_briefing_account_connections_scope",
+        ),
+        Index("ix_briefing_account_connections_user", "tenant_id", "user_id"),
+        Index(
+            "ix_briefing_account_connections_status",
+            "tenant_id",
+            "user_id",
+            "status",
+        ),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<BriefingAccountConnection {self.provider}:{self.integration_type}"
+            f" user={self.user_id}>"
+        )
+
+
+class BriefingPersonalSettings(TimestampMixin, Base):
+    """Per-user configuration for personal email/calendar briefings."""
+
+    __tablename__ = "briefing_personal_settings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(
+        String(50), ForeignKey("tenants.tenant_id"), nullable=False
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    email_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    calendar_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    unread_only: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    days_back: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    max_items: Mapped[int] = mapped_column(Integer, default=8, nullable=False)
+    timezone: Mapped[str] = mapped_column(String(50), default="Europe/Berlin")
+    delivery_time: Mapped[str] = mapped_column(String(10), default="07:00")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "user_id",
+            name="uq_briefing_personal_settings_user",
+        ),
+        Index("ix_briefing_personal_settings_user", "tenant_id", "user_id"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<BriefingPersonalSettings user={self.user_id}>"
+
+
 class BriefingFinding(TimestampMixin, Base):
     """A finding discovered by a briefing source."""
 

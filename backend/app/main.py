@@ -121,6 +121,8 @@ AUTH_EXEMPT_PREFIXES = (
     "/api/v1/emailmarketing/t/",  # Email tracking (open, click, unsubscribe)
     "/api/v1/emailmarketing/webhooks/",  # Email provider webhooks
     "/api/v1/whatsapp/webhook",  # Meta WhatsApp webhook (verification + events)
+    "/api/v1/briefing/oauth/callback",  # Provider callback resolves tenant via state
+    "/api/v1/briefing/personal/oauth/callback",  # Provider callback resolves tenant via state
     "/uploads/",
 )
 

@@ -5,6 +5,8 @@ from datetime import datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.exceptions import ValidationError
+from app.services.tenant import TenantService
 from app.utils.module_interface import ModuleInterface
 from app.utils.module_registry import register_module
 
@@ -17,11 +19,29 @@ class BriefingInterface(ModuleInterface):
         {
             "key": "llm_provider",
             "type": "enum",
-            "options": ["anthropic", "ollama"],
-            "default": "anthropic",
+            "options": ["ollama", "anthropic", "openai"],
+            "default": "ollama",
             "description": "LLM-Provider fuer Script-Generierung",
             "affects_kpis": ["episode_quality"],
             "category": "llm",
+            "editable_by_ai": True,
+            "editable_by_enduser": False,
+            "secret": False,
+            "requires_confirmation": False,
+            "risk_level": "medium",
+        },
+        {
+            "key": "llm_model",
+            "type": "string",
+            "default": "",
+            "description": "Optionaler Modellname fuer den gewaehlten Briefing-LLM-Provider",
+            "affects_kpis": ["episode_quality"],
+            "category": "llm",
+            "editable_by_ai": True,
+            "editable_by_enduser": False,
+            "secret": False,
+            "requires_confirmation": False,
+            "risk_level": "medium",
         },
         {
             "key": "tts_engine",
@@ -31,6 +51,11 @@ class BriefingInterface(ModuleInterface):
             "description": "TTS-Engine fuer Audio-Generierung",
             "affects_kpis": ["episodes_with_audio"],
             "category": "tts",
+            "editable_by_ai": True,
+            "editable_by_enduser": False,
+            "secret": False,
+            "requires_confirmation": False,
+            "risk_level": "medium",
         },
         {
             "key": "default_voice",
@@ -39,6 +64,11 @@ class BriefingInterface(ModuleInterface):
             "description": "Standard-Stimme fuer neue Channels",
             "affects_kpis": [],
             "category": "tts",
+            "editable_by_ai": True,
+            "editable_by_enduser": False,
+            "secret": False,
+            "requires_confirmation": False,
+            "risk_level": "low",
         },
         {
             "key": "max_episodes_per_day",
@@ -49,6 +79,11 @@ class BriefingInterface(ModuleInterface):
             "description": "Maximale Episoden pro Tag (alle Channels)",
             "affects_kpis": ["episodes_per_day"],
             "category": "limits",
+            "editable_by_ai": True,
+            "editable_by_enduser": False,
+            "secret": False,
+            "requires_confirmation": True,
+            "risk_level": "medium",
         },
         {
             "key": "self_registration",
@@ -57,8 +92,174 @@ class BriefingInterface(ModuleInterface):
             "description": "Listener-Selbstregistrierung erlauben",
             "affects_kpis": ["listener_count"],
             "category": "auth",
+            "editable_by_ai": True,
+            "editable_by_enduser": False,
+            "secret": False,
+            "requires_confirmation": True,
+            "risk_level": "high",
         },
     ]
+    ACTIONS = [
+        {
+            "key": "run_sources_now",
+            "label": "Quellen jetzt abrufen",
+            "description": "Fuehrt den Quellenabruf fuer das Briefing sofort aus.",
+            "invokable_by_ai": True,
+            "requires_confirmation": False,
+            "risk_level": "low",
+        },
+        {
+            "key": "generate_channel_episode",
+            "label": "Channel-Episode erzeugen",
+            "description": "Startet die manuelle Generierung einer Briefing-Episode fuer einen Channel.",
+            "invokable_by_ai": True,
+            "requires_confirmation": True,
+            "risk_level": "medium",
+            "input_schema": {
+                "channel_id": {
+                    "type": "integer",
+                    "required": True,
+                    "description": "ID des Channels",
+                }
+            },
+        },
+        {
+            "key": "run_personal_briefing",
+            "label": "Persoenliches Briefing ausfuehren",
+            "description": "Startet einen manuellen Lauf fuer das persoenliche Mail-/Kalender-Briefing.",
+            "invokable_by_ai": True,
+            "requires_confirmation": False,
+            "risk_level": "low",
+        },
+    ]
+    ENDUSER_CONTROLS = [
+        {
+            "key": "email_enabled",
+            "label": "E-Mail-Briefing aktivieren",
+            "source": "personal_settings",
+            "type": "boolean",
+        },
+        {
+            "key": "calendar_enabled",
+            "label": "Kalender-Briefing aktivieren",
+            "source": "personal_settings",
+            "type": "boolean",
+        },
+        {
+            "key": "delivery_time",
+            "label": "Briefing-Uhrzeit",
+            "source": "personal_settings",
+            "type": "time",
+        },
+    ]
+    CREDENTIALS = [
+        {
+            "key": "microsoft_client_id",
+            "label": "Microsoft Client ID",
+            "type": "string",
+            "source": "system_config",
+            "secret": False,
+            "editable_by_ai": True,
+            "editable_by_enduser": False,
+            "requires_confirmation": True,
+            "risk_level": "high",
+        },
+        {
+            "key": "microsoft_client_secret",
+            "label": "Microsoft Client Secret",
+            "type": "secret",
+            "source": "system_config",
+            "secret": True,
+            "editable_by_ai": True,
+            "editable_by_enduser": False,
+            "requires_confirmation": True,
+            "risk_level": "high",
+        },
+        {
+            "key": "google_client_id",
+            "label": "Google Client ID",
+            "type": "string",
+            "source": "system_config",
+            "secret": False,
+            "editable_by_ai": True,
+            "editable_by_enduser": False,
+            "requires_confirmation": True,
+            "risk_level": "high",
+        },
+        {
+            "key": "google_client_secret",
+            "label": "Google Client Secret",
+            "type": "secret",
+            "source": "system_config",
+            "secret": True,
+            "editable_by_ai": True,
+            "editable_by_enduser": False,
+            "requires_confirmation": True,
+            "risk_level": "high",
+        },
+    ]
+
+    async def execute_action(
+        self,
+        db: AsyncSession,
+        tenant_id: str,
+        action_key: str,
+        payload: dict | None = None,
+    ) -> dict:
+        """Execute chatbot/admin actions for the briefing module."""
+        from app.briefing.service import BriefingService
+
+        payload = payload or {}
+        service = BriefingService(db)
+
+        if action_key == "run_sources_now":
+            result = await service.run_sources(tenant_id)
+            await db.commit()
+            return {
+                "module": self.MODULE_NAME,
+                "action": action_key,
+                "status": "ok",
+                "result": result,
+            }
+
+        if action_key == "generate_channel_episode":
+            channel_id = payload.get("channel_id")
+            if not isinstance(channel_id, int):
+                raise ValidationError("Feld 'channel_id' muss als Integer uebergeben werden")
+
+            tenant = await TenantService(db).get_by_id(tenant_id)
+            tenant_config = TenantService.merge_effective_config(
+                tenant_id, tenant.config or {}
+            )
+            episode = await service.generate_episode(tenant_id, channel_id, tenant_config)
+            await db.commit()
+            return {
+                "module": self.MODULE_NAME,
+                "action": action_key,
+                "status": "ok",
+                "result": {
+                    "episode_id": episode.id,
+                    "channel_id": episode.channel_id,
+                    "title": episode.title,
+                    "status": episode.status,
+                },
+            }
+
+        if action_key == "run_personal_briefing":
+            user_id = payload.get("user_id")
+            if not isinstance(user_id, int):
+                raise ValidationError("Feld 'user_id' muss als Integer uebergeben werden")
+
+            result = await service.run_personal_briefing(tenant_id, user_id)
+            await db.commit()
+            return {
+                "module": self.MODULE_NAME,
+                "action": action_key,
+                "status": "ok",
+                "result": result,
+            }
+
+        return await super().execute_action(db, tenant_id, action_key, payload)
 
     async def get_status(self, db: AsyncSession, tenant_id: str) -> dict:
         """Return briefing health and operational status."""

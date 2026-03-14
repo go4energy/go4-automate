@@ -12,17 +12,32 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.briefing.models import (
+    BriefingAccountConnection,
     BriefingChannel,
     BriefingChannelSource,
     BriefingEpisode,
     BriefingFinding,
+    BriefingPersonalSettings,
     BriefingSource,
     ListenerSubscription,
     ListenerUser,
 )
+from app.briefing.oauth import (
+    decrypt_token,
+    encrypt_token,
+    refresh_google_token,
+    refresh_microsoft_token,
+)
 from app.briefing.tts import TTSService
 from app.config import settings
-from app.exceptions import ExternalServiceError, ForbiddenError, NotFoundError
+from app.exceptions import (
+    ExternalServiceError,
+    ForbiddenError,
+    NotFoundError,
+    ValidationError,
+)
+from app.services.tenant import TenantService
+from app.utils.source_fetchers import fetch_calendar, fetch_emails
 
 
 class BriefingService:
@@ -307,6 +322,447 @@ class BriefingService:
         await self.db.flush()
         await self.db.refresh(source)
         return self._sanitize_source(source)
+
+    # --- Personal Briefing ---
+
+    async def get_personal_settings(
+        self, tenant_id: str, user_id: int
+    ) -> BriefingPersonalSettings:
+        """Get or create personal briefing settings for the user."""
+        result = await self.db.execute(
+            select(BriefingPersonalSettings).where(
+                BriefingPersonalSettings.tenant_id == tenant_id,
+                BriefingPersonalSettings.user_id == user_id,
+            )
+        )
+        settings_obj = result.scalar_one_or_none()
+        if settings_obj:
+            return settings_obj
+
+        settings_obj = BriefingPersonalSettings(
+            tenant_id=tenant_id,
+            user_id=user_id,
+        )
+        self.db.add(settings_obj)
+        await self.db.flush()
+        await self.db.refresh(settings_obj)
+        return settings_obj
+
+    async def update_personal_settings(
+        self, tenant_id: str, user_id: int, data: dict
+    ) -> BriefingPersonalSettings:
+        """Update personal morning briefing settings."""
+        settings_obj = await self.get_personal_settings(tenant_id, user_id)
+        for key, value in data.items():
+            if value is not None:
+                setattr(settings_obj, key, value)
+        await self.db.flush()
+        await self.db.refresh(settings_obj)
+        return settings_obj
+
+    async def list_personal_connections(
+        self, tenant_id: str, user_id: int
+    ) -> list[BriefingAccountConnection]:
+        """List personal email/calendar account connections for a user."""
+        result = await self.db.execute(
+            select(BriefingAccountConnection)
+            .where(
+                BriefingAccountConnection.tenant_id == tenant_id,
+                BriefingAccountConnection.user_id == user_id,
+            )
+            .order_by(
+                BriefingAccountConnection.integration_type.asc(),
+                BriefingAccountConnection.provider.asc(),
+                BriefingAccountConnection.created_at.desc(),
+            )
+        )
+        return list(result.scalars().all())
+
+    async def get_personal_connection(
+        self, tenant_id: str, connection_id: int
+    ) -> BriefingAccountConnection:
+        """Get a personal connection by ID."""
+        result = await self.db.execute(
+            select(BriefingAccountConnection).where(
+                BriefingAccountConnection.id == connection_id,
+                BriefingAccountConnection.tenant_id == tenant_id,
+            )
+        )
+        connection = result.scalar_one_or_none()
+        if not connection:
+            raise NotFoundError("BriefingAccountConnection", connection_id)
+        return connection
+
+    async def upsert_personal_connection(
+        self,
+        tenant_id: str,
+        user_id: int,
+        provider: str,
+        integration_type: str,
+        encrypted_token: str,
+        connected_email: str | None = None,
+        scopes: list[str] | None = None,
+        status: str = "connected",
+    ) -> BriefingAccountConnection:
+        """Create or update a personal email/calendar connection."""
+        if provider not in {"microsoft", "google"}:
+            raise ValidationError("Unbekannter OAuth-Provider")
+        if integration_type not in {"email", "calendar"}:
+            raise ValidationError("Unbekannter Integrationstyp")
+
+        result = await self.db.execute(
+            select(BriefingAccountConnection).where(
+                BriefingAccountConnection.tenant_id == tenant_id,
+                BriefingAccountConnection.user_id == user_id,
+                BriefingAccountConnection.provider == provider,
+                BriefingAccountConnection.integration_type == integration_type,
+            )
+        )
+        connection = result.scalar_one_or_none()
+
+        if connection is None:
+            connection = BriefingAccountConnection(
+                tenant_id=tenant_id,
+                user_id=user_id,
+                provider=provider,
+                integration_type=integration_type,
+            )
+            self.db.add(connection)
+
+        connection.connected_email = connected_email
+        connection.encrypted_token = encrypted_token
+        connection.scopes = scopes or []
+        connection.status = status
+        connection.last_error = None
+
+        await self.db.flush()
+        await self.db.refresh(connection)
+        return connection
+
+    async def disconnect_personal_connection(
+        self,
+        tenant_id: str,
+        connection_id: int,
+        current_user_id: int,
+        is_admin: bool = False,
+    ) -> BriefingAccountConnection:
+        """Disconnect a personal email/calendar integration."""
+        connection = await self.get_personal_connection(tenant_id, connection_id)
+        self._check_ownership(connection.user_id, current_user_id, is_admin)
+        connection.encrypted_token = None
+        connection.status = "revoked"
+        connection.last_error = None
+        await self.db.flush()
+        await self.db.refresh(connection)
+        return connection
+
+    async def get_personal_connection_for_type(
+        self,
+        tenant_id: str,
+        user_id: int,
+        integration_type: str,
+    ) -> BriefingAccountConnection | None:
+        """Return the active personal connection for an integration type."""
+        result = await self.db.execute(
+            select(BriefingAccountConnection)
+            .where(
+                BriefingAccountConnection.tenant_id == tenant_id,
+                BriefingAccountConnection.user_id == user_id,
+                BriefingAccountConnection.integration_type == integration_type,
+                BriefingAccountConnection.status == "connected",
+                BriefingAccountConnection.encrypted_token.is_not(None),
+            )
+            .order_by(BriefingAccountConnection.updated_at.desc())
+        )
+        return result.scalars().first()
+
+    async def run_personal_briefing(self, tenant_id: str, user_id: int) -> dict:
+        """Run a manual personal briefing fetch for the given user."""
+        settings_obj = await self.get_personal_settings(tenant_id, user_id)
+        result = {
+            "user_id": user_id,
+            "settings": {
+                "email_enabled": settings_obj.email_enabled,
+                "calendar_enabled": settings_obj.calendar_enabled,
+                "unread_only": settings_obj.unread_only,
+                "days_back": settings_obj.days_back,
+                "max_items": settings_obj.max_items,
+                "timezone": settings_obj.timezone,
+                "delivery_time": settings_obj.delivery_time,
+            },
+            "sections": {},
+            "errors": [],
+            "briefing_text": None,
+            "briefing_generated_by": None,
+        }
+
+        if settings_obj.email_enabled:
+            email_connection = await self.get_personal_connection_for_type(
+                tenant_id, user_id, "email"
+            )
+            if not email_connection:
+                result["errors"].append("Keine verbundene E-Mail-Integration gefunden")
+            else:
+                try:
+                    result["sections"]["email"] = await self._run_personal_email_fetch(
+                        email_connection,
+                        days_back=settings_obj.days_back,
+                        unread_only=settings_obj.unread_only,
+                        max_items=settings_obj.max_items,
+                    )
+                except Exception as exc:
+                    email_connection.status = "error"
+                    email_connection.last_error = str(exc)[:500]
+                    result["errors"].append(
+                        f"E-Mail-Run fehlgeschlagen: {str(exc)[:200]}"
+                    )
+
+        if settings_obj.calendar_enabled:
+            calendar_connection = await self.get_personal_connection_for_type(
+                tenant_id, user_id, "calendar"
+            )
+            if not calendar_connection:
+                result["errors"].append("Keine verbundene Kalender-Integration gefunden")
+            else:
+                try:
+                    result["sections"]["calendar"] = (
+                        await self._run_personal_calendar_fetch(
+                            calendar_connection,
+                            days_back=settings_obj.days_back,
+                            max_items=settings_obj.max_items,
+                        )
+                    )
+                except Exception as exc:
+                    calendar_connection.status = "error"
+                    calendar_connection.last_error = str(exc)[:500]
+                    result["errors"].append(
+                        f"Kalender-Run fehlgeschlagen: {str(exc)[:200]}"
+                    )
+
+        result["briefing_text"], result["briefing_generated_by"] = (
+            await self._build_personal_briefing_text(tenant_id, result)
+        )
+        return result
+
+    async def _build_personal_briefing_text(
+        self, tenant_id: str, result: dict
+    ) -> tuple[str, str]:
+        """Build a short textual personal briefing, preferably via LLM."""
+        sections = result.get("sections", {})
+        if not sections:
+            return (
+                "Keine Inhalte fuer das persoenliche Briefing gefunden.",
+                "fallback",
+            )
+
+        try:
+            from app.models.tenant import Tenant
+
+            tenant_row = (
+                await self.db.execute(select(Tenant).where(Tenant.tenant_id == tenant_id))
+            ).scalar_one_or_none()
+            tenant_config = TenantService.merge_effective_config(
+                tenant_id, tenant_row.config or {} if tenant_row else {}
+            )
+            text = await self._generate_personal_briefing_text_llm(
+                tenant_config=tenant_config,
+                result=result,
+            )
+            return text, "llm"
+        except Exception as exc:
+            logger.warning(
+                "LLM-Personal-Briefing fehlgeschlagen, nutze Fallback: {err}",
+                err=str(exc),
+            )
+            return self._generate_personal_briefing_text_fallback(result), "fallback"
+
+    async def _generate_personal_briefing_text_llm(
+        self, *, tenant_config: dict, result: dict
+    ) -> str:
+        """Generate a concise textual personal briefing via configured LLM."""
+        from app.services.llm import LLMService
+
+        email_items = result.get("sections", {}).get("email", {}).get("items", [])
+        calendar_items = result.get("sections", {}).get("calendar", {}).get("items", [])
+        provider, model = self._resolve_briefing_llm_config(tenant_config)
+
+        def _format_items(items: list[dict], kind: str) -> str:
+            lines = []
+            for item in items[:8]:
+                summary = (item.get("summary") or "").strip().replace("\r", " ").replace("\n", " ")
+                line = (
+                    f"- {kind}: {item.get('title', 'Ohne Titel')} | "
+                    f"Zeit: {item.get('found_at', '-')}"
+                )
+                if kind == "E-Mail":
+                    line += f" | Von: {item.get('metadata', {}).get('from', '-')}"
+                if summary:
+                    line += f" | Kontext: {summary[:280]}"
+                lines.append(line)
+            return "\n".join(lines)
+
+        prompt = (
+            "Erstelle aus den folgenden persoenlichen E-Mails und Kalenderterminen "
+            "eine kurze, klare deutschsprachige Text-Zusammenfassung fuer ein Morgenbriefing.\n\n"
+            "Anforderungen:\n"
+            "- maximal 220 Woerter\n"
+            "- nur Klartext, kein Markdown\n"
+            "- beginne mit einer 1-2 saetzigen Kurzlage\n"
+            "- danach kurze Abschnitte fuer wichtige E-Mails und anstehende Termine\n"
+            "- fokussiere auf Relevanz und moeglichen Handlungsbedarf\n"
+            "- erfinde nichts\n\n"
+            f"E-Mails ({len(email_items)}):\n{_format_items(email_items, 'E-Mail') or '- keine'}\n\n"
+            f"Kalender ({len(calendar_items)}):\n{_format_items(calendar_items, 'Termin') or '- keine'}\n"
+        )
+
+        llm = LLMService(tenant_config)
+        text = await llm.generate_with_config(
+            provider=provider,
+            model=model,
+            system_prompt=(
+                "Du bist ein praeziser Assistent fuer persoenliche Briefings. "
+                "Verdichte Mail- und Kalenderdaten in knappe, nuetzliche Handlungshinweise."
+            ),
+            user_prompt=prompt,
+            temperature=0.2,
+            max_tokens=500,
+        )
+        return (text or "").strip()
+
+    def _generate_personal_briefing_text_fallback(self, result: dict) -> str:
+        """Build a deterministic text summary when no LLM is available."""
+        email_items = result.get("sections", {}).get("email", {}).get("items", [])
+        calendar_items = result.get("sections", {}).get("calendar", {}).get("items", [])
+
+        parts = [
+            f"Kurzer Ueberblick: {len(email_items)} relevante E-Mails und {len(calendar_items)} Termine gefunden."
+        ]
+
+        if email_items:
+            top_mails = []
+            for item in email_items[:3]:
+                sender = item.get("metadata", {}).get("from")
+                title = item.get("title", "Ohne Titel")
+                top_mails.append(f"{title} ({sender})" if sender else title)
+            parts.append("Wichtige E-Mails: " + "; ".join(top_mails) + ".")
+
+        if calendar_items:
+            top_events = []
+            for item in calendar_items[:3]:
+                title = item.get("title", "Ohne Titel")
+                found_at = item.get("found_at", "")
+                if isinstance(found_at, datetime):
+                    found_at_text = found_at.strftime("%H:%M")
+                else:
+                    found_at_text = (
+                        found_at[11:16] if isinstance(found_at, str) and len(found_at) >= 16 else str(found_at)
+                    )
+                top_events.append(
+                    f"{title} um {found_at_text}"
+                )
+            parts.append("Naechste Termine: " + "; ".join(top_events) + ".")
+
+        if result.get("errors"):
+            parts.append("Hinweise: " + "; ".join(result["errors"]) + ".")
+
+        return "\n\n".join(parts).strip()
+
+    async def _run_personal_email_fetch(
+        self,
+        connection: BriefingAccountConnection,
+        *,
+        days_back: int,
+        unread_only: bool,
+        max_items: int,
+    ) -> dict:
+        """Fetch and normalize personal emails for briefing use."""
+        access_token = await self._ensure_personal_access_token(connection)
+        items = await fetch_emails(
+            access_token,
+            connection.provider,
+            days_back,
+        )
+        if unread_only:
+            items = [item for item in items if item.get("metadata", {}).get("is_unread", True)]
+        items = items[:max_items]
+        connection.last_synced_at = datetime.utcnow()
+        connection.last_error = None
+        connection.status = "connected"
+        await self.db.flush()
+        return {
+            "connection_id": connection.id,
+            "provider": connection.provider,
+            "connected_email": connection.connected_email,
+            "items_count": len(items),
+            "items": items,
+        }
+
+    async def _run_personal_calendar_fetch(
+        self,
+        connection: BriefingAccountConnection,
+        *,
+        days_back: int,
+        max_items: int,
+    ) -> dict:
+        """Fetch and normalize personal calendar events for briefing use."""
+        access_token = await self._ensure_personal_access_token(connection)
+        items = await fetch_calendar(access_token, connection.provider, days_back)
+        items = items[:max_items]
+        connection.last_synced_at = datetime.utcnow()
+        connection.last_error = None
+        connection.status = "connected"
+        await self.db.flush()
+        return {
+            "connection_id": connection.id,
+            "provider": connection.provider,
+            "connected_email": connection.connected_email,
+            "items_count": len(items),
+            "items": items,
+        }
+
+    async def _ensure_personal_access_token(
+        self,
+        connection: BriefingAccountConnection,
+    ) -> str:
+        """Return a valid access token for a personal connection, refreshing if needed."""
+        if not connection.encrypted_token:
+            raise ValidationError("Persoenliche Verbindung hat kein gespeichertes Token")
+
+        token_data = decrypt_token(connection.encrypted_token)
+        access_token = token_data["access_token"]
+        expires_at = token_data.get("expires_at", 0)
+
+        if datetime.utcnow().timestamp() < expires_at - 300:
+            return access_token
+
+        refresh_token = token_data.get("refresh_token")
+        if not refresh_token:
+            connection.status = "error"
+            connection.last_error = "Refresh-Token fehlt"
+            await self.db.flush()
+            raise ValidationError("Refresh-Token fehlt fuer die persoenliche Verbindung")
+
+        try:
+            if connection.provider == "microsoft":
+                refreshed = await refresh_microsoft_token(refresh_token)
+            else:
+                refreshed = await refresh_google_token(refresh_token)
+        except Exception as exc:
+            connection.status = "error"
+            connection.last_error = str(exc)[:500]
+            await self.db.flush()
+            raise
+
+        token_data["access_token"] = refreshed["access_token"]
+        token_data["refresh_token"] = refreshed.get("refresh_token", refresh_token)
+        token_data["expires_at"] = datetime.utcnow().timestamp() + refreshed.get(
+            "expires_in", 3600
+        )
+        connection.encrypted_token = encrypt_token(token_data)
+        connection.status = "connected"
+        connection.last_error = None
+        await self.db.flush()
+        return token_data["access_token"]
 
     # --- Finding CRUD ---
 
@@ -1066,33 +1522,29 @@ class BriefingService:
             "Schreibe einen zusammenhaengenden Sprechtext."
         )
 
-        provider = settings.llm_model_briefing
-        if provider == "ollama":
-            return await self._call_ollama(system_prompt, user_prompt)
-
+        provider, model = self._resolve_briefing_llm_config(tenant_config)
         return await llm.generate_with_config(
-            provider="anthropic",
-            model=settings.llm_model_content,
+            provider=provider,
+            model=model,
             system_prompt=system_prompt,
             user_prompt=user_prompt,
             temperature=0.6,
             max_tokens=4096,
         )
 
-    async def _call_ollama(self, system: str, prompt: str) -> str:
-        """Call Ollama via OpenAI-compatible API."""
-        from openai import AsyncOpenAI
-
-        client = AsyncOpenAI(base_url=f"{settings.ollama_url}/v1", api_key="ollama")
-        response = await client.chat.completions.create(
-            model=settings.ollama_model,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": prompt},
-            ],
-            max_tokens=4096,
+    def _resolve_briefing_llm_config(self, tenant_config: dict) -> tuple[str, str]:
+        """Resolve provider/model for briefing text generation from tenant config."""
+        module_config = (
+            tenant_config.get("briefing", {}) if isinstance(tenant_config, dict) else {}
         )
-        return response.choices[0].message.content
+        provider = module_config.get("llm_provider") or settings.llm_model_briefing
+        model_override = (module_config.get("llm_model") or "").strip()
+
+        if provider == "ollama":
+            return "ollama", model_override or settings.ollama_model
+        if provider == "openai":
+            return "openai", model_override or settings.llm_model_analysis
+        return "anthropic", model_override or settings.llm_model_content
 
     async def _save_audio(
         self, tenant_id: str, slug: str, episode_number: int, audio_bytes: bytes

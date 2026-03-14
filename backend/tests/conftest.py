@@ -1,9 +1,11 @@
 """Shared test fixtures."""
 
+import os
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import delete
+from sqlalchemy import delete, inspect
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import Session, sessionmaker
@@ -29,7 +31,8 @@ def _compile_jsonb_sqlite(element, compiler, **kw):
 
 # Use synchronous SQLite behind an async-compatible shim.
 # aiosqlite hangs in this environment, while plain sqlite3 is stable.
-TEST_DATABASE_URL = "sqlite:///./test.db"
+TEST_DB_FILENAME = f"test-{os.getpid()}.db"
+TEST_DATABASE_URL = f"sqlite:///./{TEST_DB_FILENAME}"
 
 test_engine = __import__("sqlalchemy").create_engine(
     TEST_DATABASE_URL,
@@ -40,6 +43,20 @@ test_session_factory = sessionmaker(bind=test_engine, expire_on_commit=False)
 
 # With the synchronous SQLite shim, the full schema is manageable again.
 TEST_TABLES = list(Base.metadata.sorted_tables)
+
+
+def _ensure_test_schema() -> None:
+    """Create the test schema if it does not exist yet."""
+    existing = set(inspect(test_engine).get_table_names())
+    missing = [table for table in TEST_TABLES if table.name not in existing]
+    if missing:
+        Base.metadata.create_all(test_engine, tables=missing, checkfirst=False)
+
+
+def _existing_test_tables():
+    """Return only tables that are present in the SQLite test database."""
+    existing = set(inspect(test_engine).get_table_names())
+    return [table for table in reversed(TEST_TABLES) if table.name in existing]
 
 
 class AsyncSessionShim:
@@ -104,18 +121,21 @@ def anyio_backend():
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def initialize_database():
     """Create the core test schema once for the test session."""
-    Base.metadata.create_all(test_engine, tables=TEST_TABLES, checkfirst=True)
+    _ensure_test_schema()
     yield
     Base.metadata.drop_all(
         test_engine, tables=list(reversed(TEST_TABLES)), checkfirst=True
     )
+    if os.path.exists(TEST_DB_FILENAME):
+        os.remove(TEST_DB_FILENAME)
 
 
 @pytest_asyncio.fixture(autouse=True)
 async def cleanup_database():
     """Clear core test tables between tests without recreating the schema."""
+    _ensure_test_schema()
     with test_engine.begin() as conn:
-        for table in reversed(TEST_TABLES):
+        for table in _existing_test_tables():
             conn.execute(delete(table))
     yield
 

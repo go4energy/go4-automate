@@ -221,6 +221,14 @@ async def fetch_emails(
                         "found_at": datetime.fromisoformat(
                             msg["receivedDateTime"].rstrip("Z")
                         ),
+                        "metadata": {
+                            "is_unread": not bool(msg.get("isRead", False)),
+                            "from": (
+                                ((msg.get("from") or {}).get("emailAddress") or {}).get(
+                                    "address"
+                                )
+                            ),
+                        },
                     }
                 )
             return items
@@ -262,6 +270,10 @@ async def fetch_emails(
                         "found_at": datetime.fromtimestamp(
                             int(msg_data.get("internalDate", "0")) / 1000
                         ),
+                        "metadata": {
+                            "is_unread": "UNREAD" in msg_data.get("labelIds", []),
+                            "from": hdrs.get("From"),
+                        },
                     }
                 )
             return items

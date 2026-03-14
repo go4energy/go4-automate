@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useBriefingStore } from '@/stores/briefing'
 import { useAuthStore } from '@/stores/auth'
@@ -16,6 +16,7 @@ const authStore = useAuthStore()
 const activeTab = computed(() => route.meta?.tab || 'sources')
 
 const tabs = [
+  { key: 'personal', label: 'Mein Briefing', route: '/briefing/personal' },
   { key: 'sources', label: 'Quellen', route: '/briefing/sources' },
   { key: 'findings', label: 'Findings', route: '/briefing/findings' },
   { key: 'channels', label: 'Channels', route: '/briefing/channels' },
@@ -31,12 +32,35 @@ const speakerLanguage = ref('de')
 const speakerDescription = ref('')
 const speakerFile = ref(null)
 const speakerUploading = ref(false)
+const personalForm = ref({
+  email_enabled: false,
+  calendar_enabled: false,
+  unread_only: true,
+  days_back: 1,
+  max_items: 8,
+  timezone: 'Europe/Berlin',
+  delivery_time: '07:00'
+})
+const llmForm = ref({
+  llm_provider: 'ollama',
+  llm_model: ''
+})
+const personalLoaded = ref(false)
 
 onMounted(() => {
   store.fetchChannels()
   store.fetchSources()
   store.fetchFindings()
   store.fetchSpeakers()
+  if (activeTab.value === 'personal') {
+    ensurePersonalData()
+  }
+})
+
+watch(activeTab, async (tab) => {
+  if (tab === 'personal' && !personalLoaded.value) {
+    await ensurePersonalData()
+  }
 })
 
 async function handleDeleteChannel(id) {
@@ -113,6 +137,144 @@ async function handleDeleteSpeaker(id) {
   }
 }
 
+function syncPersonalForm(settings) {
+  if (!settings) return
+  personalForm.value = {
+    email_enabled: settings.email_enabled ?? false,
+    calendar_enabled: settings.calendar_enabled ?? false,
+    unread_only: settings.unread_only ?? true,
+    days_back: settings.days_back ?? 1,
+    max_items: settings.max_items ?? 8,
+    timezone: settings.timezone || 'Europe/Berlin',
+    delivery_time: settings.delivery_time || '07:00'
+  }
+}
+
+async function ensurePersonalData() {
+  try {
+    const tasks = [
+      store.fetchPersonalSettings(),
+      store.fetchPersonalConnections()
+    ]
+    if (authStore.isAdmin) {
+      tasks.push(store.fetchBriefingModuleConfig())
+      tasks.push(store.fetchAvailableOllamaModels())
+    }
+    const [settings, , moduleConfig] = await Promise.all(tasks)
+    syncPersonalForm(settings)
+    syncLlmForm(moduleConfig || store.briefingModuleConfig)
+    personalLoaded.value = true
+  } catch {
+    // error handled by store
+  }
+}
+
+async function handleSavePersonalSettings() {
+  try {
+    const data = await store.savePersonalSettings({ ...personalForm.value })
+    syncPersonalForm(data)
+  } catch {
+    // error handled by store
+  }
+}
+
+function syncLlmForm(moduleConfig) {
+  const config = moduleConfig?.config || {}
+  llmForm.value = {
+    llm_provider: config.llm_provider || 'ollama',
+    llm_model: config.llm_model || ''
+  }
+}
+
+async function handleSaveBriefingLlmConfig() {
+  try {
+    const data = await store.saveBriefingModuleConfig({ ...llmForm.value })
+    syncLlmForm(data)
+  } catch {
+    // error handled by store
+  }
+}
+
+async function refreshOllamaModels() {
+  try {
+    await store.fetchAvailableOllamaModels()
+  } catch {
+    // error handled by store
+  }
+}
+
+function providerHint(provider) {
+  if (provider === 'ollama') {
+    return 'Nutzen Sie ein lokal installiertes Ollama-Modell, z. B. mistral oder llama3.2.'
+  }
+  if (provider === 'openai') {
+    return 'Verwendet die global hinterlegte OpenAI-API-Konfiguration.'
+  }
+  if (provider === 'anthropic') {
+    return 'Verwendet die global hinterlegte Anthropic-API-Konfiguration.'
+  }
+  return ''
+}
+
+const hasOllamaModels = computed(() => store.ollamaModels.length > 0)
+
+function providerLabel(provider) {
+  if (provider === 'microsoft') return 'Microsoft 365'
+  if (provider === 'google') return 'Google'
+  return provider
+}
+
+function findPersonalConnection(integrationType, provider) {
+  return store.personalConnections.find(
+    (connection) =>
+      connection.integration_type === integrationType && connection.provider === provider
+  )
+}
+
+async function connectPersonal(provider, integrationType) {
+  try {
+    const { auth_url: authUrl } = await store.startPersonalOAuth(provider, integrationType)
+    window.open(authUrl, 'personal-oauth', 'width=600,height=700')
+  } catch {
+    // error handled by store
+  }
+}
+
+async function disconnectPersonal(connection) {
+  if (!confirm('Verbindung wirklich trennen?')) return
+  try {
+    await store.disconnectPersonalAccount(connection.id)
+  } catch {
+    // error handled by store
+  }
+}
+
+async function handleRunPersonalBriefing() {
+  try {
+    await store.runPersonalBriefing()
+  } catch {
+    // error handled by store
+  }
+}
+
+async function onOAuthMessage(event) {
+  if (event.data?.type === 'oauth_success') {
+    await store.fetchPersonalConnections()
+    return
+  }
+  if (event.data?.type === 'oauth_error') {
+    store.error = event.data.error || 'OAuth-Verbindung fehlgeschlagen'
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('message', onOAuthMessage)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('message', onOAuthMessage)
+})
+
 function formatFileSize(bytes) {
   if (!bytes) return '-'
   if (bytes < 1024) return `${bytes} B`
@@ -140,6 +302,13 @@ function formatDate(dateStr) {
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+function formatConnectionStatus(status) {
+  if (status === 'connected') return 'Verbunden'
+  if (status === 'revoked') return 'Getrennt'
+  if (status === 'pending') return 'Ausstehend'
+  return status || '-'
 }
 
 const sourceTypeLabels = {
@@ -229,6 +398,421 @@ const filteredFindings = () => {
           </span>
         </template>
       </nav>
+    </div>
+
+    <!-- Personal Tab -->
+    <div
+      v-if="activeTab === 'personal'"
+      class="mt-6 space-y-6"
+    >
+      <div
+        class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]"
+      >
+        <section class="rounded-xl bg-white p-6 shadow-sm dark:bg-gray-800">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <h2 class="text-lg font-semibold text-go4-secondary dark:text-gray-100">
+                Einstellungen
+              </h2>
+              <p class="mt-1 text-sm text-go4-muted dark:text-gray-400">
+                Definieren Sie, wie Ihr persoenliches Morgenbriefing vorbereitet werden soll.
+              </p>
+            </div>
+            <span
+              v-if="store.personalLoading && !personalLoaded"
+              class="text-sm text-go4-muted dark:text-gray-400"
+            >
+              Laden...
+            </span>
+          </div>
+
+          <form
+            class="mt-6 space-y-6"
+            @submit.prevent="handleSavePersonalSettings"
+          >
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <label class="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+                <div class="flex items-start justify-between gap-4">
+                  <div>
+                    <p class="text-sm font-medium text-go4-secondary dark:text-gray-100">
+                      E-Mail einbeziehen
+                    </p>
+                    <p class="mt-1 text-xs text-go4-muted dark:text-gray-400">
+                      Ungelesene oder aktuelle E-Mails fuer Ihr Briefing beruecksichtigen.
+                    </p>
+                  </div>
+                  <input
+                    v-model="personalForm.email_enabled"
+                    type="checkbox"
+                    class="mt-1 h-4 w-4 rounded border-gray-300 text-go4-primary focus:ring-go4-primary"
+                  >
+                </div>
+              </label>
+
+              <label class="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+                <div class="flex items-start justify-between gap-4">
+                  <div>
+                    <p class="text-sm font-medium text-go4-secondary dark:text-gray-100">
+                      Kalender einbeziehen
+                    </p>
+                    <p class="mt-1 text-xs text-go4-muted dark:text-gray-400">
+                      Bevorstehende Termine in das Morgenbriefing aufnehmen.
+                    </p>
+                  </div>
+                  <input
+                    v-model="personalForm.calendar_enabled"
+                    type="checkbox"
+                    class="mt-1 h-4 w-4 rounded border-gray-300 text-go4-primary focus:ring-go4-primary"
+                  >
+                </div>
+              </label>
+            </div>
+
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <label class="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+                <div class="flex items-start justify-between gap-4">
+                  <div>
+                    <p class="text-sm font-medium text-go4-secondary dark:text-gray-100">
+                      Nur ungelesene E-Mails
+                    </p>
+                    <p class="mt-1 text-xs text-go4-muted dark:text-gray-400">
+                      Filtert das Briefing auf neue Nachrichten.
+                    </p>
+                  </div>
+                  <input
+                    v-model="personalForm.unread_only"
+                    type="checkbox"
+                    class="mt-1 h-4 w-4 rounded border-gray-300 text-go4-primary focus:ring-go4-primary"
+                  >
+                </div>
+              </label>
+
+              <div class="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+                <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">
+                  Versandzeit
+                </label>
+                <input
+                  v-model="personalForm.delivery_time"
+                  type="time"
+                  class="mt-2 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 focus:border-go4-primary focus:ring-1 focus:ring-go4-primary dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+                >
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div>
+                <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">
+                  Rueckblick in Tagen
+                </label>
+                <input
+                  v-model.number="personalForm.days_back"
+                  type="number"
+                  min="1"
+                  max="14"
+                  class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 focus:border-go4-primary focus:ring-1 focus:ring-go4-primary dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+                >
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">
+                  Max. Eintraege
+                </label>
+                <input
+                  v-model.number="personalForm.max_items"
+                  type="number"
+                  min="1"
+                  max="20"
+                  class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 focus:border-go4-primary focus:ring-1 focus:ring-go4-primary dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+                >
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-go4-secondary dark:text-gray-100">
+                  Zeitzone
+                </label>
+                <input
+                  v-model="personalForm.timezone"
+                  type="text"
+                  class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 focus:border-go4-primary focus:ring-1 focus:ring-go4-primary dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+                  placeholder="Europe/Berlin"
+                >
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between gap-3 border-t border-gray-100 pt-4 dark:border-gray-700">
+              <p class="text-xs text-go4-muted dark:text-gray-400">
+                Diese Einstellungen definieren die Basis fuer den spaeteren automatischen Briefing-Run.
+              </p>
+              <button
+                type="submit"
+                :disabled="store.personalSaving"
+                class="rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-go4-primary/90 disabled:opacity-50"
+              >
+                {{ store.personalSaving ? 'Speichert...' : 'Einstellungen speichern' }}
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <section class="rounded-xl bg-white p-6 shadow-sm dark:bg-gray-800">
+          <h2 class="text-lg font-semibold text-go4-secondary dark:text-gray-100">
+            Verbindungsstatus
+          </h2>
+          <p class="mt-1 text-sm text-go4-muted dark:text-gray-400">
+            Verbinden Sie Ihre bevorzugten Konten fuer E-Mail und Kalender.
+          </p>
+
+          <div class="mt-6 space-y-5">
+            <div
+              v-for="integrationType in ['email', 'calendar']"
+              :key="integrationType"
+              class="rounded-lg border border-gray-200 p-4 dark:border-gray-700"
+            >
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <h3 class="text-sm font-semibold uppercase tracking-wider text-go4-secondary dark:text-gray-100">
+                    {{ integrationType === 'email' ? 'E-Mail' : 'Kalender' }}
+                  </h3>
+                  <p class="mt-1 text-xs text-go4-muted dark:text-gray-400">
+                    {{
+                      integrationType === 'email'
+                        ? 'Lesender Zugriff fuer Ihr persoenliches Morgenbriefing.'
+                        : 'Lesender Zugriff auf Ihre anstehenden Termine.'
+                    }}
+                  </p>
+                </div>
+                <span class="text-xs text-go4-muted dark:text-gray-400">
+                  {{ store.personalConnectionsByType[integrationType]?.length || 0 }} Verbindung(en)
+                </span>
+              </div>
+
+              <div class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div
+                  v-for="provider in ['microsoft', 'google']"
+                  :key="provider"
+                  class="rounded-lg bg-gray-50 p-4 dark:bg-gray-900/40"
+                >
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                      <p class="text-sm font-medium text-go4-secondary dark:text-gray-100">
+                        {{ providerLabel(provider) }}
+                      </p>
+                      <p class="mt-1 text-xs text-go4-muted dark:text-gray-400">
+                        {{
+                          findPersonalConnection(integrationType, provider)?.connected_email ||
+                            'Noch keine Verbindung hergestellt'
+                        }}
+                      </p>
+                    </div>
+                    <StatusBadge
+                      :status="findPersonalConnection(integrationType, provider)?.status || 'inactive'"
+                    />
+                  </div>
+
+                  <div class="mt-3 text-xs text-go4-muted dark:text-gray-400">
+                    Status:
+                    {{ formatConnectionStatus(findPersonalConnection(integrationType, provider)?.status) }}
+                  </div>
+                  <div
+                    v-if="findPersonalConnection(integrationType, provider)?.last_error"
+                    class="mt-2 rounded bg-red-50 px-2 py-1 text-xs text-red-700 dark:bg-red-900/20 dark:text-red-400"
+                  >
+                    {{ findPersonalConnection(integrationType, provider).last_error }}
+                  </div>
+
+                  <div class="mt-4 flex items-center gap-2">
+                    <button
+                      class="rounded-lg bg-go4-primary px-3 py-2 text-xs font-medium text-white transition hover:bg-go4-primary/90 disabled:opacity-50"
+                      :disabled="store.personalConnecting === `${provider}:${integrationType}`"
+                      @click="connectPersonal(provider, integrationType)"
+                    >
+                      {{
+                        findPersonalConnection(integrationType, provider)?.status === 'connected'
+                          ? 'Neu verbinden'
+                          : store.personalConnecting === `${provider}:${integrationType}`
+                            ? 'Startet...'
+                            : 'Verbinden'
+                      }}
+                    </button>
+                    <button
+                      v-if="findPersonalConnection(integrationType, provider)"
+                      class="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 transition hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                      @click="disconnectPersonal(findPersonalConnection(integrationType, provider))"
+                    >
+                      Trennen
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section
+          v-if="authStore.isAdmin"
+          class="rounded-xl bg-white p-6 shadow-sm dark:bg-gray-800"
+        >
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <h2 class="text-lg font-semibold text-go4-secondary dark:text-gray-100">
+                LLM-Konfiguration
+              </h2>
+              <p class="mt-1 text-sm text-go4-muted dark:text-gray-400">
+                Diese Einstellung gilt fuer das Briefing-Modul. Globale LLM-Settings bleiben nur Fallback.
+              </p>
+            </div>
+            <span
+              class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600 dark:bg-gray-900/40 dark:text-gray-300"
+            >
+              Admin
+            </span>
+          </div>
+
+          <div class="mt-5 grid gap-4 md:grid-cols-2">
+            <div>
+              <label class="mb-2 block text-sm font-medium text-go4-secondary dark:text-gray-100">
+                Provider
+              </label>
+              <select
+                v-model="llmForm.llm_provider"
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+              >
+                <option value="ollama">
+                  Ollama (lokal)
+                </option>
+                <option value="openai">
+                  OpenAI (extern)
+                </option>
+                <option value="anthropic">
+                  Anthropic (extern)
+                </option>
+              </select>
+            </div>
+
+            <div>
+              <label class="mb-2 block text-sm font-medium text-go4-secondary dark:text-gray-100">
+                Modellname
+              </label>
+              <select
+                v-if="llmForm.llm_provider === 'ollama' && hasOllamaModels"
+                v-model="llmForm.llm_model"
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+              >
+                <option value="">
+                  Bitte Modell waehlen
+                </option>
+                <option
+                  v-for="model in store.ollamaModels"
+                  :key="model"
+                  :value="model"
+                >
+                  {{ model }}
+                </option>
+              </select>
+              <input
+                v-else
+                v-model="llmForm.llm_model"
+                type="text"
+                placeholder="z. B. mistral oder gpt-4o-mini"
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+              >
+              <p
+                v-if="llmForm.llm_provider === 'ollama'"
+                class="mt-2 text-xs text-go4-muted dark:text-gray-400"
+              >
+                {{
+                  store.ollamaModelsLoading
+                    ? 'Ollama-Modelle werden geladen...'
+                    : hasOllamaModels
+                      ? `${store.ollamaModels.length} lokale Modelle verfuegbar`
+                      : 'Keine lokale Modellliste verfuegbar, Modellname kann manuell gesetzt werden.'
+                }}
+              </p>
+            </div>
+          </div>
+
+          <p class="mt-3 text-xs text-go4-muted dark:text-gray-400">
+            {{ providerHint(llmForm.llm_provider) }}
+          </p>
+
+          <div class="mt-5 flex items-center gap-3">
+            <button
+              class="rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-go4-primary/90 disabled:opacity-50"
+              :disabled="store.briefingConfigLoading || store.briefingConfigSaving"
+              @click="handleSaveBriefingLlmConfig"
+            >
+              {{
+                store.briefingConfigSaving
+                  ? 'Speichert...'
+                  : store.briefingConfigLoading
+                    ? 'Laedt...'
+                    : 'LLM-Konfiguration speichern'
+              }}
+            </button>
+            <span
+              v-if="store.briefingModuleConfig?.config"
+              class="text-xs text-go4-muted dark:text-gray-400"
+            >
+              Aktiv: {{ store.briefingModuleConfig.config.llm_provider || 'ollama' }}
+              <template v-if="store.briefingModuleConfig.config.llm_model">
+                / {{ store.briefingModuleConfig.config.llm_model }}
+              </template>
+            </span>
+            <button
+              v-if="llmForm.llm_provider === 'ollama'"
+              class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+              :disabled="store.ollamaModelsLoading"
+              @click="refreshOllamaModels"
+            >
+              {{ store.ollamaModelsLoading ? 'Aktualisiert...' : 'Modelle neu laden' }}
+            </button>
+          </div>
+        </section>
+
+        <section class="rounded-xl bg-white p-6 shadow-sm dark:bg-gray-800">
+          <div class="flex items-center justify-between gap-4">
+            <div>
+              <h2 class="text-lg font-semibold text-go4-secondary dark:text-gray-100">
+                Text-Briefing
+              </h2>
+              <p class="mt-1 text-sm text-go4-muted dark:text-gray-400">
+                Liest verbundene E-Mails und Termine ein und erzeugt daraus eine kurze Zusammenfassung.
+              </p>
+            </div>
+            <button
+              class="rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-go4-primary/90 disabled:opacity-50"
+              :disabled="store.personalRunning"
+              @click="handleRunPersonalBriefing"
+            >
+              {{ store.personalRunning ? 'Laeuft...' : 'Jetzt Briefing erzeugen' }}
+            </button>
+          </div>
+
+          <div
+            v-if="store.personalRunResult"
+            class="mt-5 space-y-4"
+          >
+            <div class="flex flex-wrap gap-3 text-xs text-go4-muted dark:text-gray-400">
+              <span>E-Mails: {{ store.personalRunResult.sections?.email?.items_count || 0 }}</span>
+              <span>Termine: {{ store.personalRunResult.sections?.calendar?.items_count || 0 }}</span>
+              <span>Text via: {{ store.personalRunResult.briefing_generated_by || '-' }}</span>
+            </div>
+
+            <div class="rounded-lg bg-gray-50 p-4 dark:bg-gray-900/40">
+              <p class="whitespace-pre-line text-sm leading-6 text-go4-secondary dark:text-gray-100">
+                {{ store.personalRunResult.briefing_text || 'Noch kein Text-Briefing erzeugt.' }}
+              </p>
+            </div>
+
+            <div
+              v-if="store.personalRunResult.errors?.length"
+              class="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-400"
+            >
+              {{ store.personalRunResult.errors.join(' | ') }}
+            </div>
+          </div>
+        </section>
+      </div>
     </div>
 
     <!-- Sources Tab -->

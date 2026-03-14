@@ -15,6 +15,20 @@ export function getModuleContext(module) {
 }
 
 /**
+ * Get canonical config for a module
+ */
+export function getModuleConfig(module) {
+  return api.get(`/v1/ai/modules/${module}/config`)
+}
+
+/**
+ * Update canonical config for a module
+ */
+export function updateModuleConfig(module, data) {
+  return api.put(`/v1/ai/modules/${module}/config`, data)
+}
+
+/**
  * Update the context for a module
  */
 export function updateModuleContext(module, data) {
@@ -167,7 +181,9 @@ export function renderPrompt(module, slug, extraVars = {}) {
 
 export default {
   getModuleContext,
+  getModuleConfig,
   updateModuleContext,
+  updateModuleConfig,
   setContextVariable,
   deleteContextVariable,
   getModuleParameters,

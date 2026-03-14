@@ -290,3 +290,21 @@ async def test_login_requires_tenant_header(test_tenant):
         )
         assert response.status_code == 400
         assert response.json()["detail"] == "X-Tenant-ID Header fehlt"
+
+
+@pytest.mark.anyio
+async def test_oauth_callbacks_are_exempt_from_tenant_header_requirement(test_tenant):
+    """OAuth callbacks must be reachable without tenant header because providers don't send one."""
+    from httpx import ASGITransport, AsyncClient
+
+    from app.main import app
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(
+        transport=transport, base_url="http://test", follow_redirects=True
+    ) as raw_client:
+        response = await raw_client.get(
+            "/api/v1/briefing/personal/oauth/callback?code=test&state=test"
+        )
+        assert response.status_code != 400
+        assert "X-Tenant-ID Header fehlt" not in response.text

@@ -375,6 +375,59 @@ class BriefingSourceResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+# --- Personal Briefing ---
+
+
+class BriefingPersonalSettingsUpdate(BaseModel):
+    """Update payload for a user's personal morning briefing settings."""
+
+    email_enabled: bool | None = None
+    calendar_enabled: bool | None = None
+    unread_only: bool | None = None
+    days_back: int | None = Field(None, ge=1, le=14)
+    max_items: int | None = Field(None, ge=1, le=20)
+    timezone: str | None = Field(None, max_length=50)
+    delivery_time: str | None = Field(None, pattern=r"^\d{2}:\d{2}$")
+
+
+class BriefingPersonalSettingsResponse(BaseModel):
+    """Stored personal morning briefing settings."""
+
+    id: int
+    tenant_id: str
+    user_id: int
+    email_enabled: bool
+    calendar_enabled: bool
+    unread_only: bool
+    days_back: int
+    max_items: int
+    timezone: str
+    delivery_time: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class BriefingAccountConnectionResponse(BaseModel):
+    """Personal OAuth connection for email or calendar."""
+
+    id: int
+    tenant_id: str
+    user_id: int
+    provider: str
+    integration_type: str
+    connected_email: str | None = None
+    scopes: list[str] = Field(default_factory=list)
+    status: str
+    last_synced_at: datetime | None = None
+    last_error: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # --- Briefing Finding ---
 
 

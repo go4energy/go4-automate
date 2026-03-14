@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import httpx
 from fastapi import (
     APIRouter,
     Depends,
@@ -20,8 +21,11 @@ from app.auth.dependencies import get_current_user
 from app.auth.models import User
 from app.briefing.config_schema import briefing_interface
 from app.briefing.schemas import (
+    BriefingAccountConnectionResponse,
     BriefingFindingResponse,
     BriefingFindingUpdate,
+    BriefingPersonalSettingsResponse,
+    BriefingPersonalSettingsUpdate,
     BriefingRunResponse,
     BriefingSourceCreate,
     BriefingSourceResponse,
@@ -60,6 +64,172 @@ def _user_id_for_create(user: User, org_wide: bool) -> int | None:
     if org_wide and _is_admin(user):
         return None
     return user.id
+
+
+async def _fetch_available_ollama_models() -> list[str]:
+    """Read installed Ollama models from the configured Ollama server."""
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.get(f"{settings.ollama_url}/api/tags")
+            response.raise_for_status()
+    except Exception as exc:
+        logger.warning("Ollama model list could not be loaded: {error}", error=str(exc))
+        return []
+
+    payload = response.json()
+    models = payload.get("models", [])
+    excluded_keywords = (
+        "embed",
+        "embedding",
+        "bge",
+        "mxbai",
+        "vision",
+        "llava",
+        "minicpm-v",
+        "vde",
+    )
+    names = []
+    for item in models:
+        name = item.get("name")
+        if isinstance(name, str) and name:
+            lowered = name.lower()
+            if any(keyword in lowered for keyword in excluded_keywords):
+                continue
+            names.append(name)
+    return sorted(set(names))
+
+
+def _oauth_scope(provider: str, integration_type: str | None = None) -> str:
+    """Return provider scopes for source or personal integrations."""
+    if provider == "microsoft":
+        if integration_type == "email":
+            return "Mail.Read User.Read offline_access"
+        if integration_type == "calendar":
+            return "Calendars.Read User.Read offline_access"
+        return "Calendars.Read Mail.Read User.Read offline_access"
+
+    if integration_type == "email":
+        return "https://www.googleapis.com/auth/gmail.readonly openid email"
+    if integration_type == "calendar":
+        return "https://www.googleapis.com/auth/calendar.readonly openid email"
+    return (
+        "https://www.googleapis.com/auth/calendar.readonly "
+        "https://www.googleapis.com/auth/gmail.readonly "
+        "openid email"
+    )
+
+
+def _build_oauth_auth_url(
+    provider: str,
+    state: str,
+    callback_url: str,
+    integration_type: str | None = None,
+) -> str:
+    """Build the provider-specific OAuth authorization URL."""
+    from urllib.parse import quote, urlencode
+
+    scope = _oauth_scope(provider, integration_type)
+
+    if provider == "microsoft":
+        tid = settings.microsoft_tenant_id or "common"
+        params = urlencode(
+            {
+                "client_id": settings.microsoft_client_id,
+                "response_type": "code",
+                "redirect_uri": callback_url,
+                "scope": scope,
+                "state": state,
+            },
+            quote_via=quote,
+        )
+        return f"https://login.microsoftonline.com/{tid}/oauth2/v2.0/authorize?{params}"
+
+    params = urlencode(
+        {
+            "client_id": settings.google_client_id,
+            "response_type": "code",
+            "redirect_uri": callback_url,
+            "scope": scope,
+            "access_type": "offline",
+            "prompt": "consent",
+            "state": state,
+        },
+        quote_via=quote,
+    )
+    return f"https://accounts.google.com/o/oauth2/v2/auth?{params}"
+
+
+async def _exchange_oauth_code(
+    code: str,
+    provider: str,
+    callback_url: str,
+    integration_type: str | None = None,
+) -> dict:
+    """Exchange an OAuth code for access and refresh tokens."""
+    import httpx
+
+    scope = _oauth_scope(provider, integration_type)
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        if provider == "microsoft":
+            tid = settings.microsoft_tenant_id or "common"
+            response = await client.post(
+                f"https://login.microsoftonline.com/{tid}/oauth2/v2.0/token",
+                data={
+                    "grant_type": "authorization_code",
+                    "client_id": settings.microsoft_client_id,
+                    "client_secret": settings.microsoft_client_secret,
+                    "code": code,
+                    "redirect_uri": callback_url,
+                    "scope": scope,
+                },
+            )
+        else:
+            response = await client.post(
+                "https://oauth2.googleapis.com/token",
+                data={
+                    "grant_type": "authorization_code",
+                    "client_id": settings.google_client_id,
+                    "client_secret": settings.google_client_secret,
+                    "code": code,
+                    "redirect_uri": callback_url,
+                },
+            )
+
+        response.raise_for_status()
+        return response.json()
+
+
+async def _fetch_oauth_email(access_token: str, provider: str) -> str:
+    """Fetch the primary email address for the connected account."""
+    import httpx
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        if provider == "microsoft":
+            response = await client.get(
+                "https://graph.microsoft.com/v1.0/me",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            response.raise_for_status()
+            me = response.json()
+            return me.get("mail") or me.get("userPrincipalName", "")
+
+        response = await client.get(
+            "https://www.googleapis.com/oauth2/v2/userinfo",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        response.raise_for_status()
+        return response.json().get("email", "")
+
+
+def _extract_token_scopes(tokens: dict) -> list[str]:
+    """Normalize returned scopes from OAuth providers."""
+    scope = tokens.get("scope")
+    if isinstance(scope, str):
+        return [item for item in scope.split() if item]
+    if isinstance(scope, list):
+        return [str(item) for item in scope if item]
+    return []
 
 
 # --- Channels ---
@@ -433,6 +603,228 @@ async def run_single_source(
         raise HTTPException(status_code=e.status_code, detail=e.message) from e
     except Exception as e:
         logger.exception("Unerwarteter Fehler in run_single_source")
+        raise HTTPException(status_code=500, detail="Interner Serverfehler") from e
+
+
+# --- Personal Briefing ---
+
+
+@router.get(
+    "/personal/settings", response_model=BriefingPersonalSettingsResponse
+)
+async def get_personal_settings(
+    user: User = Depends(get_current_user),
+    tenant_id: str = Depends(get_current_tenant_id),
+    db: AsyncSession = Depends(get_db),
+) -> BriefingPersonalSettingsResponse:
+    """Return the user's personal morning briefing settings."""
+    try:
+        service = BriefingService(db)
+        return await service.get_personal_settings(tenant_id, user.id)
+    except AppError as e:
+        logger.error("AppError: {msg}", msg=e.message)
+        raise HTTPException(status_code=e.status_code, detail=e.message) from e
+    except Exception as e:
+        logger.exception("Unerwarteter Fehler in get_personal_settings")
+        raise HTTPException(status_code=500, detail="Interner Serverfehler") from e
+
+
+@router.put(
+    "/personal/settings", response_model=BriefingPersonalSettingsResponse
+)
+async def update_personal_settings(
+    data: BriefingPersonalSettingsUpdate,
+    user: User = Depends(get_current_user),
+    tenant_id: str = Depends(get_current_tenant_id),
+    db: AsyncSession = Depends(get_db),
+) -> BriefingPersonalSettingsResponse:
+    """Update the user's personal morning briefing settings."""
+    try:
+        service = BriefingService(db)
+        return await service.update_personal_settings(
+            tenant_id,
+            user.id,
+            data.model_dump(exclude_unset=True),
+        )
+    except AppError as e:
+        logger.error("AppError: {msg}", msg=e.message)
+        raise HTTPException(status_code=e.status_code, detail=e.message) from e
+    except Exception as e:
+        logger.exception("Unerwarteter Fehler in update_personal_settings")
+        raise HTTPException(status_code=500, detail="Interner Serverfehler") from e
+
+
+@router.get(
+    "/personal/connections", response_model=list[BriefingAccountConnectionResponse]
+)
+async def list_personal_connections(
+    user: User = Depends(get_current_user),
+    tenant_id: str = Depends(get_current_tenant_id),
+    db: AsyncSession = Depends(get_db),
+) -> list[BriefingAccountConnectionResponse]:
+    """List the user's personal email/calendar integrations."""
+    try:
+        service = BriefingService(db)
+        return await service.list_personal_connections(tenant_id, user.id)
+    except AppError as e:
+        logger.error("AppError: {msg}", msg=e.message)
+        raise HTTPException(status_code=e.status_code, detail=e.message) from e
+    except Exception as e:
+        logger.exception("Unerwarteter Fehler in list_personal_connections")
+        raise HTTPException(status_code=500, detail="Interner Serverfehler") from e
+
+
+@router.get("/personal/admin/ollama-models")
+async def list_available_ollama_models(
+    user: User = Depends(get_current_user),
+):
+    """Return locally available Ollama models for admin configuration."""
+    if not _is_admin(user):
+        raise HTTPException(status_code=403, detail="Nur Administratoren haben Zugriff")
+    return {"models": await _fetch_available_ollama_models()}
+
+
+@router.get("/personal/oauth/authorize")
+async def personal_oauth_authorize(
+    provider: str = Query(..., pattern=r"^(microsoft|google)$"),
+    integration_type: str = Query(..., pattern=r"^(email|calendar)$"),
+    user: User = Depends(get_current_user),
+    tenant_id: str = Depends(get_current_tenant_id),
+):
+    """Return the OAuth URL for a personal email or calendar integration."""
+    from app.briefing.oauth import encrypt_token
+
+    try:
+        state = encrypt_token(
+            {
+                "tenant_id": tenant_id,
+                "user_id": user.id,
+                "provider": provider,
+                "integration_type": integration_type,
+                "flow": "personal",
+            }
+        )
+        callback_url = f"{settings.app_url}/api/v1/briefing/personal/oauth/callback"
+        return {
+            "auth_url": _build_oauth_auth_url(
+                provider,
+                state,
+                callback_url,
+                integration_type=integration_type,
+            )
+        }
+    except AppError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message) from e
+    except Exception as e:
+        logger.exception("Unerwarteter Fehler in personal_oauth_authorize")
+        raise HTTPException(status_code=500, detail="Interner Serverfehler") from e
+
+
+@router.get("/personal/oauth/callback")
+async def personal_oauth_callback(
+    code: str = Query(...),
+    state: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    """OAuth callback for personal email/calendar integrations."""
+    from datetime import datetime
+
+    from fastapi.responses import HTMLResponse
+
+    from app.briefing.oauth import decrypt_token, encrypt_token
+
+    try:
+        state_data = decrypt_token(state)
+        tenant_id = state_data["tenant_id"]
+        user_id = state_data["user_id"]
+        provider = state_data["provider"]
+        integration_type = state_data["integration_type"]
+
+        callback_url = f"{settings.app_url}/api/v1/briefing/personal/oauth/callback"
+        tokens = await _exchange_oauth_code(
+            code,
+            provider,
+            callback_url,
+            integration_type=integration_type,
+        )
+        email = await _fetch_oauth_email(tokens["access_token"], provider)
+
+        token_data = {
+            "access_token": tokens["access_token"],
+            "refresh_token": tokens.get("refresh_token", ""),
+            "expires_at": datetime.utcnow().timestamp()
+            + tokens.get("expires_in", 3600),
+        }
+
+        service = BriefingService(db)
+        await service.upsert_personal_connection(
+            tenant_id=tenant_id,
+            user_id=user_id,
+            provider=provider,
+            integration_type=integration_type,
+            encrypted_token=encrypt_token(token_data),
+            connected_email=email,
+            scopes=_extract_token_scopes(tokens),
+        )
+        await db.commit()
+
+        logger.info(
+            "Persoenliche OAuth-Verbindung erstellt: user={user_id} provider={provider} type={integration_type}",
+            user_id=user_id,
+            provider=provider,
+            integration_type=integration_type,
+        )
+        return HTMLResponse(OAUTH_CALLBACK_HTML)
+    except Exception as e:
+        logger.exception("Personal OAuth callback Fehler")
+        error_msg = str(e)[:200]
+        return HTMLResponse(OAUTH_ERROR_HTML % (error_msg, error_msg), status_code=400)
+
+
+@router.post(
+    "/personal/connections/{connection_id}/disconnect",
+    response_model=BriefingAccountConnectionResponse,
+)
+async def disconnect_personal_connection(
+    connection_id: int,
+    user: User = Depends(get_current_user),
+    tenant_id: str = Depends(get_current_tenant_id),
+    db: AsyncSession = Depends(get_db),
+) -> BriefingAccountConnectionResponse:
+    """Disconnect a personal email/calendar integration."""
+    try:
+        service = BriefingService(db)
+        return await service.disconnect_personal_connection(
+            tenant_id,
+            connection_id,
+            current_user_id=user.id,
+            is_admin=_is_admin(user),
+        )
+    except AppError as e:
+        logger.error("AppError: {msg}", msg=e.message)
+        raise HTTPException(status_code=e.status_code, detail=e.message) from e
+    except Exception as e:
+        logger.exception("Unerwarteter Fehler in disconnect_personal_connection")
+        raise HTTPException(status_code=500, detail="Interner Serverfehler") from e
+
+
+@router.post("/personal/run")
+async def run_personal_briefing(
+    user: User = Depends(get_current_user),
+    tenant_id: str = Depends(get_current_tenant_id),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Run a manual personal morning briefing fetch for the current user."""
+    try:
+        service = BriefingService(db)
+        result = await service.run_personal_briefing(tenant_id, user.id)
+        await db.commit()
+        return result
+    except AppError as e:
+        logger.error("AppError: {msg}", msg=e.message)
+        raise HTTPException(status_code=e.status_code, detail=e.message) from e
+    except Exception as e:
+        logger.exception("Unerwarteter Fehler in run_personal_briefing")
         raise HTTPException(status_code=500, detail="Interner Serverfehler") from e
 
 

@@ -30,8 +30,16 @@ import {
   getSpeakers,
   uploadSpeaker,
   deleteSpeaker as apiDeleteSpeaker,
-  disconnectOAuth as apiDisconnectOAuth
+  disconnectOAuth as apiDisconnectOAuth,
+  getPersonalSettings as apiGetPersonalSettings,
+  updatePersonalSettings as apiUpdatePersonalSettings,
+  getPersonalConnections as apiGetPersonalConnections,
+  getAvailableOllamaModels as apiGetAvailableOllamaModels,
+  getPersonalOAuthAuthUrl as apiGetPersonalOAuthAuthUrl,
+  disconnectPersonalConnection as apiDisconnectPersonalConnection,
+  runPersonalBriefing as apiRunPersonalBriefing
 } from '@/api/briefing'
+import { getModuleConfig, updateModuleConfig } from '@/api/ai'
 
 export const useBriefingStore = defineStore('briefing', () => {
   const channels = ref([])
@@ -43,7 +51,19 @@ export const useBriefingStore = defineStore('briefing', () => {
   const findings = ref([])
   const channelSources = ref([])
   const speakers = ref([])
+  const personalSettings = ref(null)
+  const personalConnections = ref([])
+  const personalRunResult = ref(null)
+  const briefingModuleConfig = ref(null)
+  const ollamaModels = ref([])
   const speakersLoading = ref(false)
+  const personalLoading = ref(false)
+  const personalSaving = ref(false)
+  const personalRunning = ref(false)
+  const briefingConfigLoading = ref(false)
+  const briefingConfigSaving = ref(false)
+  const ollamaModelsLoading = ref(false)
+  const personalConnecting = ref('')
   const loading = ref(false)
   const generating = ref(false)
   const sourcesLoading = ref(false)
@@ -66,6 +86,16 @@ export const useBriefingStore = defineStore('briefing', () => {
   const myChannels = computed(() => channels.value.filter((c) => c.user_id !== null))
   const orgSources = computed(() => sources.value.filter((s) => s.user_id === null))
   const mySources = computed(() => sources.value.filter((s) => s.user_id !== null))
+  const personalConnectionsByType = computed(() =>
+    personalConnections.value.reduce(
+      (acc, connection) => {
+        acc[connection.integration_type] ||= []
+        acc[connection.integration_type].push(connection)
+        return acc
+      },
+      { email: [], calendar: [] }
+    )
+  )
 
   // --- Channels ---
 
@@ -423,6 +453,142 @@ export const useBriefingStore = defineStore('briefing', () => {
     }
   }
 
+  // --- Personal Briefing ---
+
+  async function fetchPersonalSettings() {
+    personalLoading.value = true
+    error.value = null
+    try {
+      const { data } = await apiGetPersonalSettings()
+      personalSettings.value = data
+      return data
+    } catch (err) {
+      error.value = err.response?.data?.detail || err.message
+      throw err
+    } finally {
+      personalLoading.value = false
+    }
+  }
+
+  async function savePersonalSettings(payload) {
+    personalSaving.value = true
+    error.value = null
+    try {
+      const { data } = await apiUpdatePersonalSettings(payload)
+      personalSettings.value = data
+      return data
+    } catch (err) {
+      error.value = err.response?.data?.detail || err.message
+      throw err
+    } finally {
+      personalSaving.value = false
+    }
+  }
+
+  async function fetchPersonalConnections() {
+    personalLoading.value = true
+    error.value = null
+    try {
+      const { data } = await apiGetPersonalConnections()
+      personalConnections.value = data
+      return data
+    } catch (err) {
+      error.value = err.response?.data?.detail || err.message
+      throw err
+    } finally {
+      personalLoading.value = false
+    }
+  }
+
+  async function startPersonalOAuth(provider, integrationType) {
+    personalConnecting.value = `${provider}:${integrationType}`
+    error.value = null
+    try {
+      const { data } = await apiGetPersonalOAuthAuthUrl(provider, integrationType)
+      return data
+    } catch (err) {
+      error.value = err.response?.data?.detail || err.message
+      throw err
+    } finally {
+      personalConnecting.value = ''
+    }
+  }
+
+  async function disconnectPersonalAccount(connectionId) {
+    error.value = null
+    try {
+      const { data } = await apiDisconnectPersonalConnection(connectionId)
+      const index = personalConnections.value.findIndex((connection) => connection.id === connectionId)
+      if (index !== -1) {
+        personalConnections.value[index] = data
+      }
+      return data
+    } catch (err) {
+      error.value = err.response?.data?.detail || err.message
+      throw err
+    }
+  }
+
+  async function runPersonalBriefing() {
+    personalRunning.value = true
+    error.value = null
+    try {
+      const { data } = await apiRunPersonalBriefing()
+      personalRunResult.value = data
+      return data
+    } catch (err) {
+      error.value = err.response?.data?.detail || err.message
+      throw err
+    } finally {
+      personalRunning.value = false
+    }
+  }
+
+  async function fetchAvailableOllamaModels() {
+    ollamaModelsLoading.value = true
+    error.value = null
+    try {
+      const { data } = await apiGetAvailableOllamaModels()
+      ollamaModels.value = Array.isArray(data.models) ? data.models : []
+      return ollamaModels.value
+    } catch (err) {
+      error.value = err.response?.data?.detail || err.message
+      throw err
+    } finally {
+      ollamaModelsLoading.value = false
+    }
+  }
+
+  async function fetchBriefingModuleConfig() {
+    briefingConfigLoading.value = true
+    error.value = null
+    try {
+      const { data } = await getModuleConfig('briefing')
+      briefingModuleConfig.value = data
+      return data
+    } catch (err) {
+      error.value = err.response?.data?.detail || err.message
+      throw err
+    } finally {
+      briefingConfigLoading.value = false
+    }
+  }
+
+  async function saveBriefingModuleConfig(payload) {
+    briefingConfigSaving.value = true
+    error.value = null
+    try {
+      const { data } = await updateModuleConfig('briefing', payload)
+      briefingModuleConfig.value = data
+      return data
+    } catch (err) {
+      error.value = err.response?.data?.detail || err.message
+      throw err
+    } finally {
+      briefingConfigSaving.value = false
+    }
+  }
+
   // --- Channel-Source Linking ---
 
   async function fetchChannelSources(channelId) {
@@ -468,7 +634,19 @@ export const useBriefingStore = defineStore('briefing', () => {
     findings,
     channelSources,
     speakers,
+    personalSettings,
+    personalConnections,
+    personalRunResult,
+    briefingModuleConfig,
+    ollamaModels,
     speakersLoading,
+    personalLoading,
+    personalSaving,
+    personalRunning,
+    briefingConfigLoading,
+    briefingConfigSaving,
+    ollamaModelsLoading,
+    personalConnecting,
     loading,
     generating,
     sourcesLoading,
@@ -484,6 +662,7 @@ export const useBriefingStore = defineStore('briefing', () => {
     myChannels,
     orgSources,
     mySources,
+    personalConnectionsByType,
     fetchChannels,
     fetchChannel,
     addChannel,
@@ -508,6 +687,15 @@ export const useBriefingStore = defineStore('briefing', () => {
     editFinding,
     bulkDeleteFindings,
     disconnectSourceOAuth,
+    fetchPersonalSettings,
+    savePersonalSettings,
+    fetchPersonalConnections,
+    startPersonalOAuth,
+    disconnectPersonalAccount,
+    runPersonalBriefing,
+    fetchAvailableOllamaModels,
+    fetchBriefingModuleConfig,
+    saveBriefingModuleConfig,
     fetchChannelSources,
     linkSourceToChannel,
     unlinkSourceFromChannel,

@@ -24,6 +24,7 @@ from app.ai.schemas import (
 )
 from app.ai.service import AISetupService
 from app.database import get_db
+from app.exceptions import AppError
 from app.utils.dependencies import get_current_tenant_id
 
 router = APIRouter(prefix="/ai", tags=["ai"])
@@ -50,6 +51,68 @@ async def get_module_context(
     """Get the context (extracted parameters) for a module."""
     context = await service.get_or_create_module_context(module)
     return context
+
+
+@router.get("/modules/{module}/setup-schema")
+async def get_module_setup_schema(
+    module: str,
+    service: AISetupService = Depends(get_service),
+):
+    """Return unified module metadata for chatbot-driven setup and control."""
+    return await service.get_unified_setup_schema(module)
+
+
+@router.get("/modules/{module}/config")
+async def get_module_config(
+    module: str,
+    service: AISetupService = Depends(get_service),
+):
+    """Read canonical module config via the module interface."""
+    try:
+        return await service.get_module_config(module)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from e
+
+
+@router.put("/modules/{module}/config")
+async def update_module_config(
+    module: str,
+    updates: dict,
+    service: AISetupService = Depends(get_service),
+):
+    """Update canonical module config via the module interface."""
+    try:
+        return await service.update_module_config(module, updates)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from e
+
+
+@router.post("/modules/{module}/actions/{action_key}")
+async def invoke_module_action(
+    module: str,
+    action_key: str,
+    payload: dict | None = None,
+    service: AISetupService = Depends(get_service),
+):
+    """Execute a declared module action for chatbot/admin workflows."""
+    try:
+        return await service.invoke_module_action(module, action_key, payload)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        ) from e
+    except AppError as e:
+        raise HTTPException(
+            status_code=e.status_code,
+            detail=e.message,
+        ) from e
 
 
 @router.put("/modules/{module}/context", response_model=ModuleContextResponse)

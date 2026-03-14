@@ -23,6 +23,7 @@ from app.models.module_context import ModuleContext
 from app.models.module_parameter import ModuleParameter
 from app.models.prompt import Prompt
 from app.services.llm import LLMService
+from app.utils.module_registry import get_manifest, get_module
 
 
 class AISetupService:
@@ -119,6 +120,91 @@ class AISetupService:
         await self.db.commit()
         await self.db.refresh(context)
         return context
+
+    async def get_unified_setup_schema(self, module: str) -> dict:
+        """Return unified module metadata for chatbot-driven setup."""
+        interface = get_module(module)
+        manifest = get_manifest(module) or {}
+        context = await self.get_or_create_module_context(module)
+        parameters = await self.get_module_parameters(module)
+
+        config_schema = None
+        if interface:
+            config_schema = await interface.get_setup_schema(self.db, self.tenant_id)
+
+        onboarding_parameters = []
+        for param in parameters:
+            onboarding_parameters.append(
+                {
+                    "key": param.variable,
+                    "description": param.description,
+                    "value": param.value,
+                    "type": param.var_type,
+                    "required": param.required,
+                    "sort_order": param.sort_order,
+                    "source": "module_parameter",
+                    "editable_by_ai": True,
+                    "editable_by_enduser": False,
+                    "secret": False,
+                    "requires_confirmation": False,
+                    "risk_level": "low",
+                }
+            )
+
+        return {
+            "module": module,
+            "label": manifest.get("label", module.title()),
+            "description": manifest.get("description"),
+            "manifest": {
+                "category": manifest.get("category"),
+                "application": manifest.get("application", False),
+                "has_frontend": manifest.get("has_frontend", False),
+            },
+            "config_schema": config_schema or {
+                "module": module,
+                "parameters": [],
+                "actions": [],
+                "enduser_controls": [],
+                "credentials": [],
+            },
+            "onboarding": {
+                "completed": context.onboarding_completed,
+                "notes": context.onboarding_notes,
+                "context_data": context.context_data,
+                "parameters": onboarding_parameters,
+            },
+        }
+
+    async def get_module_config(self, module: str) -> dict:
+        """Read current module config through the canonical module interface."""
+        interface = get_module(module)
+        if not interface:
+            raise ValueError(f"Module ohne config interface: {module}")
+        return await interface.get_config(self.db, self.tenant_id)
+
+    async def update_module_config(self, module: str, updates: dict) -> dict:
+        """Write module config through the canonical module interface."""
+        interface = get_module(module)
+        if not interface:
+            raise ValueError(f"Module ohne config interface: {module}")
+        return await interface.update_config(self.db, self.tenant_id, updates)
+
+    async def invoke_module_action(
+        self,
+        module: str,
+        action_key: str,
+        payload: dict | None = None,
+    ) -> dict:
+        """Execute a module action through the canonical module interface."""
+        interface = get_module(module)
+        if not interface:
+            raise ValueError(f"Module ohne config interface: {module}")
+        return await interface.execute_action(
+            self.db,
+            self.tenant_id,
+            action_key,
+            payload or {},
+        )
 
     # ═══════════════════════════════════════════════════════════════════════════
     # Module Parameter Operations

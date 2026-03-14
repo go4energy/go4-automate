@@ -1,6 +1,11 @@
 # Codex Context
 
-Stand: 2026-03-12
+Stand: 2026-03-14
+
+Hinweis fuer Wiedereinstieg:
+
+- der aktuellste Uebergabestand fuer den Block `briefing` / AI-Modulsteuerung liegt in
+  - `docs/HANDOFF-2026-03-13-BRIEFING-AI-CONTROL.md`
 
 ## Zielbild
 
@@ -12,6 +17,85 @@ Das Projekt wird in kontrollierten Wellen professionalisiert:
 - belastbare Testbasis fuer weitere Aenderungen
 
 ## Bereits umgesetzt
+
+### Integrations-Architektur fuer Microsoft Graph
+
+- gemeinsames Zielbild fuer provider-agnostische Integrationen festgelegt
+- neues Paket `backend/app/integrations/` angelegt
+  - gemeinsame Typen und Interfaces fuer Mail/Kalender/Versand
+  - Capability-Pruefung im Integration-Layer
+  - Microsoft-Graph-Auth-, Scope- und Client-Bausteine
+- Architektur-Dokument angelegt:
+  - `docs/INTEGRATIONS-ARCHITECTURE.md`
+- Grundsatz festgelegt:
+  - `briefing` bleibt lesend
+  - aktive Mail-Aktionen kommen spaeter in ein separates Mail-/Inbox-Modul
+  - allgemeine Mailboxen fuer CRM/Marketing werden von persoenlichen Verbindungen getrennt
+
+### Modul-Setup fuer Chatbot-Steuerung vereinheitlicht
+
+- `ModuleInterface` kann jetzt ein einheitliches `setup-schema` bereitstellen
+- neue Metadaten auf Modul-Config-Ebene:
+  - `editable_by_ai`
+  - `editable_by_enduser`
+  - `secret`
+  - `requires_confirmation`
+  - `risk_level`
+- `briefing` dient als erster Referenzfall mit:
+  - AI-bearbeitbaren Modul-Parametern
+  - deklarativen Modul-Aktionen
+  - kleinen Enduser-Controls fuer persoenliches Briefing
+- neue AI-Endpunkte in `backend/app/ai/router.py`
+  - `GET /api/v1/ai/modules/{module}/setup-schema`
+  - `GET /api/v1/ai/modules/{module}/config`
+  - `PUT /api/v1/ai/modules/{module}/config`
+  - `POST /api/v1/ai/modules/{module}/actions/{action_key}`
+- Zielbild:
+  - Chatbot arbeitet gegen kanonische Modul-Schemas und Modul-Interfaces
+  - Enduser sieht spaeter nur die wenigen freigegebenen Controls
+- aktueller Sicherheitsstand im AI-Setup-Pfad:
+  - `credentials` werden getrennt von normalen Parametern behandelt
+  - Secret-Werte werden beim Lesen als `***configured***` redaktiert
+  - Credentials mit `source = system_config` werden ueber `TenantService.write_file_updates()` persistiert
+  - `setup-schema` liefert fuer Credentials zusaetzlich `value` und `configured`
+- Dokumentation:
+  - `docs/AI-MODULE-CONTROL.md`
+
+### Briefing und Email Marketing als Referenzfaelle fuer AI-Modulsteuerung
+
+- `briefing`
+  - deklarative Aktionen fuer Quellenlauf, Channel-Generierung und persoenlichen Run
+  - Enduser-Controls fuer persoenliches Mail-/Kalender-Briefing
+  - Credential-Schema fuer Microsoft-/Google-OAuth App-Zugaenge
+  - manueller API-Run ueber `POST /api/v1/briefing/personal/run`
+- `emailmarketing`
+  - deklarative Aktionen fuer Provider-Verifikation und Test-E-Mail
+  - Credential-Schema fuer Provider-Zugaenge
+
+### Briefing: Persoenliches Morgenbriefing Grundgeruest
+
+- im `briefing`-Modul wurde das Backend-Grundgeruest fuer `Mein Briefing` angelegt
+- neue Modelle in `backend/app/briefing/models.py`
+  - `BriefingAccountConnection`
+  - `BriefingPersonalSettings`
+- neue Schemas in `backend/app/briefing/schemas.py`
+  - Personal Settings Request/Response
+  - Account Connection Response
+- neue Service-Methoden in `backend/app/briefing/service.py`
+  - Personal Settings lesen/initialisieren
+  - Personal Settings aktualisieren
+  - Personal Connections listen
+  - Personal Connection upserten
+  - Personal Connection disconnecten
+- neue Endpunkte in `backend/app/briefing/router.py`
+  - `GET/PUT /api/v1/briefing/personal/settings`
+  - `GET /api/v1/briefing/personal/connections`
+  - `GET /api/v1/briefing/personal/oauth/authorize`
+  - `GET /api/v1/briefing/personal/oauth/callback`
+  - `POST /api/v1/briefing/personal/connections/{id}/disconnect`
+- OAuth-Helfer im Router vereinheitlicht fuer Scope-, URL-, Token- und E-Mail-Aufloesung
+- Alembic-Migration angelegt:
+  - `backend/alembic/versions/053_personal_briefing_connections.py`
 
 ### Betrieb und Doku
 
@@ -93,6 +177,19 @@ Die folgenden Tests liefen seriell erfolgreich:
 - `backend/tests/test_auth.py::test_login_requires_tenant_header`
 - `backend/tests/test_setup.py::test_get_setup_status`
 - `backend/tests/test_briefing.py::test_create_channel`
+- `backend/tests/test_briefing.py::test_get_personal_settings_defaults`
+- `backend/tests/test_briefing.py::test_update_personal_settings`
+- `backend/tests/test_briefing.py::test_list_personal_connections_empty`
+- `backend/tests/test_briefing.py::test_personal_oauth_authorize_microsoft_email`
+- `backend/tests/test_briefing.py::test_personal_oauth_callback_creates_connection`
+- `backend/tests/test_briefing.py::test_disconnect_personal_connection`
+- `backend/tests/test_briefing.py::test_oauth_authorize_redirect_microsoft`
+- `backend/tests/test_briefing.py::test_oauth_disconnect`
+
+Im Repo vorhanden, aber im aktuellen Environment nicht erneut ausgefuehrt:
+
+- `backend/tests/test_briefing.py::test_ai_module_setup_schema_redacts_configured_secret`
+- `backend/tests/test_briefing.py::test_ai_module_config_updates_system_credentials_via_tenant_config_path`
 
 ### Wichtige Einschränkung
 
@@ -113,15 +210,24 @@ Pytest-Laeufe gegen dieselbe SQLite-Datei duerfen nicht parallel gestartet werde
 
 ### Danach
 
+- `module_parameters` / `module_context` enger mit den kanonischen Modul-Schemas koppeln
+- Confirmations fuer riskante Aktionen zentralisieren
+- weitere Module an dasselbe Setup-/Action-Muster anbinden
+- allgemeine `integration_connections` und Capabilities modellieren
+- bestehende `briefing`-Personalverbindungen spaeter in den allgemeinen Integration-Layer ueberfuehren
+- Microsoft-Graph-Layer fuer `emailmarketing` wiederverwenden
+- Frontend-Bereich `Mein Briefing` im `briefing`-Modul bauen
+- persoenliche Verbindungen im UI verbinden/trennen und Settings pflegen
+- ad hoc Testlauf und spaeter Scheduler fuer das Morgenbriefing ergaenzen
 - restliche historische Drift weiter bereinigen
 - Config-/Security-Doku vervollstaendigen
 - CI fuer die kleine Pflicht-Suite vorbereiten
 
 ## Empfohlener naechster Schritt
 
-1. Standard-Testbefehl dokumentieren
-2. Pflicht-Suite seriell verifizieren
-3. eigenes Testskript oder CI-Job fuer diese Suite einfuehren
+1. Confirmations fuer riskante Modul-Aktionen zentral modellieren
+2. danach das allgemeine Datenmodell fuer `integration_connections` und Capabilities einfuehren
+3. anschliessend weitere Module an das gehartete Credential-/Setup-Muster anbinden
 
 ## Wichtige Dateipfade
 
@@ -134,5 +240,22 @@ Pytest-Laeufe gegen dieselbe SQLite-Datei duerfen nicht parallel gestartet werde
 - `backend/app/setup/tools.py`
 - `backend/app/main.py`
 - `backend/app/auth/dependencies.py`
+- `backend/app/briefing/models.py`
+- `backend/app/briefing/schemas.py`
+- `backend/app/briefing/service.py`
+- `backend/app/briefing/router.py`
+- `backend/app/briefing/config_schema.py`
+- `backend/app/ai/router.py`
+- `backend/app/ai/service.py`
+- `backend/app/utils/module_interface.py`
+- `backend/app/emailmarketing/config_schema.py`
+- `backend/app/integrations/types.py`
+- `backend/app/integrations/interfaces.py`
+- `backend/app/integrations/service.py`
+- `backend/app/integrations/microsoft_graph/client.py`
+- `backend/alembic/versions/053_personal_briefing_connections.py`
 - `backend/tests/conftest.py`
+- `backend/tests/test_briefing.py`
+- `docs/AI-MODULE-CONTROL.md`
+- `docs/INTEGRATIONS-ARCHITECTURE.md`
 - `pytest.ini`

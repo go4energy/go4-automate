@@ -70,6 +70,8 @@ class LLMService:
         try:
             if provider == "anthropic":
                 return await self._call_anthropic(model_id, system_prompt, prompt)
+            if provider == "ollama":
+                return await self._call_ollama(model_id, system_prompt, prompt)
             return await self._call_openai(model_id, system_prompt, prompt)
         except ExternalServiceError:
             raise
@@ -111,6 +113,21 @@ class LLMService:
         )
         return response.choices[0].message.content
 
+    async def _call_ollama(self, model: str, system: str, prompt: str) -> str:
+        """Call Ollama via OpenAI-compatible API."""
+        from openai import AsyncOpenAI
+
+        client = AsyncOpenAI(base_url=f"{settings.ollama_url}/v1", api_key="ollama")
+        response = await client.chat.completions.create(
+            model=model or settings.ollama_model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=2048,
+        )
+        return response.choices[0].message.content
+
     async def generate_with_config(
         self,
         provider: str,
@@ -130,6 +147,10 @@ class LLMService:
         try:
             if provider == "anthropic":
                 return await self._call_anthropic_with_config(
+                    model, system_prompt, user_prompt, temperature, max_tokens
+                )
+            if provider == "ollama":
+                return await self._call_ollama_with_config(
                     model, system_prompt, user_prompt, temperature, max_tokens
                 )
             return await self._call_openai_with_config(
@@ -164,6 +185,29 @@ class LLMService:
             messages=[{"role": "user", "content": prompt}],
         )
         return response.content[0].text
+
+    async def _call_ollama_with_config(
+        self,
+        model: str,
+        system: str,
+        prompt: str,
+        temperature: float,
+        max_tokens: int,
+    ) -> str:
+        """Call Ollama with explicit config."""
+        from openai import AsyncOpenAI
+
+        client = AsyncOpenAI(base_url=f"{settings.ollama_url}/v1", api_key="ollama")
+        response = await client.chat.completions.create(
+            model=model or settings.ollama_model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        return response.choices[0].message.content
 
     async def _call_openai_with_config(
         self,
@@ -205,6 +249,9 @@ class LLMService:
         try:
             if provider == "anthropic":
                 async for chunk in self._stream_anthropic(system, messages):
+                    yield chunk
+            elif provider == "ollama":
+                async for chunk in self._stream_ollama(system, messages):
                     yield chunk
             else:
                 async for chunk in self._stream_openai(system, messages):
@@ -255,6 +302,24 @@ class LLMService:
             if delta:
                 yield delta
 
+    async def _stream_ollama(
+        self, system: str, messages: list[dict]
+    ) -> AsyncGenerator[str, None]:
+        """Stream from Ollama via OpenAI-compatible API."""
+        from openai import AsyncOpenAI
+
+        client = AsyncOpenAI(base_url=f"{settings.ollama_url}/v1", api_key="ollama")
+        stream = await client.chat.completions.create(
+            model=settings.ollama_model,
+            messages=[{"role": "system", "content": system}, *messages],
+            max_tokens=2048,
+            stream=True,
+        )
+        async for chunk in stream:
+            delta = chunk.choices[0].delta.content
+            if delta:
+                yield delta
+
     async def generate_with_messages(
         self,
         provider: str,
@@ -274,6 +339,10 @@ class LLMService:
         try:
             if provider == "anthropic":
                 return await self._call_anthropic_messages(
+                    model, system_prompt, messages, temperature, max_tokens
+                )
+            if provider == "ollama":
+                return await self._call_ollama_messages(
                     model, system_prompt, messages, temperature, max_tokens
                 )
             return await self._call_openai_messages(
@@ -326,6 +395,26 @@ class LLMService:
         client = AsyncOpenAI(api_key=settings.openai_api_key)
         response = await client.chat.completions.create(
             model=model,
+            messages=[{"role": "system", "content": system}, *messages],
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        return response.choices[0].message.content
+
+    async def _call_ollama_messages(
+        self,
+        model: str,
+        system: str,
+        messages: list[dict],
+        temperature: float,
+        max_tokens: int,
+    ) -> str:
+        """Call Ollama with message history."""
+        from openai import AsyncOpenAI
+
+        client = AsyncOpenAI(base_url=f"{settings.ollama_url}/v1", api_key="ollama")
+        response = await client.chat.completions.create(
+            model=model or settings.ollama_model,
             messages=[{"role": "system", "content": system}, *messages],
             max_tokens=max_tokens,
             temperature=temperature,

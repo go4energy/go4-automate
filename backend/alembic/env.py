@@ -1,6 +1,7 @@
 """Alembic environment configuration for async SQLAlchemy."""
 
 import asyncio
+import importlib
 from logging.config import fileConfig
 from pathlib import Path
 
@@ -10,11 +11,28 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 from app.config import settings
 from app.database import Base
-from app.utils.module_discovery import discover_manifests, register_models
 
-# Auto-discover and register domain module models
-_manifests = discover_manifests(Path(__file__).resolve().parent.parent / "app")
-register_models(_manifests)
+
+def _import_model_modules() -> None:
+    """Import all domain model modules without depending on manifest discovery.
+
+    Alembic only needs tables in ``Base.metadata``. Importing ``__manifest__`` files
+    pulls in avoidable module-level side effects and has caused brittle migration runs.
+    For migrations we can scan ``app/*/models.py`` directly and import only those
+    modules that actually define ORM models.
+    """
+
+    app_dir = Path(__file__).resolve().parent.parent / "app"
+    skip_dirs = {"__pycache__", "utils", "routers", "models", "services"}
+
+    for models_path in app_dir.glob("*/models.py"):
+        module_name = models_path.parent.name
+        if module_name.startswith("_") or module_name in skip_dirs:
+            continue
+        importlib.import_module(f"app.{module_name}.models")
+
+
+_import_model_modules()
 
 # Shared models (no __manifest__.py)
 from app.models.activity_log import ActivityLog  # noqa: E402, F401

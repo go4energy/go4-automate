@@ -1,12 +1,28 @@
 """SQLAlchemy models — auto-discovered from domain modules + explicit shared models."""
 
+import importlib
 from pathlib import Path
 
-from app.utils.module_discovery import discover_manifests, register_models
 
-# Auto-discover and import domain module models (collector, creator, campaigns, crm, briefing, etc.)
-_manifests = discover_manifests(Path(__file__).resolve().parent.parent)
-register_models(_manifests)
+def _import_domain_model_modules() -> None:
+    """Import all domain ``models.py`` modules directly.
+
+    Using the filesystem is more robust here than manifest-driven discovery because
+    model registration should not depend on unrelated manifest/config import side
+    effects.
+    """
+
+    app_dir = Path(__file__).resolve().parent.parent
+    skip_dirs = {"__pycache__", "utils", "routers", "models", "services"}
+
+    for models_path in app_dir.glob("*/models.py"):
+        module_name = models_path.parent.name
+        if module_name.startswith("_") or module_name in skip_dirs:
+            continue
+        importlib.import_module(f"app.{module_name}.models")
+
+
+_import_domain_model_modules()
 
 # Shared models (no __manifest__.py, live in app/models/)
 from app.models.activity_log import ActivityLog  # noqa: E402

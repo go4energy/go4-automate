@@ -3,6 +3,11 @@
 from unittest.mock import patch
 
 import pytest
+import pytest_asyncio
+from sqlalchemy import select
+
+from app.config import settings
+from app.services.tenant import TenantService
 
 HEADERS = {"X-Tenant-ID": "test-tenant"}
 
@@ -64,6 +69,37 @@ async def _create_auth_user(client, email="user@test.de", role="user"):
 def _user_headers(token):
     """Build request headers for a JWT-authenticated user."""
     return {**HEADERS, "Authorization": f"Bearer {token}"}
+
+
+@pytest_asyncio.fixture
+async def personal_user(db_session, test_tenant):
+    """Create a lightweight platform user and bypass auth for personal briefing tests."""
+    from app.auth.dependencies import get_current_user
+    from app.auth.models import User
+    from app.main import app
+
+    user = User(
+        tenant_id="test-tenant",
+        email="personal-briefing@test.de",
+        password_hash="test-hash",
+        display_name="Personal Briefing User",
+        role="admin",
+        active=True,
+    )
+    db_session.add(user)
+    await db_session.flush()
+    await db_session.refresh(user)
+    await db_session.commit()
+    db_session.expunge_all()
+
+    async def _override_current_user():
+        return user
+
+    app.dependency_overrides[get_current_user] = _override_current_user
+    try:
+        yield user
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
 
 
 # --- Channel CRUD ---
@@ -615,6 +651,364 @@ async def test_user_cannot_delete_org_source(client, test_tenant):
         f"/api/v1/briefing/sources/{source_id}", headers=headers
     )
     assert response.status_code == 403
+
+
+# --- Personal Briefing ---
+
+
+@pytest.mark.anyio
+async def test_get_personal_settings_defaults(client, personal_user):
+    """GET /personal/settings should create and return default settings."""
+    response = await client.get("/api/v1/briefing/personal/settings", headers=HEADERS)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["tenant_id"] == "test-tenant"
+    assert data["user_id"] == personal_user.id
+    assert data["email_enabled"] is False
+    assert data["calendar_enabled"] is False
+    assert data["unread_only"] is True
+    assert data["days_back"] == 1
+    assert data["max_items"] == 8
+
+
+@pytest.mark.anyio
+async def test_update_personal_settings(client, personal_user):
+    """PUT /personal/settings should update stored personal settings."""
+    response = await client.put(
+        "/api/v1/briefing/personal/settings",
+        json={
+            "email_enabled": True,
+            "calendar_enabled": True,
+            "days_back": 2,
+            "max_items": 6,
+            "delivery_time": "06:30",
+        },
+        headers=HEADERS,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["email_enabled"] is True
+    assert data["calendar_enabled"] is True
+    assert data["days_back"] == 2
+    assert data["max_items"] == 6
+    assert data["delivery_time"] == "06:30"
+
+
+@pytest.mark.anyio
+async def test_list_personal_connections_empty(client, personal_user):
+    """GET /personal/connections should return an empty list initially."""
+    response = await client.get(
+        "/api/v1/briefing/personal/connections",
+        headers=HEADERS,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+@pytest.mark.anyio
+async def test_personal_oauth_authorize_microsoft_email(client, personal_user):
+    """GET /personal/oauth/authorize should return a provider auth URL."""
+    response = await client.get(
+        "/api/v1/briefing/personal/oauth/authorize"
+        "?provider=microsoft&integration_type=email",
+        headers=HEADERS,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "auth_url" in data
+    assert "login.microsoftonline.com" in data["auth_url"]
+    assert "Mail.Read" in data["auth_url"]
+
+
+@pytest.mark.anyio
+async def test_personal_oauth_callback_creates_connection(client, personal_user):
+    """GET /personal/oauth/callback should store a personal connection."""
+    from app.briefing.oauth import encrypt_token
+
+    state = encrypt_token(
+        {
+            "tenant_id": "test-tenant",
+            "user_id": personal_user.id,
+            "provider": "google",
+            "integration_type": "calendar",
+            "flow": "personal",
+        }
+    )
+
+    with (
+        patch(
+            "app.briefing.router._exchange_oauth_code",
+            return_value={
+                "access_token": "access-123",
+                "refresh_token": "refresh-123",
+                "expires_in": 3600,
+                "scope": "https://www.googleapis.com/auth/calendar.readonly openid email",
+            },
+        ),
+        patch(
+            "app.briefing.router._fetch_oauth_email",
+            return_value="calendar@test.de",
+        ),
+    ):
+        response = await client.get(
+            f"/api/v1/briefing/personal/oauth/callback?code=fake-code&state={state}"
+        )
+
+    assert response.status_code == 200
+    assert "Verbindung erfolgreich" in response.text
+
+    list_response = await client.get(
+        "/api/v1/briefing/personal/connections",
+        headers=HEADERS,
+    )
+    assert list_response.status_code == 200
+    data = list_response.json()
+    assert len(data) == 1
+    assert data[0]["provider"] == "google"
+    assert data[0]["integration_type"] == "calendar"
+    assert data[0]["connected_email"] == "calendar@test.de"
+    assert data[0]["status"] == "connected"
+
+
+@pytest.mark.anyio
+async def test_disconnect_personal_connection(client, personal_user):
+    """POST /personal/connections/{id}/disconnect should revoke the connection."""
+    from app.briefing.oauth import encrypt_token
+
+    state = encrypt_token(
+        {
+            "tenant_id": "test-tenant",
+            "user_id": personal_user.id,
+            "provider": "microsoft",
+            "integration_type": "email",
+            "flow": "personal",
+        }
+    )
+
+    with (
+        patch(
+            "app.briefing.router._exchange_oauth_code",
+            return_value={
+                "access_token": "access-456",
+                "refresh_token": "refresh-456",
+                "expires_in": 3600,
+                "scope": "Mail.Read User.Read offline_access",
+            },
+        ),
+        patch(
+            "app.briefing.router._fetch_oauth_email",
+            return_value="mail@test.de",
+        ),
+    ):
+        await client.get(
+            f"/api/v1/briefing/personal/oauth/callback?code=fake-code&state={state}"
+        )
+
+    connections_response = await client.get(
+        "/api/v1/briefing/personal/connections",
+        headers=HEADERS,
+    )
+    connection_id = connections_response.json()[0]["id"]
+
+    response = await client.post(
+        f"/api/v1/briefing/personal/connections/{connection_id}/disconnect",
+        headers=HEADERS,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == connection_id
+    assert data["status"] == "revoked"
+
+
+@pytest.mark.anyio
+async def test_run_personal_briefing(client, personal_user):
+    """POST /personal/run should fetch personal email and calendar items."""
+    from app.briefing.oauth import encrypt_token
+    from app.briefing.service import BriefingService
+    from app.database import SessionLocal
+
+    async with SessionLocal() as db:
+        service = BriefingService(db)
+        await service.update_personal_settings(
+            "test-tenant",
+            personal_user.id,
+            {
+                "email_enabled": True,
+                "calendar_enabled": True,
+                "days_back": 2,
+                "max_items": 3,
+            },
+        )
+        await service.upsert_personal_connection(
+            tenant_id="test-tenant",
+            user_id=personal_user.id,
+            provider="microsoft",
+            integration_type="email",
+            encrypted_token=encrypt_token(
+                {
+                    "access_token": "email-token",
+                    "refresh_token": "email-refresh",
+                    "expires_at": 9999999999,
+                }
+            ),
+            connected_email="mail@test.de",
+            scopes=["Mail.Read"],
+        )
+        await service.upsert_personal_connection(
+            tenant_id="test-tenant",
+            user_id=personal_user.id,
+            provider="google",
+            integration_type="calendar",
+            encrypted_token=encrypt_token(
+                {
+                    "access_token": "calendar-token",
+                    "refresh_token": "calendar-refresh",
+                    "expires_at": 9999999999,
+                }
+            ),
+            connected_email="calendar@test.de",
+            scopes=["Calendars.Read"],
+        )
+        await db.commit()
+
+    with (
+        patch(
+            "app.briefing.service.fetch_emails",
+            return_value=[
+                {
+                    "title": "Unread message",
+                    "summary": "Bitte prüfen",
+                    "url": "https://mail.test/1",
+                    "found_at": "2026-03-13T07:00:00",
+                    "metadata": {"is_unread": True},
+                },
+                {
+                    "title": "Read message",
+                    "summary": "Schon gelesen",
+                    "url": "https://mail.test/2",
+                    "found_at": "2026-03-13T06:00:00",
+                    "metadata": {"is_unread": False},
+                },
+            ],
+        ),
+        patch(
+            "app.briefing.service.fetch_calendar",
+            return_value=[
+                {
+                    "title": "Daily Standup",
+                    "summary": "Team meeting",
+                    "url": "https://calendar.test/1",
+                    "found_at": "2026-03-13T09:00:00",
+                }
+            ],
+        ),
+    ):
+        response = await client.post(
+            "/api/v1/briefing/personal/run",
+            headers=HEADERS,
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["user_id"] == personal_user.id
+    assert data["sections"]["email"]["items_count"] == 1
+    assert data["sections"]["calendar"]["items_count"] == 1
+    assert data["errors"] == []
+
+
+@pytest.mark.anyio
+async def test_ai_module_setup_schema_briefing(client, personal_user):
+    """GET /ai/modules/briefing/setup-schema should expose config, actions and enduser controls."""
+    response = await client.get(
+        "/api/v1/ai/modules/briefing/setup-schema",
+        headers=HEADERS,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["module"] == "briefing"
+    assert "config_schema" in data
+    assert any(
+        item["key"] == "run_personal_briefing"
+        for item in data["config_schema"]["actions"]
+    )
+    assert any(
+        item["key"] == "email_enabled"
+        for item in data["config_schema"]["enduser_controls"]
+    )
+    assert any(
+        item["key"] == "microsoft_client_secret"
+        and item["secret"] is True
+        for item in data["config_schema"]["credentials"]
+    )
+
+
+@pytest.mark.anyio
+async def test_ai_module_setup_schema_redacts_configured_secret(
+    client, personal_user, monkeypatch, tmp_path
+):
+    """Configured AI credential secrets should only be exposed as redacted placeholders."""
+    TenantService.clear_config_cache()
+    monkeypatch.setattr(settings, "tenant_config_dir", str(tmp_path))
+    (tmp_path / "test-tenant.env").write_text("microsoft_client_secret=top-secret\n")
+
+    response = await client.get(
+        "/api/v1/ai/modules/briefing/setup-schema",
+        headers=HEADERS,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    secret_field = next(
+        item
+        for item in data["config_schema"]["credentials"]
+        if item["key"] == "microsoft_client_secret"
+    )
+    assert secret_field["value"] == "***configured***"
+    assert secret_field["configured"] is True
+
+
+@pytest.mark.anyio
+async def test_ai_module_config_updates_system_credentials_via_tenant_config_path(
+    client, personal_user, db_session, monkeypatch, tmp_path
+):
+    """AI module config updates should persist system credentials via tenant config and redact reads."""
+    TenantService.clear_config_cache()
+    monkeypatch.setattr(settings, "tenant_config_dir", str(tmp_path))
+
+    response = await client.put(
+        "/api/v1/ai/modules/briefing/config",
+        json={
+            "llm_provider": "ollama",
+            "microsoft_client_id": "client-123",
+            "microsoft_client_secret": "top-secret",
+        },
+        headers=HEADERS,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["config"]["llm_provider"] == "ollama"
+    assert data["credentials"]["microsoft_client_id"] == "client-123"
+    assert data["credentials"]["microsoft_client_secret"] == "***configured***"
+
+    from app.models.tenant import Tenant
+
+    tenant = (
+        await db_session.execute(select(Tenant).where(Tenant.tenant_id == "test-tenant"))
+    ).scalar_one()
+    assert tenant.config["briefing"]["llm_provider"] == "ollama"
+    assert tenant.config["microsoft_client_id"] == "client-123"
+    assert tenant.config["microsoft_client_secret"] == "top-secret"
+
+    env_contents = (tmp_path / "test-tenant.env").read_text()
+    assert "microsoft_client_id=client-123" in env_contents
+    assert "microsoft_client_secret=top-secret" in env_contents
 
 
 # --- Speakers (XTTS Voice Cloning) ---

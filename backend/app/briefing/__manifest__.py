@@ -41,6 +41,16 @@ manifest = {
                 },
             },
             {
+                "path": "personal",
+                "name": "briefing-personal",
+                "view": "BriefingView",
+                "meta": {
+                    "title": "Mein Briefing",
+                    "breadcrumb": {"label": "Mein Briefing", "parent": "briefing"},
+                    "tab": "personal",
+                },
+            },
+            {
                 "path": "findings",
                 "name": "briefing-findings",
                 "view": "BriefingView",
