@@ -393,82 +393,72 @@ function statusLabel(status) {
         title="Keine Quellen verbunden"
         description="Verbinde ein Mail- oder Kalenderkonto, um den Assistant zu nutzen."
       />
-      <div v-else class="space-y-3">
+      <div v-else class="space-y-2">
         <div
           v-for="source in store.sources"
           :key="source.id"
-          class="rounded-lg border border-gray-200 bg-white p-4"
+          class="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-2.5"
         >
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <span class="text-2xl">{{ providerIcon(source.connection?.provider) }}</span>
-              <div>
-                <p class="font-medium text-gray-900">
+          <div class="flex items-center gap-3">
+            <span class="text-lg">{{ providerIcon(source.connection?.provider) }}</span>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-medium text-gray-900">
                   {{ source.connection?.mailbox_address || source.connection?.connected_email || 'Unbekannt' }}
-                </p>
-                <p class="text-sm text-gray-500">
-                  {{ providerLabel(source.connection?.provider) }}
-                  <span
-                    v-if="source.connection?.mailbox_address && source.connection?.mailbox_address !== source.connection?.connected_email"
-                    class="ml-1 text-gray-400"
-                  >
-                    (via {{ source.connection.connected_email }})
-                  </span>
-                </p>
+                </span>
+                <span
+                  class="rounded-full px-2 py-0.5 text-xs"
+                  :class="statusClass(source.connection?.status)"
+                >
+                  {{ statusLabel(source.connection?.status) }}
+                </span>
+                <span
+                  v-if="source.briefing_enabled"
+                  class="rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700"
+                >
+                  Briefing
+                </span>
+                <span
+                  v-if="source.voice_enabled"
+                  class="rounded bg-purple-100 px-1.5 py-0.5 text-xs text-purple-700"
+                >
+                  Voice
+                </span>
+                <span
+                  v-if="source.reply_enabled"
+                  class="rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700"
+                >
+                  Reply
+                </span>
+                <span
+                  v-if="source.autopilot_enabled"
+                  class="rounded bg-orange-100 px-1.5 py-0.5 text-xs text-orange-700"
+                >
+                  Autopilot
+                </span>
               </div>
-            </div>
-            <div class="flex items-center gap-3">
-              <span
-                class="rounded-full px-2.5 py-0.5 text-xs font-medium"
-                :class="statusClass(source.connection?.status)"
-              >
-                {{ statusLabel(source.connection?.status) }}
-              </span>
-              <button
-                class="text-sm text-red-600 hover:text-red-800"
-                @click="handleDeleteSource(source.id)"
-              >
-                Entfernen
-              </button>
+              <p class="text-xs text-gray-400">
+                {{ providerLabel(source.connection?.provider) }}
+                <span
+                  v-if="source.connection?.mailbox_address && source.connection?.mailbox_address !== source.connection?.connected_email"
+                >
+                  (via {{ source.connection.connected_email }})
+                </span>
+                <span v-if="source.connection?.last_synced_at">
+                  &middot; Sync: {{ formatDate(source.connection.last_synced_at) }}
+                </span>
+              </p>
             </div>
           </div>
-          <div class="mt-3 flex items-center justify-between">
-            <div class="flex gap-2 text-xs">
-              <span
-                v-if="source.briefing_enabled"
-                class="rounded bg-blue-100 px-2 py-0.5 text-blue-800"
-              >
-                Briefing
-              </span>
-              <span
-                v-if="source.voice_enabled"
-                class="rounded bg-purple-100 px-2 py-0.5 text-purple-800"
-              >
-                Voice
-              </span>
-              <span
-                v-if="source.reply_enabled"
-                class="rounded bg-green-100 px-2 py-0.5 text-green-800"
-              >
-                Reply
-              </span>
-              <span
-                v-if="source.autopilot_enabled"
-                class="rounded bg-orange-100 px-2 py-0.5 text-orange-800"
-              >
-                Autopilot
-              </span>
-            </div>
-            <p
-              v-if="source.connection?.last_synced_at"
-              class="text-xs text-gray-400"
-            >
-              Sync: {{ formatDate(source.connection.last_synced_at) }}
-            </p>
-          </div>
+          <button
+            class="text-xs text-red-500 hover:text-red-700"
+            @click="handleDeleteSource(source.id)"
+          >
+            Entfernen
+          </button>
           <p
             v-if="source.connection?.last_error"
-            class="mt-2 rounded bg-red-50 px-3 py-1.5 text-xs text-red-600"
+            class="mt-1 w-full rounded bg-red-50 px-2 py-1 text-xs text-red-600"
           >
             {{ source.connection.last_error }}
           </p>
