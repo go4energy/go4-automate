@@ -383,6 +383,73 @@ async def run_briefing(
         raise HTTPException(status_code=e.status_code, detail=e.message) from e
 
 
+# ── Test / Manual Triggers ────────────────────────────────────────────
+
+
+@router.post("/intake/run")
+async def run_intake(
+    tenant_id: str = Depends(get_current_tenant_id),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Manually trigger mail/calendar intake."""
+    from app.assistant.intake import AssistantIntakeService
+
+    try:
+        intake = AssistantIntakeService(db)
+        result = await intake.run_intake(tenant_id, user.id)
+        await db.commit()
+        return result
+    except AppError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message) from e
+
+
+@router.post("/classify/run")
+async def run_classify(
+    tenant_id: str = Depends(get_current_tenant_id),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Manually classify unprocessed items."""
+    from app.assistant.classifier import AssistantClassifier
+
+    try:
+        svc = _svc(db)
+        items = await svc.list_items(tenant_id, user.id, status="new", limit=100)
+        classifier = AssistantClassifier(db)
+        decisions = await classifier.classify_items(tenant_id, user.id, items)
+        await db.commit()
+        return {
+            "items_classified": len(items),
+            "decisions_created": len(decisions),
+        }
+    except AppError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message) from e
+
+
+@router.post("/rules/apply")
+async def run_rules(
+    tenant_id: str = Depends(get_current_tenant_id),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Manually apply rules to classified items."""
+    from app.assistant.rules import AssistantRuleEngine
+
+    try:
+        svc = _svc(db)
+        items = await svc.list_items(tenant_id, user.id, status="classified", limit=100)
+        engine = AssistantRuleEngine(db)
+        actions = await engine.apply_rules(tenant_id, user.id, items)
+        await db.commit()
+        return {
+            "items_processed": len(items),
+            "actions_created": len(actions),
+        }
+    except AppError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message) from e
+
+
 # ── Dashboard ────────────────────────────────────────────────────────
 
 

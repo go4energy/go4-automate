@@ -18,6 +18,7 @@ const tabs = [
   { key: 'activity', label: 'Aktivitaet', route: '/assistant/activity' },
   { key: 'approvals', label: 'Freigaben', route: '/assistant/approvals' },
   { key: 'settings', label: 'Einstellungen', route: '/assistant/settings' },
+  { key: 'test', label: 'Test', route: '/assistant/test' },
 ]
 
 // Rule form
@@ -202,6 +203,42 @@ function providerLabel(provider) {
     exchange: 'Exchange',
   }
   return labels[provider] || provider || 'Unbekannt'
+}
+
+async function handleTrigger(step) {
+  if (step === 'intake') await store.triggerIntake()
+  else if (step === 'classify') await store.triggerClassify()
+  else if (step === 'rules') await store.triggerRules()
+  else if (step === 'briefing') await store.triggerBriefing()
+  else if (step === 'full') await store.triggerFullPipeline()
+}
+
+async function handleApplySuggestion(suggestion) {
+  await store.addRule({
+    name: suggestion.name,
+    action_type: suggestion.action_type,
+    risk_level: suggestion.risk_level || 'low',
+    match_criteria_json: suggestion.match_criteria,
+    priority: suggestion.priority || 10,
+  })
+  await store.fetchRuleSuggestions()
+}
+
+function resultDetails(r) {
+  const details = {}
+  if (r.sources !== undefined) details.Quellen = r.sources
+  if (r.events_created !== undefined) details.Events = r.events_created
+  if (r.items_created !== undefined) details.Items = r.items_created
+  if (r.items_classified !== undefined) details.Klassifiziert = r.items_classified
+  if (r.items_processed !== undefined) details.Verarbeitet = r.items_processed
+  if (r.actions_created !== undefined) details.Aktionen = r.actions_created
+  if (r.decisions_created !== undefined) details.Entscheidungen = r.decisions_created
+  return details
+}
+
+function formatTime(d) {
+  if (!d) return ''
+  return new Date(d).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
 function isShared(source) {
@@ -704,6 +741,207 @@ function statusLabel(status) {
         >
           Einstellungen speichern
         </button>
+      </div>
+    </div>
+
+    <!-- ═══ Test ═══ -->
+    <div v-if="activeTab === 'test'" class="space-y-6">
+      <!-- Pipeline Buttons -->
+      <div class="rounded-lg border border-gray-200 bg-white p-5">
+        <h3 class="text-lg font-medium text-gray-900">
+          Pipeline manuell steuern
+        </h3>
+        <p class="mt-1 text-sm text-gray-500">
+          Einzelne Schritte oder die komplette Pipeline ausfuehren.
+        </p>
+        <div class="mt-4 flex flex-wrap gap-3">
+          <button
+            class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            @click="handleTrigger('intake')"
+          >
+            1. Mails abrufen
+          </button>
+          <button
+            class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            @click="handleTrigger('classify')"
+          >
+            2. Klassifizieren
+          </button>
+          <button
+            class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            @click="handleTrigger('rules')"
+          >
+            3. Regeln anwenden
+          </button>
+          <button
+            class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            @click="handleTrigger('briefing')"
+          >
+            4. Briefing erzeugen
+          </button>
+          <button
+            class="rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white hover:bg-go4-primary/90"
+            @click="handleTrigger('full')"
+          >
+            Alles ausfuehren (1-4)
+          </button>
+        </div>
+      </div>
+
+      <!-- Briefing Output -->
+      <div
+        v-if="store.briefingText"
+        class="rounded-lg border border-gray-200 bg-white p-5"
+      >
+        <h3 class="text-lg font-medium text-gray-900">
+          Briefing
+        </h3>
+        <pre class="mt-3 whitespace-pre-wrap rounded-lg bg-gray-50 p-4 text-sm text-gray-700">{{ store.briefingText }}</pre>
+      </div>
+
+      <!-- Log -->
+      <div
+        v-if="store.testResults.length"
+        class="rounded-lg border border-gray-200 bg-white p-5"
+      >
+        <h3 class="text-lg font-medium text-gray-900">
+          Ergebnisse
+        </h3>
+        <div class="mt-3 space-y-2">
+          <div
+            v-for="(r, i) in store.testResults"
+            :key="i"
+            class="flex items-center justify-between rounded bg-gray-50 px-3 py-2 text-sm"
+          >
+            <div class="flex items-center gap-2">
+              <span class="font-medium text-gray-700">{{ r.action }}</span>
+              <span
+                v-for="(val, key) in resultDetails(r)"
+                :key="key"
+                class="text-gray-500"
+              >
+                {{ key }}: {{ val }}
+              </span>
+            </div>
+            <span class="text-xs text-gray-400">{{ formatTime(r.time) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rule Suggestions -->
+      <div class="rounded-lg border border-gray-200 bg-white p-5">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-medium text-gray-900">
+            Regelvorschlaege
+          </h3>
+          <button
+            class="text-sm text-go4-primary hover:underline"
+            @click="store.fetchRuleSuggestions()"
+          >
+            Aktualisieren
+          </button>
+        </div>
+        <p
+          v-if="!store.ruleSuggestions.length"
+          class="mt-3 text-sm text-gray-400"
+        >
+          Keine Vorschlaege. Gib erst Feedback auf Items, dann werden hier Muster erkannt.
+        </p>
+        <div
+          v-else
+          class="mt-3 space-y-2"
+        >
+          <div
+            v-for="(s, i) in store.ruleSuggestions"
+            :key="i"
+            class="flex items-center justify-between rounded bg-gray-50 px-3 py-2 text-sm"
+          >
+            <div>
+              <p class="font-medium text-gray-700">
+                {{ s.name }}
+              </p>
+              <p class="text-xs text-gray-400">
+                {{ s.reason }} &middot; Confidence: {{ Math.round((s.confidence || 0) * 100) }}%
+              </p>
+            </div>
+            <button
+              class="rounded bg-go4-primary px-3 py-1 text-xs text-white hover:bg-go4-primary/90"
+              @click="handleApplySuggestion(s)"
+            >
+              Uebernehmen
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Items with Feedback -->
+      <div class="rounded-lg border border-gray-200 bg-white p-5">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-medium text-gray-900">
+            Items ({{ store.items.length }})
+          </h3>
+          <button
+            class="text-sm text-go4-primary hover:underline"
+            @click="store.fetchItems()"
+          >
+            Aktualisieren
+          </button>
+        </div>
+        <div
+          v-if="store.items.length"
+          class="mt-3 space-y-2"
+        >
+          <div
+            v-for="item in store.items"
+            :key="item.id"
+            class="rounded border border-gray-100 bg-gray-50 px-3 py-2"
+          >
+            <div class="flex items-center justify-between">
+              <div>
+                <span class="text-sm font-medium text-gray-800">{{ item.title || '(kein Betreff)' }}</span>
+                <span class="ml-2 text-xs text-gray-400">{{ item.sender }}</span>
+              </div>
+              <span
+                class="rounded px-2 py-0.5 text-xs"
+                :class="item.status === 'new' ? 'bg-blue-100 text-blue-700' : item.status === 'classified' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'"
+              >
+                {{ item.status }}
+              </span>
+            </div>
+            <div class="mt-1 flex gap-1">
+              <button
+                class="rounded bg-green-100 px-2 py-0.5 text-xs text-green-700 hover:bg-green-200"
+                @click="store.sendFeedback(item.id, { feedback_type: 'keep' })"
+              >
+                Behalten
+              </button>
+              <button
+                class="rounded bg-yellow-100 px-2 py-0.5 text-xs text-yellow-700 hover:bg-yellow-200"
+                @click="store.sendFeedback(item.id, { feedback_type: 'ignore' })"
+              >
+                Ignorieren
+              </button>
+              <button
+                class="rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-700 hover:bg-blue-200"
+                @click="store.sendFeedback(item.id, { feedback_type: 'move' })"
+              >
+                Verschieben
+              </button>
+              <button
+                class="rounded bg-red-100 px-2 py-0.5 text-xs text-red-700 hover:bg-red-200"
+                @click="store.sendFeedback(item.id, { feedback_type: 'delete' })"
+              >
+                Loeschen
+              </button>
+            </div>
+          </div>
+        </div>
+        <p
+          v-else
+          class="mt-3 text-sm text-gray-400"
+        >
+          Keine Items. Fuehre zuerst "Mails abrufen" aus.
+        </p>
       </div>
     </div>
   </div>

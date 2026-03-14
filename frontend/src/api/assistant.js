@@ -36,3 +36,10 @@ export const getDashboard = () => api.get('/v1/assistant/dashboard')
 // OAuth
 export const getOAuthUrl = (params) =>
   api.get('/v1/assistant/oauth/authorize', { params })
+
+// Test / Manual Triggers
+export const runIntake = () => api.post('/v1/assistant/intake/run')
+export const runClassify = () => api.post('/v1/assistant/classify/run')
+export const runRules = () => api.post('/v1/assistant/rules/apply')
+export const runBriefing = (data) => api.post('/v1/assistant/briefing/run', data || {})
+export const getRuleSuggestions = () => api.get('/v1/assistant/rule-suggestions')

@@ -89,6 +89,16 @@ manifest = {
                     "tab": "settings",
                 },
             },
+            {
+                "path": "test",
+                "name": "assistant-test",
+                "view": "AssistantView",
+                "meta": {
+                    "title": "Test",
+                    "breadcrumb": {"label": "Test", "parent": "assistant"},
+                    "tab": "test",
+                },
+            },
         ],
     },
 }

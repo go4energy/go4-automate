@@ -18,6 +18,11 @@ import {
   addFeedback as apiAddFeedback,
   getDashboard,
   getOAuthUrl,
+  runIntake as apiRunIntake,
+  runClassify as apiRunClassify,
+  runRules as apiRunRules,
+  runBriefing as apiRunBriefing,
+  getRuleSuggestions as apiGetRuleSuggestions,
 } from '@/api/assistant'
 
 export const useAssistantStore = defineStore('assistant', () => {
@@ -254,6 +259,83 @@ export const useAssistantStore = defineStore('assistant', () => {
     }
   }
 
+  // ── Test Triggers ──
+  const testResults = ref([])
+  const briefingText = ref('')
+  const ruleSuggestions = ref([])
+
+  async function triggerIntake() {
+    error.value = null
+    try {
+      const { data } = await apiRunIntake()
+      testResults.value.unshift({ action: 'Intake', time: new Date(), ...data })
+      return data
+    } catch (err) {
+      error.value = err.message
+      throw err
+    }
+  }
+
+  async function triggerClassify() {
+    error.value = null
+    try {
+      const { data } = await apiRunClassify()
+      testResults.value.unshift({ action: 'Classify', time: new Date(), ...data })
+      return data
+    } catch (err) {
+      error.value = err.message
+      throw err
+    }
+  }
+
+  async function triggerRules() {
+    error.value = null
+    try {
+      const { data } = await apiRunRules()
+      testResults.value.unshift({ action: 'Rules', time: new Date(), ...data })
+      return data
+    } catch (err) {
+      error.value = err.message
+      throw err
+    }
+  }
+
+  async function triggerBriefing() {
+    error.value = null
+    try {
+      const { data } = await apiRunBriefing()
+      briefingText.value = data.briefing_text || ''
+      testResults.value.unshift({
+        action: 'Briefing',
+        time: new Date(),
+        items_processed: data.items_processed,
+        actions_created: data.actions_created,
+      })
+      return data
+    } catch (err) {
+      error.value = err.message
+      throw err
+    }
+  }
+
+  async function triggerFullPipeline() {
+    await triggerIntake()
+    await triggerClassify()
+    await triggerRules()
+    await triggerBriefing()
+    await fetchItems()
+  }
+
+  async function fetchRuleSuggestions() {
+    error.value = null
+    try {
+      const { data } = await apiGetRuleSuggestions()
+      ruleSuggestions.value = data
+    } catch (err) {
+      error.value = err.message
+    }
+  }
+
   // ── Dashboard ──
   async function fetchDashboard() {
     error.value = null
@@ -273,6 +355,9 @@ export const useAssistantStore = defineStore('assistant', () => {
     rules,
     pendingActions,
     dashboardStats,
+    testResults,
+    briefingText,
+    ruleSuggestions,
     loading,
     error,
 
@@ -297,6 +382,12 @@ export const useAssistantStore = defineStore('assistant', () => {
     connectAccount,
     approveAction,
     rejectAction,
+    triggerIntake,
+    triggerClassify,
+    triggerRules,
+    triggerBriefing,
+    triggerFullPipeline,
+    fetchRuleSuggestions,
     fetchDashboard,
   }
 })
