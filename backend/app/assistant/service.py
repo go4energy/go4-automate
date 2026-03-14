@@ -103,6 +103,7 @@ class AssistantService:
                     "provider": conn.provider,
                     "integration_type": conn.integration_type,
                     "connected_email": conn.connected_email,
+                    "mailbox_address": conn.mailbox_address,
                     "account_label": conn.account_label,
                     "status": conn.status,
                     "last_synced_at": conn.last_synced_at,

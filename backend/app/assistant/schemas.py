@@ -101,6 +101,7 @@ class ConnectionInfo(BaseModel):
     provider: str
     integration_type: str
     connected_email: str | None
+    mailbox_address: str | None
     account_label: str | None
     status: str
     last_synced_at: datetime | None

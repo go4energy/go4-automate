@@ -404,10 +404,16 @@ function statusLabel(status) {
               <span class="text-2xl">{{ providerIcon(source.connection?.provider) }}</span>
               <div>
                 <p class="font-medium text-gray-900">
-                  {{ source.connection?.connected_email || 'Unbekannt' }}
+                  {{ source.connection?.mailbox_address || source.connection?.connected_email || 'Unbekannt' }}
                 </p>
                 <p class="text-sm text-gray-500">
                   {{ providerLabel(source.connection?.provider) }}
+                  <span
+                    v-if="source.connection?.mailbox_address && source.connection?.mailbox_address !== source.connection?.connected_email"
+                    class="ml-1 text-gray-400"
+                  >
+                    (via {{ source.connection.connected_email }})
+                  </span>
                 </p>
               </div>
             </div>
