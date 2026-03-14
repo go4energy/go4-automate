@@ -364,3 +364,103 @@ async def test_intake_hash_consistency():
 
     hash3 = AssistantIntakeService._hash_payload({"id": "456"})
     assert hash1 != hash3
+
+
+# ── Intake with mock provider ────────────────────────────────────────
+
+
+@pytest.mark.anyio
+async def test_intake_ingest_messages(client, test_tenant):
+    """Test ingesting MailMessageRef objects into events + items."""
+    from datetime import datetime, timezone
+    from unittest.mock import AsyncMock
+
+    from app.assistant.intake import AssistantIntakeService
+    from app.integrations.types import MailMessageRef
+
+    # Create user + ensure profile
+    token, user_id = await _create_auth_user(client)
+    await client.get("/api/v1/assistant/profile", headers=_user_headers(token))
+
+    # We need a real DB session — use the briefing run endpoint instead
+    # to test the full pipeline indirectly. For unit-level intake, we mock.
+    messages = [
+        MailMessageRef(
+            provider_message_id="msg-001",
+            subject="Wichtige Nachricht",
+            from_email="boss@firma.de",
+            received_at=datetime.now(timezone.utc),
+            is_unread=True,
+            snippet="Bitte sofort antworten",
+            thread_id="thread-001",
+            raw={"id": "msg-001", "subject": "Wichtige Nachricht"},
+        ),
+        MailMessageRef(
+            provider_message_id="msg-002",
+            subject="Newsletter August",
+            from_email="newsletter@example.com",
+            received_at=datetime.now(timezone.utc),
+            is_unread=True,
+            snippet="Neuigkeiten aus dem Monat",
+            thread_id="thread-002",
+            raw={"id": "msg-002", "subject": "Newsletter August"},
+        ),
+    ]
+
+    # Mock db session
+    mock_db = AsyncMock()
+    mock_db.execute = AsyncMock(return_value=AsyncMock(scalar_one_or_none=lambda: None))
+    mock_db.add = lambda x: None
+    mock_db.flush = AsyncMock()
+
+    intake = AssistantIntakeService(mock_db)
+    events_created, items_created = await intake.ingest_messages(
+        tenant_id="test-tenant",
+        user_id=user_id,
+        connection_id=1,
+        messages=messages,
+    )
+
+    # Both messages should be new (mock returns None for existing check)
+    assert events_created == 2
+    assert items_created == 2
+
+
+@pytest.mark.anyio
+async def test_intake_token_refresh_needed():
+    """Test that _ensure_access_token detects expired tokens."""
+    from unittest.mock import AsyncMock, MagicMock, patch
+
+    from app.assistant.intake import AssistantIntakeService
+    from app.assistant.models import IntegrationConnection
+
+    conn = MagicMock(spec=IntegrationConnection)
+    conn.id = 1
+    conn.provider = "microsoft_graph"
+    conn.encrypted_token = "encrypted_data"
+
+    mock_db = AsyncMock()
+    mock_db.flush = AsyncMock()
+    intake = AssistantIntakeService(mock_db)
+
+    # Token that expired 1 hour ago
+    expired_token_data = {
+        "access_token": "old_token",
+        "refresh_token": "refresh_123",
+        "expires_at": 0,  # way in the past
+    }
+    refreshed_data = {
+        "access_token": "new_token",
+        "expires_in": 3600,
+    }
+
+    with (
+        patch("app.briefing.oauth.decrypt_token", return_value=expired_token_data),
+        patch("app.briefing.oauth.encrypt_token", return_value="new_encrypted"),
+        patch.object(intake, "_refresh_token", return_value=refreshed_data) as mock_refresh,
+    ):
+        token = await intake._ensure_access_token(conn)
+
+    assert token == "new_token"
+    mock_refresh.assert_called_once_with("microsoft_graph", "refresh_123")
+    assert conn.encrypted_token == "new_encrypted"

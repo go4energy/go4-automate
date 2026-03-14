@@ -2,7 +2,7 @@
 
 import hashlib
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 
 from loguru import logger
 from sqlalchemy import select
@@ -34,7 +34,7 @@ class AssistantIntakeService:
 
         for source in sources:
             conn = await self._get_connection(source.connection_id)
-            if not conn or conn.status != "active":
+            if not conn or conn.status not in ("active", "connected"):
                 continue
 
             try:
@@ -183,16 +183,150 @@ class AssistantIntakeService:
         source: AssistantSource,
         conn: IntegrationConnection,
     ) -> tuple[int, int]:
-        """Ingest from a single source. Returns (events, items)."""
-        # This is a placeholder - actual provider calls happen via the
-        # integration layer. For now we just return 0,0.
-        # Real implementation would call the provider's list_messages/list_events.
-        logger.debug(
-            "Intake source={sid} provider={p}",
-            sid=source.id,
-            p=conn.provider,
+        """Ingest from a single source via provider API. Returns (events, items)."""
+        total_events = 0
+        total_items = 0
+
+        try:
+            access_token = await self._ensure_access_token(conn)
+        except Exception as e:
+            conn.status = "error"
+            conn.last_error = str(e)
+            await self.db.flush()
+            logger.error("Token error conn={cid}: {err}", cid=conn.id, err=str(e))
+            return 0, 0
+
+        # Fetch mail
+        if source.briefing_enabled and conn.integration_type in ("email", "mail"):
+            try:
+                messages = await self._fetch_messages(conn.provider, access_token)
+                ev, it = await self.ingest_messages(
+                    tenant_id, user_id, conn.id, messages
+                )
+                total_events += ev
+                total_items += it
+                logger.info(
+                    "Mail intake conn={cid}: {ev} events, {it} items",
+                    cid=conn.id,
+                    ev=ev,
+                    it=it,
+                )
+            except Exception as e:
+                logger.error("Mail fetch conn={cid}: {err}", cid=conn.id, err=str(e))
+
+        # Fetch calendar
+        if source.briefing_enabled and conn.integration_type in (
+            "calendar",
+            "email",
+            "mail",
+        ):
+            try:
+                cal_events = await self._fetch_calendar(conn.provider, access_token)
+                ev, it = await self.ingest_calendar_events(
+                    tenant_id, user_id, conn.id, cal_events
+                )
+                total_events += ev
+                total_items += it
+                logger.info(
+                    "Calendar intake conn={cid}: {ev} events, {it} items",
+                    cid=conn.id,
+                    ev=ev,
+                    it=it,
+                )
+            except Exception as e:
+                logger.error(
+                    "Calendar fetch conn={cid}: {err}", cid=conn.id, err=str(e)
+                )
+
+        # Update connection status
+        conn.last_synced_at = datetime.now(UTC)
+        conn.last_error = None
+        conn.status = "connected"
+        await self.db.flush()
+
+        return total_events, total_items
+
+    async def _ensure_access_token(self, conn: IntegrationConnection) -> str:
+        """Decrypt token, refresh if expired, return valid access_token."""
+        from app.briefing.oauth import decrypt_token, encrypt_token
+
+        if not conn.encrypted_token:
+            msg = "Kein gespeichertes Token"
+            raise ValueError(msg)
+
+        token_data = decrypt_token(conn.encrypted_token)
+        access_token = token_data.get("access_token", "")
+        expires_at = token_data.get("expires_at", 0)
+
+        # Check expiration (5 min buffer)
+        if datetime.now(UTC).timestamp() < expires_at - 300:
+            return access_token
+
+        # Refresh needed
+        refresh_token = token_data.get("refresh_token")
+        if not refresh_token:
+            msg = "Token abgelaufen, kein Refresh-Token vorhanden"
+            raise ValueError(msg)
+
+        refreshed = await self._refresh_token(conn.provider, refresh_token)
+        token_data["access_token"] = refreshed["access_token"]
+        if "refresh_token" in refreshed:
+            token_data["refresh_token"] = refreshed["refresh_token"]
+        token_data["expires_at"] = datetime.now(UTC).timestamp() + refreshed.get(
+            "expires_in", 3600
         )
-        return 0, 0
+
+        conn.encrypted_token = encrypt_token(token_data)
+        await self.db.flush()
+        logger.debug("Token refreshed for conn={cid}", cid=conn.id)
+        return token_data["access_token"]
+
+    async def _refresh_token(self, provider: str, refresh_token: str) -> dict:
+        """Refresh an OAuth token via the appropriate provider."""
+        if provider == "microsoft_graph":
+            from app.briefing.oauth import refresh_microsoft_token
+
+            return await refresh_microsoft_token(refresh_token)
+        if provider == "google_workspace":
+            from app.briefing.oauth import refresh_google_token
+
+            return await refresh_google_token(refresh_token)
+        msg = f"Unbekannter Provider: {provider}"
+        raise ValueError(msg)
+
+    async def _fetch_messages(
+        self, provider: str, access_token: str, limit: int = 30
+    ) -> list[MailMessageRef]:
+        """Fetch messages from the provider."""
+        if provider == "microsoft_graph":
+            from app.integrations.microsoft_graph.client import MicrosoftGraphClient
+            from app.integrations.microsoft_graph.mail_read import (
+                MicrosoftGraphMailReadProvider,
+            )
+
+            client = MicrosoftGraphClient(access_token)
+            mail_provider = MicrosoftGraphMailReadProvider(client)
+            return await mail_provider.list_messages(limit=limit)
+
+        logger.warning("Mail fetch not implemented for provider={p}", p=provider)
+        return []
+
+    async def _fetch_calendar(
+        self, provider: str, access_token: str, limit: int = 20
+    ) -> list[CalendarEventRef]:
+        """Fetch calendar events from the provider."""
+        if provider == "microsoft_graph":
+            from app.integrations.microsoft_graph.calendar import (
+                MicrosoftGraphCalendarProvider,
+            )
+            from app.integrations.microsoft_graph.client import MicrosoftGraphClient
+
+            client = MicrosoftGraphClient(access_token)
+            cal_provider = MicrosoftGraphCalendarProvider(client)
+            return await cal_provider.list_events(limit=limit)
+
+        logger.warning("Calendar fetch not implemented for provider={p}", p=provider)
+        return []
 
     async def _create_event_if_new(
         self,
