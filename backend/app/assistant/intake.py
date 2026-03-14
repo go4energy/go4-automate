@@ -249,7 +249,7 @@ class AssistantIntakeService:
                 )
 
         # Update connection status
-        conn.last_synced_at = datetime.now(UTC)
+        conn.last_synced_at = datetime.utcnow()
         conn.last_error = None
         conn.status = "connected"
         await self.db.flush()

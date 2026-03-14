@@ -401,7 +401,12 @@ async def run_intake(
         await db.commit()
         return result
     except AppError as e:
+        await db.rollback()
         raise HTTPException(status_code=e.status_code, detail=e.message) from e
+    except Exception as e:
+        await db.rollback()
+        logger.exception("Intake error")
+        raise HTTPException(status_code=500, detail=str(e)[:200]) from e
 
 
 @router.post("/classify/run")
