@@ -123,6 +123,7 @@ AUTH_EXEMPT_PREFIXES = (
     "/api/v1/whatsapp/webhook",  # Meta WhatsApp webhook (verification + events)
     "/api/v1/briefing/oauth/callback",  # Provider callback resolves tenant via state
     "/api/v1/briefing/personal/oauth/callback",  # Provider callback resolves tenant via state
+    "/api/v1/assistant/oauth/callback",  # Assistant OAuth resolves tenant via state
     "/uploads/",
 )
 
