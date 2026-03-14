@@ -94,8 +94,23 @@ class AssistantSourceUpdate(BaseModel):
     settings_json: dict | None = None
 
 
+class ConnectionInfo(BaseModel):
+    """Nested connection details for source response."""
+
+    id: int
+    provider: str
+    integration_type: str
+    connected_email: str | None
+    account_label: str | None
+    status: str
+    last_synced_at: datetime | None
+    last_error: str | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class AssistantSourceResponse(BaseModel):
-    """Full source response."""
+    """Full source response with connection details."""
 
     id: int
     tenant_id: str
@@ -109,6 +124,7 @@ class AssistantSourceResponse(BaseModel):
     settings_json: dict | None
     created_at: datetime
     updated_at: datetime
+    connection: ConnectionInfo | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

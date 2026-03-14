@@ -62,8 +62,8 @@ class AssistantService:
 
     # ── Sources ──────────────────────────────────────────────────────
 
-    async def list_sources(self, tenant_id: str, user_id: int) -> list[AssistantSource]:
-        """List all assistant sources for a user."""
+    async def list_sources(self, tenant_id: str, user_id: int) -> list[dict]:
+        """List all assistant sources with connection details."""
         result = await self.db.execute(
             select(AssistantSource)
             .where(
@@ -72,7 +72,44 @@ class AssistantService:
             )
             .order_by(AssistantSource.priority.desc(), AssistantSource.id)
         )
-        return list(result.scalars().all())
+        sources = list(result.scalars().all())
+
+        enriched = []
+        for source in sources:
+            conn_result = await self.db.execute(
+                select(IntegrationConnection).where(
+                    IntegrationConnection.id == source.connection_id,
+                )
+            )
+            conn = conn_result.scalar_one_or_none()
+            source_dict = {
+                "id": source.id,
+                "tenant_id": source.tenant_id,
+                "user_id": source.user_id,
+                "connection_id": source.connection_id,
+                "briefing_enabled": source.briefing_enabled,
+                "voice_enabled": source.voice_enabled,
+                "reply_enabled": source.reply_enabled,
+                "autopilot_enabled": source.autopilot_enabled,
+                "priority": source.priority,
+                "settings_json": source.settings_json,
+                "created_at": source.created_at,
+                "updated_at": source.updated_at,
+                "connection": None,
+            }
+            if conn:
+                source_dict["connection"] = {
+                    "id": conn.id,
+                    "provider": conn.provider,
+                    "integration_type": conn.integration_type,
+                    "connected_email": conn.connected_email,
+                    "account_label": conn.account_label,
+                    "status": conn.status,
+                    "last_synced_at": conn.last_synced_at,
+                    "last_error": conn.last_error,
+                }
+            enriched.append(source_dict)
+        return enriched
 
     async def add_source(
         self, tenant_id: str, user_id: int, data: dict

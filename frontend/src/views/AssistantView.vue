@@ -159,6 +159,43 @@ function formatDate(d) {
     minute: '2-digit',
   })
 }
+
+function providerIcon(provider) {
+  const icons = {
+    microsoft_graph: '📧',
+    google_workspace: '📬',
+    imap: '📨',
+    exchange: '🏢',
+  }
+  return icons[provider] || '📩'
+}
+
+function providerLabel(provider) {
+  const labels = {
+    microsoft_graph: 'Microsoft 365',
+    google_workspace: 'Google Workspace',
+    imap: 'IMAP / SMTP',
+    exchange: 'Exchange',
+  }
+  return labels[provider] || provider || 'Unbekannt'
+}
+
+function statusClass(status) {
+  if (status === 'connected') return 'bg-green-100 text-green-800'
+  if (status === 'error') return 'bg-red-100 text-red-800'
+  if (status === 'pending') return 'bg-yellow-100 text-yellow-800'
+  return 'bg-gray-100 text-gray-600'
+}
+
+function statusLabel(status) {
+  const labels = {
+    connected: 'Verbunden',
+    active: 'Aktiv',
+    error: 'Fehler',
+    pending: 'Ausstehend',
+  }
+  return labels[status] || status || 'Unbekannt'
+}
 </script>
 
 <template>
@@ -262,13 +299,37 @@ function formatDate(d) {
         <div
           v-for="source in store.sources"
           :key="source.id"
-          class="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4"
+          class="rounded-lg border border-gray-200 bg-white p-4"
         >
-          <div>
-            <p class="font-medium text-gray-900">
-              Verbindung #{{ source.connection_id }}
-            </p>
-            <div class="mt-1 flex gap-2 text-xs">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="text-2xl">{{ providerIcon(source.connection?.provider) }}</span>
+              <div>
+                <p class="font-medium text-gray-900">
+                  {{ source.connection?.connected_email || 'Unbekannt' }}
+                </p>
+                <p class="text-sm text-gray-500">
+                  {{ providerLabel(source.connection?.provider) }}
+                </p>
+              </div>
+            </div>
+            <div class="flex items-center gap-3">
+              <span
+                class="rounded-full px-2.5 py-0.5 text-xs font-medium"
+                :class="statusClass(source.connection?.status)"
+              >
+                {{ statusLabel(source.connection?.status) }}
+              </span>
+              <button
+                class="text-sm text-red-600 hover:text-red-800"
+                @click="handleDeleteSource(source.id)"
+              >
+                Entfernen
+              </button>
+            </div>
+          </div>
+          <div class="mt-3 flex items-center justify-between">
+            <div class="flex gap-2 text-xs">
               <span
                 v-if="source.briefing_enabled"
                 class="rounded bg-blue-100 px-2 py-0.5 text-blue-800"
@@ -294,13 +355,19 @@ function formatDate(d) {
                 Autopilot
               </span>
             </div>
+            <p
+              v-if="source.connection?.last_synced_at"
+              class="text-xs text-gray-400"
+            >
+              Sync: {{ formatDate(source.connection.last_synced_at) }}
+            </p>
           </div>
-          <button
-            class="text-sm text-red-600 hover:text-red-800"
-            @click="handleDeleteSource(source.id)"
+          <p
+            v-if="source.connection?.last_error"
+            class="mt-2 rounded bg-red-50 px-3 py-1.5 text-xs text-red-600"
           >
-            Entfernen
-          </button>
+            {{ source.connection.last_error }}
+          </p>
         </div>
       </div>
     </div>
