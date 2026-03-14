@@ -196,10 +196,18 @@ class AssistantIntakeService:
             logger.error("Token error conn={cid}: {err}", cid=conn.id, err=str(e))
             return 0, 0
 
+        # Determine mailbox principal for shared mailboxes
+        mailbox = None
+        meta = conn.metadata_json or {}
+        if meta.get("scope") == "shared_mailbox" and conn.mailbox_address:
+            mailbox = conn.mailbox_address
+
         # Fetch mail
         if source.briefing_enabled and conn.integration_type in ("email", "mail"):
             try:
-                messages = await self._fetch_messages(conn.provider, access_token)
+                messages = await self._fetch_messages(
+                    conn.provider, access_token, mailbox=mailbox
+                )
                 ev, it = await self.ingest_messages(
                     tenant_id, user_id, conn.id, messages
                 )
@@ -221,7 +229,9 @@ class AssistantIntakeService:
             "mail",
         ):
             try:
-                cal_events = await self._fetch_calendar(conn.provider, access_token)
+                cal_events = await self._fetch_calendar(
+                    conn.provider, access_token, mailbox=mailbox
+                )
                 ev, it = await self.ingest_calendar_events(
                     tenant_id, user_id, conn.id, cal_events
                 )
@@ -295,7 +305,11 @@ class AssistantIntakeService:
         raise ValueError(msg)
 
     async def _fetch_messages(
-        self, provider: str, access_token: str, limit: int = 30
+        self,
+        provider: str,
+        access_token: str,
+        limit: int = 30,
+        mailbox: str | None = None,
     ) -> list[MailMessageRef]:
         """Fetch messages from the provider."""
         if provider == "microsoft_graph":
@@ -306,13 +320,17 @@ class AssistantIntakeService:
 
             client = MicrosoftGraphClient(access_token)
             mail_provider = MicrosoftGraphMailReadProvider(client)
-            return await mail_provider.list_messages(limit=limit)
+            return await mail_provider.list_messages(limit=limit, mailbox=mailbox)
 
         logger.warning("Mail fetch not implemented for provider={p}", p=provider)
         return []
 
     async def _fetch_calendar(
-        self, provider: str, access_token: str, limit: int = 20
+        self,
+        provider: str,
+        access_token: str,
+        limit: int = 20,
+        mailbox: str | None = None,
     ) -> list[CalendarEventRef]:
         """Fetch calendar events from the provider."""
         if provider == "microsoft_graph":
@@ -323,7 +341,7 @@ class AssistantIntakeService:
 
             client = MicrosoftGraphClient(access_token)
             cal_provider = MicrosoftGraphCalendarProvider(client)
-            return await cal_provider.list_events(limit=limit)
+            return await cal_provider.list_events(limit=limit, mailbox=mailbox)
 
         logger.warning("Calendar fetch not implemented for provider={p}", p=provider)
         return []

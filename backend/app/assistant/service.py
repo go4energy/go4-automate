@@ -433,17 +433,22 @@ class AssistantService:
         provider: str,
         connected_email: str,
         encrypted_token: str,
+        mailbox_address: str | None = None,
+        scope: str = "personal",
     ) -> tuple[IntegrationConnection, AssistantSource]:
         """Create an IntegrationConnection and link it as AssistantSource."""
         from app.assistant.models import IntegrationConnectionCapability
 
-        # Upsert connection
+        effective_mailbox = mailbox_address or connected_email
+        label = f"{effective_mailbox} (Shared)" if mailbox_address else connected_email
+
+        # Upsert connection (match on mailbox, not just email)
         existing = await self.db.execute(
             select(IntegrationConnection).where(
                 IntegrationConnection.tenant_id == tenant_id,
                 IntegrationConnection.user_id == user_id,
                 IntegrationConnection.provider == provider,
-                IntegrationConnection.connected_email == connected_email,
+                IntegrationConnection.mailbox_address == effective_mailbox,
             )
         )
         conn = existing.scalar_one_or_none()
@@ -457,11 +462,13 @@ class AssistantService:
                 user_id=user_id,
                 provider=provider,
                 integration_type="email",
+                auth_mode="delegated",
                 connected_email=connected_email,
-                mailbox_address=connected_email,
-                account_label=connected_email,
+                mailbox_address=effective_mailbox,
+                account_label=label,
                 encrypted_token=encrypted_token,
                 status="connected",
+                metadata_json={"scope": scope},
             )
             self.db.add(conn)
             await self.db.flush()

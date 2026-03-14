@@ -32,11 +32,15 @@ const ruleForm = ref({
 
 // Provider menu
 const showProviderMenu = ref(false)
+const showAccountTypeDialog = ref(false)
+const showSharedInput = ref(false)
+const selectedProvider = ref(null)
+const sharedMailboxAddress = ref('')
 const providers = [
-  { key: 'microsoft', label: 'Microsoft 365', icon: '📧', enabled: true },
-  { key: 'google', label: 'Google Workspace', icon: '📬', enabled: true },
-  { key: 'imap', label: 'IMAP / SMTP', icon: '📨', enabled: false },
-  { key: 'exchange', label: 'Exchange (On-Premise)', icon: '🏢', enabled: false },
+  { key: 'microsoft', label: 'Microsoft 365', icon: '📧', enabled: true, supportsShared: true },
+  { key: 'google', label: 'Google Workspace', icon: '📬', enabled: true, supportsShared: false },
+  { key: 'imap', label: 'IMAP / SMTP', icon: '📨', enabled: false, supportsShared: false },
+  { key: 'exchange', label: 'Exchange (On-Premise)', icon: '🏢', enabled: false, supportsShared: true },
 ]
 
 // Profile form
@@ -122,11 +126,31 @@ async function handleToggleRule(rule) {
   await store.editRule(rule.id, { enabled: !rule.enabled })
 }
 
-async function handleConnectAccount(providerKey) {
+function handleProviderSelect(providerKey) {
   const provider = providers.find((p) => p.key === providerKey)
   if (!provider?.enabled) return
   showProviderMenu.value = false
-  await store.connectAccount(providerKey)
+
+  if (provider.supportsShared) {
+    selectedProvider.value = providerKey
+    sharedMailboxAddress.value = ''
+    showSharedInput.value = false
+    showAccountTypeDialog.value = true
+  } else {
+    store.connectAccount(providerKey)
+  }
+}
+
+async function handleConnectPersonal() {
+  showAccountTypeDialog.value = false
+  await store.connectAccount(selectedProvider.value)
+}
+
+async function handleConnectShared() {
+  const addr = sharedMailboxAddress.value.trim()
+  if (!addr) return
+  showAccountTypeDialog.value = false
+  await store.connectAccount(selectedProvider.value, addr)
 }
 
 async function handleApprove(id) {
@@ -227,6 +251,80 @@ function statusLabel(status) {
       </nav>
     </div>
 
+    <!-- ═══ Kontotyp-Dialog ═══ -->
+    <div
+      v-if="showAccountTypeDialog"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      @click.self="showAccountTypeDialog = false"
+    >
+      <div class="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+        <h3 class="text-lg font-semibold text-gray-900">
+          Kontotyp waehlen
+        </h3>
+        <p class="mt-1 text-sm text-gray-500">
+          Welche Art von Konto moechtest du verbinden?
+        </p>
+        <div class="mt-5 space-y-3">
+          <button
+            class="flex w-full items-center gap-3 rounded-lg border border-gray-200 p-4 text-left hover:bg-gray-50"
+            @click="handleConnectPersonal"
+          >
+            <span class="text-2xl">👤</span>
+            <div>
+              <p class="font-medium text-gray-900">
+                Persoenliches Konto
+              </p>
+              <p class="text-sm text-gray-500">
+                Dein eigenes Mail- und Kalenderkonto
+              </p>
+            </div>
+          </button>
+          <button
+            class="flex w-full items-center gap-3 rounded-lg border border-gray-200 p-4 text-left hover:bg-gray-50"
+            @click="showSharedInput = true"
+          >
+            <span class="text-2xl">👥</span>
+            <div>
+              <p class="font-medium text-gray-900">
+                Shared Mailbox
+              </p>
+              <p class="text-sm text-gray-500">
+                Gemeinsames Postfach (z.B. info@firma.de)
+              </p>
+            </div>
+          </button>
+          <div
+            v-if="showSharedInput"
+            class="rounded-lg border border-gray-200 bg-gray-50 p-4"
+          >
+            <label class="block text-sm font-medium text-gray-700">
+              Shared Mailbox Adresse
+            </label>
+            <input
+              v-model="sharedMailboxAddress"
+              type="email"
+              placeholder="info@firma.de"
+              class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              @keyup.enter="handleConnectShared"
+            />
+            <button
+              class="mt-3 rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white hover:bg-go4-primary/90"
+              :disabled="!sharedMailboxAddress.trim()"
+              @click="handleConnectShared"
+            >
+              Verbinden
+            </button>
+          </div>
+        </div>
+        <button
+          class="mt-4 text-sm text-gray-400 hover:text-gray-600"
+          @click="showAccountTypeDialog = false"
+        >
+          Abbrechen
+        </button>
+      </div>
+    </div>
+
     <!-- ═══ Dashboard ═══ -->
     <div v-if="activeTab === 'dashboard'" class="space-y-6">
       <div v-if="store.loading" class="text-gray-500">Laden...</div>
@@ -273,7 +371,7 @@ function statusLabel(status) {
               class="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50"
               :disabled="!p.enabled"
               :class="{ 'opacity-40 cursor-not-allowed': !p.enabled }"
-              @click="handleConnectAccount(p.key)"
+              @click="handleProviderSelect(p.key)"
             >
               <span class="text-lg">{{ p.icon }}</span>
               <div>

@@ -417,6 +417,7 @@ window.close();
 @router.get("/oauth/authorize")
 async def oauth_authorize(
     provider: str = Query(..., pattern=r"^(microsoft|google)$"),
+    shared_mailbox: str | None = Query(None),
     user: User = Depends(get_current_user),
     tenant_id: str = Depends(get_current_tenant_id),
 ):
@@ -426,14 +427,15 @@ async def oauth_authorize(
     from app.briefing.oauth import encrypt_token
     from app.config import settings
 
-    state = encrypt_token(
-        {
-            "tenant_id": tenant_id,
-            "user_id": user.id,
-            "provider": provider,
-            "flow": "assistant",
-        }
-    )
+    state_data = {
+        "tenant_id": tenant_id,
+        "user_id": user.id,
+        "provider": provider,
+        "flow": "assistant",
+    }
+    if shared_mailbox:
+        state_data["shared_mailbox"] = shared_mailbox
+    state = encrypt_token(state_data)
     callback_url = f"{settings.app_url}/api/v1/assistant/oauth/callback"
 
     # Request mail + calendar + user scopes
@@ -494,6 +496,7 @@ async def oauth_callback(
         tenant_id = state_data["tenant_id"]
         user_id = state_data["user_id"]
         provider = state_data["provider"]
+        shared_mailbox = state_data.get("shared_mailbox")
 
         callback_url = f"{settings.app_url}/api/v1/assistant/oauth/callback"
         tokens = await _exchange_oauth_code(code, provider, callback_url)
@@ -513,6 +516,10 @@ async def oauth_callback(
             "microsoft_graph" if provider == "microsoft" else "google_workspace"
         )
 
+        # For shared mailboxes: store the shared address as mailbox_address,
+        # the authenticating user's email as connected_email
+        scope = "shared_mailbox" if shared_mailbox else "personal"
+
         svc = AssistantService(db)
         conn, source = await svc.create_connection_and_source(
             tenant_id=tenant_id,
@@ -520,14 +527,17 @@ async def oauth_callback(
             provider=provider_name,
             connected_email=email,
             encrypted_token=encrypt_token(token_data),
+            mailbox_address=shared_mailbox,
+            scope=scope,
         )
         await db.commit()
 
         logger.info(
-            "Assistant OAuth: conn={cid} source={sid} email={e}",
+            "Assistant OAuth: conn={cid} source={sid} email={e} shared={s}",
             cid=conn.id,
             sid=source.id,
             e=email,
+            s=shared_mailbox or "none",
         )
         return HTMLResponse(OAUTH_CALLBACK_HTML)
     except Exception as e:

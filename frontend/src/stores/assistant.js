@@ -217,10 +217,12 @@ export const useAssistantStore = defineStore('assistant', () => {
   }
 
   // ── OAuth ──
-  async function connectAccount(provider) {
+  async function connectAccount(provider, sharedMailbox = null) {
     error.value = null
     try {
-      const { data } = await getOAuthUrl(provider)
+      const params = { provider }
+      if (sharedMailbox) params.shared_mailbox = sharedMailbox
+      const { data } = await getOAuthUrl(params)
       const popup = window.open(data.auth_url, 'assistant_oauth', 'width=600,height=700')
 
       return new Promise((resolve) => {
