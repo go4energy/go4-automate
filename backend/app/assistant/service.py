@@ -441,7 +441,7 @@ class AssistantService:
         from app.assistant.models import IntegrationConnectionCapability
 
         effective_mailbox = mailbox_address or connected_email
-        label = f"{effective_mailbox} (Shared)" if mailbox_address else connected_email
+        label = effective_mailbox
 
         # Upsert connection (match on mailbox, not just email)
         existing = await self.db.execute(
