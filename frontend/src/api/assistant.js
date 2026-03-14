@@ -32,3 +32,7 @@ export const rejectAction = (id) => api.post(`/v1/assistant/actions/${id}/reject
 
 // Dashboard
 export const getDashboard = () => api.get('/v1/assistant/dashboard')
+
+// OAuth
+export const getOAuthUrl = (provider) =>
+  api.get('/v1/assistant/oauth/authorize', { params: { provider } })

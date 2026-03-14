@@ -1,6 +1,7 @@
 """Assistant module API endpoints."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.assistant.schemas import (
@@ -396,3 +397,140 @@ async def get_dashboard(
         return await _svc(db).get_dashboard_stats(tenant_id, user.id)
     except AppError as e:
         raise HTTPException(status_code=e.status_code, detail=e.message) from e
+
+
+# ── OAuth / Konto verbinden ──────────────────────────────────────────
+
+OAUTH_CALLBACK_HTML = """<!DOCTYPE html>
+<html><body><script>
+window.opener?.postMessage({type:'oauth_success'}, '*');
+window.close();
+</script><p>Verbindung erfolgreich. Dieses Fenster kann geschlossen werden.</p></body></html>"""
+
+OAUTH_ERROR_HTML = """<!DOCTYPE html>
+<html><body><script>
+window.opener?.postMessage({type:'oauth_error', error:'%s'}, '*');
+window.close();
+</script><p>Fehler: %s</p></body></html>"""
+
+
+@router.get("/oauth/authorize")
+async def oauth_authorize(
+    provider: str = Query(..., pattern=r"^(microsoft|google)$"),
+    user: User = Depends(get_current_user),
+    tenant_id: str = Depends(get_current_tenant_id),
+):
+    """Return OAuth URL for connecting a mail/calendar account."""
+    from urllib.parse import quote, urlencode
+
+    from app.briefing.oauth import encrypt_token
+    from app.config import settings
+
+    state = encrypt_token(
+        {
+            "tenant_id": tenant_id,
+            "user_id": user.id,
+            "provider": provider,
+            "flow": "assistant",
+        }
+    )
+    callback_url = f"{settings.app_url}/api/v1/assistant/oauth/callback"
+
+    # Request mail + calendar + user scopes
+    if provider == "microsoft":
+        scope = "Mail.Read Calendars.Read User.Read offline_access"
+        tid = settings.microsoft_tenant_id or "common"
+        params = urlencode(
+            {
+                "client_id": settings.microsoft_client_id,
+                "response_type": "code",
+                "redirect_uri": callback_url,
+                "scope": scope,
+                "state": state,
+            },
+            quote_via=quote,
+        )
+        auth_url = (
+            f"https://login.microsoftonline.com/{tid}/oauth2/v2.0/authorize?{params}"
+        )
+    else:
+        scope = (
+            "https://www.googleapis.com/auth/gmail.readonly "
+            "https://www.googleapis.com/auth/calendar.readonly "
+            "openid email"
+        )
+        params = urlencode(
+            {
+                "client_id": settings.google_client_id,
+                "response_type": "code",
+                "redirect_uri": callback_url,
+                "scope": scope,
+                "access_type": "offline",
+                "prompt": "consent",
+                "state": state,
+            },
+            quote_via=quote,
+        )
+        auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{params}"
+
+    return {"auth_url": auth_url}
+
+
+@router.get("/oauth/callback")
+async def oauth_callback(
+    code: str = Query(...),
+    state: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """OAuth callback - creates integration_connection + assistant_source."""
+    from fastapi.responses import HTMLResponse
+
+    from app.briefing.oauth import decrypt_token, encrypt_token
+    from app.briefing.router import _exchange_oauth_code, _fetch_oauth_email
+    from app.config import settings
+
+    try:
+        state_data = decrypt_token(state)
+        tenant_id = state_data["tenant_id"]
+        user_id = state_data["user_id"]
+        provider = state_data["provider"]
+
+        callback_url = f"{settings.app_url}/api/v1/assistant/oauth/callback"
+        tokens = await _exchange_oauth_code(code, provider, callback_url)
+        email = await _fetch_oauth_email(tokens["access_token"], provider)
+
+        from datetime import UTC, datetime
+
+        token_data = {
+            "access_token": tokens["access_token"],
+            "refresh_token": tokens.get("refresh_token", ""),
+            "expires_at": datetime.now(UTC).timestamp()
+            + tokens.get("expires_in", 3600),
+        }
+
+        # Map provider name to integration provider
+        provider_name = (
+            "microsoft_graph" if provider == "microsoft" else "google_workspace"
+        )
+
+        svc = AssistantService(db)
+        conn, source = await svc.create_connection_and_source(
+            tenant_id=tenant_id,
+            user_id=user_id,
+            provider=provider_name,
+            connected_email=email,
+            encrypted_token=encrypt_token(token_data),
+        )
+        await db.commit()
+
+        logger.info(
+            "Assistant OAuth: conn={cid} source={sid} email={e}",
+            cid=conn.id,
+            sid=source.id,
+            e=email,
+        )
+        return HTMLResponse(OAUTH_CALLBACK_HTML)
+    except Exception as e:
+        logger.exception("Assistant OAuth callback Fehler")
+        error_msg = str(e)[:200]
+        return HTMLResponse(OAUTH_ERROR_HTML % (error_msg, error_msg), status_code=400)

@@ -100,6 +100,10 @@ async function handleToggleRule(rule) {
   await store.editRule(rule.id, { enabled: !rule.enabled })
 }
 
+async function handleConnectAccount(provider) {
+  await store.connectAccount(provider)
+}
+
 async function handleApprove(id) {
   await store.approveAction(id)
 }
@@ -186,10 +190,30 @@ function formatDate(d) {
 
     <!-- ═══ Konten ═══ -->
     <div v-if="activeTab === 'accounts'" class="space-y-4">
+      <div class="flex items-center justify-between">
+        <p class="text-sm text-gray-500">
+          {{ store.sources.length }} Konto{{ store.sources.length !== 1 ? 'en' : '' }} verbunden
+        </p>
+        <div class="flex gap-2">
+          <button
+            class="rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white hover:bg-go4-primary/90"
+            @click="handleConnectAccount('microsoft')"
+          >
+            + Microsoft 365
+          </button>
+          <button
+            class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            @click="handleConnectAccount('google')"
+          >
+            + Google
+          </button>
+        </div>
+      </div>
+
       <EmptyState
         v-if="store.sources.length === 0"
         title="Keine Quellen verbunden"
-        description="Verbinde Mail- oder Kalenderkonten, um den Assistant zu nutzen."
+        description="Verbinde ein Microsoft 365 oder Google Konto, um den Assistant zu nutzen."
       />
       <div v-else class="space-y-3">
         <div
@@ -198,12 +222,34 @@ function formatDate(d) {
           class="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4"
         >
           <div>
-            <p class="font-medium text-gray-900">Verbindung #{{ source.connection_id }}</p>
+            <p class="font-medium text-gray-900">
+              Verbindung #{{ source.connection_id }}
+            </p>
             <div class="mt-1 flex gap-2 text-xs">
-              <span v-if="source.briefing_enabled" class="rounded bg-blue-100 px-2 py-0.5 text-blue-800">Briefing</span>
-              <span v-if="source.voice_enabled" class="rounded bg-purple-100 px-2 py-0.5 text-purple-800">Voice</span>
-              <span v-if="source.reply_enabled" class="rounded bg-green-100 px-2 py-0.5 text-green-800">Reply</span>
-              <span v-if="source.autopilot_enabled" class="rounded bg-orange-100 px-2 py-0.5 text-orange-800">Autopilot</span>
+              <span
+                v-if="source.briefing_enabled"
+                class="rounded bg-blue-100 px-2 py-0.5 text-blue-800"
+              >
+                Briefing
+              </span>
+              <span
+                v-if="source.voice_enabled"
+                class="rounded bg-purple-100 px-2 py-0.5 text-purple-800"
+              >
+                Voice
+              </span>
+              <span
+                v-if="source.reply_enabled"
+                class="rounded bg-green-100 px-2 py-0.5 text-green-800"
+              >
+                Reply
+              </span>
+              <span
+                v-if="source.autopilot_enabled"
+                class="rounded bg-orange-100 px-2 py-0.5 text-orange-800"
+              >
+                Autopilot
+              </span>
             </div>
           </div>
           <button

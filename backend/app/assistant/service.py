@@ -387,6 +387,83 @@ class AssistantService:
             "connected_sources": sources_q.scalar() or 0,
         }
 
+    # ── Connection + Source ─────────────────────────────────────────
+
+    async def create_connection_and_source(
+        self,
+        tenant_id: str,
+        user_id: int,
+        provider: str,
+        connected_email: str,
+        encrypted_token: str,
+    ) -> tuple[IntegrationConnection, AssistantSource]:
+        """Create an IntegrationConnection and link it as AssistantSource."""
+        from app.assistant.models import IntegrationConnectionCapability
+
+        # Upsert connection
+        existing = await self.db.execute(
+            select(IntegrationConnection).where(
+                IntegrationConnection.tenant_id == tenant_id,
+                IntegrationConnection.user_id == user_id,
+                IntegrationConnection.provider == provider,
+                IntegrationConnection.connected_email == connected_email,
+            )
+        )
+        conn = existing.scalar_one_or_none()
+        if conn:
+            conn.encrypted_token = encrypted_token
+            conn.status = "connected"
+            conn.last_error = None
+        else:
+            conn = IntegrationConnection(
+                tenant_id=tenant_id,
+                user_id=user_id,
+                provider=provider,
+                integration_type="email",
+                connected_email=connected_email,
+                mailbox_address=connected_email,
+                account_label=connected_email,
+                encrypted_token=encrypted_token,
+                status="connected",
+            )
+            self.db.add(conn)
+            await self.db.flush()
+
+            # Grant capabilities
+            for cap in ("read_mail", "read_calendar"):
+                self.db.add(
+                    IntegrationConnectionCapability(
+                        connection_id=conn.id,
+                        capability=cap,
+                        granted=True,
+                    )
+                )
+
+        await self.db.flush()
+        await self.db.refresh(conn)
+
+        # Ensure source exists
+        source_result = await self.db.execute(
+            select(AssistantSource).where(
+                AssistantSource.tenant_id == tenant_id,
+                AssistantSource.user_id == user_id,
+                AssistantSource.connection_id == conn.id,
+            )
+        )
+        source = source_result.scalar_one_or_none()
+        if not source:
+            source = AssistantSource(
+                tenant_id=tenant_id,
+                user_id=user_id,
+                connection_id=conn.id,
+                briefing_enabled=True,
+            )
+            self.db.add(source)
+            await self.db.flush()
+            await self.db.refresh(source)
+
+        return conn, source
+
     # ── Briefing ─────────────────────────────────────────────────────
 
     async def run_briefing(

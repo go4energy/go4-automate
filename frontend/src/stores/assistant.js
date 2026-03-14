@@ -17,6 +17,7 @@ import {
   rejectAction as apiRejectAction,
   addFeedback as apiAddFeedback,
   getDashboard,
+  getOAuthUrl,
 } from '@/api/assistant'
 
 export const useAssistantStore = defineStore('assistant', () => {
@@ -215,6 +216,42 @@ export const useAssistantStore = defineStore('assistant', () => {
     }
   }
 
+  // ── OAuth ──
+  async function connectAccount(provider) {
+    error.value = null
+    try {
+      const { data } = await getOAuthUrl(provider)
+      const popup = window.open(data.auth_url, 'assistant_oauth', 'width=600,height=700')
+
+      return new Promise((resolve) => {
+        const handler = (event) => {
+          if (event.data?.type === 'oauth_success') {
+            window.removeEventListener('message', handler)
+            fetchSources()
+            resolve(true)
+          } else if (event.data?.type === 'oauth_error') {
+            window.removeEventListener('message', handler)
+            error.value = event.data.error || 'OAuth fehlgeschlagen'
+            resolve(false)
+          }
+        }
+        window.addEventListener('message', handler)
+
+        const checkClosed = setInterval(() => {
+          if (popup?.closed) {
+            clearInterval(checkClosed)
+            window.removeEventListener('message', handler)
+            fetchSources()
+            resolve(false)
+          }
+        }, 1000)
+      })
+    } catch (err) {
+      error.value = err.response?.data?.detail || err.message
+      throw err
+    }
+  }
+
   // ── Dashboard ──
   async function fetchDashboard() {
     error.value = null
@@ -255,6 +292,7 @@ export const useAssistantStore = defineStore('assistant', () => {
     editRule,
     removeRule,
     fetchPendingActions,
+    connectAccount,
     approveAction,
     rejectAction,
     fetchDashboard,
