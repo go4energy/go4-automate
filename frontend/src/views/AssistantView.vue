@@ -204,6 +204,12 @@ function providerLabel(provider) {
   return labels[provider] || provider || 'Unbekannt'
 }
 
+function isShared(source) {
+  const conn = source.connection
+  if (!conn) return false
+  return conn.mailbox_address && conn.mailbox_address !== conn.connected_email
+}
+
 function statusClass(status) {
   if (status === 'connected') return 'bg-green-100 text-green-800'
   if (status === 'error') return 'bg-red-100 text-red-800'
@@ -404,7 +410,7 @@ function statusLabel(status) {
             <div>
               <div class="flex items-center gap-2">
                 <span class="text-sm font-medium text-gray-900">
-                  {{ source.connection?.mailbox_address || source.connection?.connected_email || 'Unbekannt' }}
+                  {{ source.connection?.account_label || source.connection?.mailbox_address || 'Unbekannt' }}
                 </span>
                 <span
                   class="rounded-full px-2 py-0.5 text-xs"
@@ -438,12 +444,8 @@ function statusLabel(status) {
                 </span>
               </div>
               <p class="text-xs text-gray-400">
-                {{ providerLabel(source.connection?.provider) }}
-                <span
-                  v-if="source.connection?.mailbox_address && source.connection?.mailbox_address !== source.connection?.connected_email"
-                >
-                  (via {{ source.connection.connected_email }})
-                </span>
+                {{ providerLabel(source.connection?.provider) }},
+                {{ isShared(source) ? 'Shared' : 'Personal' }}
                 <span v-if="source.connection?.last_synced_at">
                   &middot; Sync: {{ formatDate(source.connection.last_synced_at) }}
                 </span>
