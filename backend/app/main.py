@@ -241,3 +241,8 @@ app.include_router(ai_router, prefix="/api/v1")
 
 # Domain module routers (auto-discovered from __manifest__.py)
 register_routers(app, manifests, prefix="/api/v1")
+
+# WebSocket routes (no prefix, no auth middleware)
+from app.assistant.realtime_voice import router as realtime_voice_router  # noqa: E402
+
+app.include_router(realtime_voice_router)
