@@ -121,12 +121,27 @@ class AssistantProfile(TimestampMixin, Base):
     autopilot_enabled: Mapped[bool] = mapped_column(
         Boolean, server_default="false", nullable=False
     )
+    skip_confirmation: Mapped[bool] = mapped_column(
+        Boolean, server_default="false", nullable=False
+    )
+    ai_suggestions_enabled: Mapped[bool] = mapped_column(
+        Boolean, server_default="false", nullable=False
+    )
+    autopilot_min_confidence: Mapped[float] = mapped_column(
+        Float, server_default="0.85", nullable=False
+    )
+    autopilot_max_rule_risk: Mapped[str] = mapped_column(
+        String(20), server_default="medium", nullable=False
+    )
+    suggestion_min_confidence: Mapped[float] = mapped_column(
+        Float, server_default="0.70", nullable=False
+    )
     timezone: Mapped[str] = mapped_column(
         String(50), server_default="Europe/Vienna", nullable=False
     )
     delivery_time: Mapped[str | None] = mapped_column(String(10))
     llm_provider: Mapped[str] = mapped_column(
-        String(50), server_default="ollama", nullable=False
+        String(50), server_default="anthropic", nullable=False
     )
     llm_model: Mapped[str | None] = mapped_column(String(100))
     tts_provider: Mapped[str] = mapped_column(
@@ -355,6 +370,88 @@ class AssistantRule(TimestampMixin, Base):
         return f"<AssistantRule '{self.name}' [{self.risk_level}]>"
 
 
+class AssistantCategoryRegistry(TimestampMixin, Base):
+    """Tenant-configurable category registry for assistant mail policies."""
+
+    __tablename__ = "assistant_category_registry"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(
+        String(50), ForeignKey("tenants.tenant_id"), nullable=False
+    )
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    category_type: Mapped[str] = mapped_column(
+        String(20), server_default="fixed", nullable=False
+    )
+    color: Mapped[str | None] = mapped_column(String(30))
+    active: Mapped[bool] = mapped_column(
+        Boolean, server_default="true", nullable=False
+    )
+    system_default: Mapped[bool] = mapped_column(
+        Boolean, server_default="false", nullable=False
+    )
+    metadata_json: Mapped[dict | None] = mapped_column(JSONB)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "name",
+            name="uq_assistant_category_registry_tenant_name",
+        ),
+        Index("ix_assistant_category_registry_tenant", "tenant_id"),
+        Index("ix_assistant_category_registry_type", "tenant_id", "category_type"),
+        Index("ix_assistant_category_registry_active", "tenant_id", "active"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<AssistantCategoryRegistry '{self.name}' [{self.category_type}]>"
+
+
+class AssistantTempTracking(TimestampMixin, Base):
+    """Persisted TEMP expiry tracking for status-managed emails."""
+
+    __tablename__ = "assistant_temp_tracking"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(
+        String(50), ForeignKey("tenants.tenant_id"), nullable=False
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    connection_id: Mapped[int | None] = mapped_column(
+        ForeignKey("integration_connections.id", ondelete="SET NULL"), nullable=True
+    )
+    message_external_id: Mapped[str] = mapped_column(String(500), nullable=False)
+    thread_external_id: Mapped[str | None] = mapped_column(String(500))
+    mailbox_address: Mapped[str | None] = mapped_column(String(255))
+    subject: Mapped[str | None] = mapped_column(String(500))
+    sender: Mapped[str | None] = mapped_column(String(255))
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    last_reviewed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime)
+    resolution_status: Mapped[str | None] = mapped_column(String(30))
+    metadata_json: Mapped[dict | None] = mapped_column(JSONB)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "connection_id",
+            "message_external_id",
+            name="uq_assistant_temp_tracking_message",
+        ),
+        Index("ix_assistant_temp_tracking_tenant_user", "tenant_id", "user_id"),
+        Index("ix_assistant_temp_tracking_expires", "tenant_id", "expires_at"),
+        Index("ix_assistant_temp_tracking_open", "tenant_id", "resolved_at"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<AssistantTempTracking message={self.message_external_id} expires={self.expires_at}>"
+
+
 class AssistantAction(TimestampMixin, Base):
     """Proposed or executed action on an item."""
 
@@ -448,3 +545,179 @@ class AssistantConversation(TimestampMixin, Base):
 
     def __repr__(self) -> str:
         return f"<AssistantConversation {self.channel} [{self.state}]>"
+
+
+class AssistantPendingIntent(TimestampMixin, Base):
+    """Persisted pending action that requires explicit confirmation."""
+
+    __tablename__ = "assistant_pending_intents"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(
+        String(50), ForeignKey("tenants.tenant_id"), nullable=False
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    conversation_id: Mapped[int | None] = mapped_column(
+        ForeignKey("assistant_conversations.id", ondelete="SET NULL"), nullable=True
+    )
+    connection_id: Mapped[int | None] = mapped_column(
+        ForeignKey("integration_connections.id", ondelete="SET NULL"), nullable=True
+    )
+    intent_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(30), server_default="awaiting_confirmation", nullable=False
+    )
+    target_type: Mapped[str | None] = mapped_column(String(50))
+    target_ref_json: Mapped[dict | None] = mapped_column(JSONB)
+    payload_json: Mapped[dict | None] = mapped_column(JSONB)
+    confirmation_token: Mapped[str | None] = mapped_column(String(64))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime)
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    executed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime)
+    error_message: Mapped[str | None] = mapped_column(Text)
+    metadata_json: Mapped[dict | None] = mapped_column(JSONB)
+
+    __table_args__ = (
+        Index("ix_assistant_pending_intent_tenant", "tenant_id", "user_id"),
+        Index("ix_assistant_pending_intent_status", "status"),
+        Index("ix_assistant_pending_intent_conv", "conversation_id"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<AssistantPendingIntent {self.intent_type} [{self.status}]>"
+
+
+class AssistantDraft(TimestampMixin, Base):
+    """Persisted draft for replies and new outgoing emails."""
+
+    __tablename__ = "assistant_drafts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(
+        String(50), ForeignKey("tenants.tenant_id"), nullable=False
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    conversation_id: Mapped[int | None] = mapped_column(
+        ForeignKey("assistant_conversations.id", ondelete="SET NULL"), nullable=True
+    )
+    connection_id: Mapped[int | None] = mapped_column(
+        ForeignKey("integration_connections.id", ondelete="SET NULL"), nullable=True
+    )
+    draft_type: Mapped[str] = mapped_column(
+        String(30), server_default="reply", nullable=False
+    )
+    status: Mapped[str] = mapped_column(
+        String(30), server_default="draft", nullable=False
+    )
+    target_external_id: Mapped[str | None] = mapped_column(String(500))
+    thread_external_id: Mapped[str | None] = mapped_column(String(500))
+    to_recipients_json: Mapped[dict | None] = mapped_column(JSONB)
+    cc_recipients_json: Mapped[dict | None] = mapped_column(JSONB)
+    bcc_recipients_json: Mapped[dict | None] = mapped_column(JSONB)
+    subject: Mapped[str | None] = mapped_column(String(500))
+    body_text: Mapped[str | None] = mapped_column(Text)
+    body_html: Mapped[str | None] = mapped_column(Text)
+    provider_draft_id: Mapped[str | None] = mapped_column(String(500))
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime)
+    discarded_at: Mapped[datetime | None] = mapped_column(DateTime)
+    metadata_json: Mapped[dict | None] = mapped_column(JSONB)
+
+    __table_args__ = (
+        Index("ix_assistant_draft_tenant", "tenant_id", "user_id"),
+        Index("ix_assistant_draft_status", "status"),
+        Index("ix_assistant_draft_conv", "conversation_id"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<AssistantDraft {self.draft_type} [{self.status}]>"
+
+
+class AssistantConversationTurn(Base):
+    """Persisted conversation turn and tool execution log."""
+
+    __tablename__ = "assistant_conversation_turns"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(
+        String(50), ForeignKey("tenants.tenant_id"), nullable=False
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    conversation_id: Mapped[int] = mapped_column(
+        ForeignKey("assistant_conversations.id", ondelete="CASCADE"), nullable=False
+    )
+    role: Mapped[str] = mapped_column(String(20), nullable=False)
+    turn_type: Mapped[str] = mapped_column(
+        String(30), server_default="message", nullable=False
+    )
+    content_text: Mapped[str | None] = mapped_column(Text)
+    tool_name: Mapped[str | None] = mapped_column(String(100))
+    tool_args_json: Mapped[dict | None] = mapped_column(JSONB)
+    tool_result_text: Mapped[str | None] = mapped_column(Text)
+    latency_ms: Mapped[int | None] = mapped_column(Integer)
+    metadata_json: Mapped[dict | None] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default="now()", nullable=False
+    )
+
+    __table_args__ = (
+        Index("ix_assistant_conv_turn_conv", "conversation_id"),
+        Index("ix_assistant_conv_turn_tenant", "tenant_id", "user_id"),
+        Index("ix_assistant_conv_turn_role", "role"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<AssistantConversationTurn {self.role}/{self.turn_type}>"
+
+
+class AssistantUndoLog(TimestampMixin, Base):
+    """Audit trail for undoable assistant operations."""
+
+    __tablename__ = "assistant_undo_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(
+        String(50), ForeignKey("tenants.tenant_id"), nullable=False
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    conversation_id: Mapped[int | None] = mapped_column(
+        ForeignKey("assistant_conversations.id", ondelete="SET NULL"), nullable=True
+    )
+    connection_id: Mapped[int | None] = mapped_column(
+        ForeignKey("integration_connections.id", ondelete="SET NULL"), nullable=True
+    )
+    draft_id: Mapped[int | None] = mapped_column(
+        ForeignKey("assistant_drafts.id", ondelete="SET NULL"), nullable=True
+    )
+    pending_intent_id: Mapped[int | None] = mapped_column(
+        ForeignKey("assistant_pending_intents.id", ondelete="SET NULL"), nullable=True
+    )
+    action_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(30), server_default="executed", nullable=False
+    )
+    can_undo: Mapped[bool] = mapped_column(
+        Boolean, server_default="false", nullable=False
+    )
+    undone_at: Mapped[datetime | None] = mapped_column(DateTime)
+    target_ref_json: Mapped[dict | None] = mapped_column(JSONB)
+    before_state_json: Mapped[dict | None] = mapped_column(JSONB)
+    after_state_json: Mapped[dict | None] = mapped_column(JSONB)
+    metadata_json: Mapped[dict | None] = mapped_column(JSONB)
+
+    __table_args__ = (
+        Index("ix_assistant_undo_log_tenant", "tenant_id", "user_id"),
+        Index("ix_assistant_undo_log_status", "status"),
+        Index("ix_assistant_undo_log_conv", "conversation_id"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<AssistantUndoLog {self.action_type} [{self.status}]>"

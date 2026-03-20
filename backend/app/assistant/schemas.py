@@ -1,6 +1,7 @@
 """Assistant module Pydantic schemas."""
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -14,13 +15,16 @@ class AssistantProfileCreate(BaseModel):
 
     timezone: str = "Europe/Vienna"
     delivery_time: str | None = None
-    llm_provider: str = "ollama"
+    llm_provider: str = "anthropic"
     llm_model: str | None = None
     tts_provider: str = "piper"
     tts_voice: str | None = None
     stt_provider: str = "faster-whisper"
     max_items_per_run: int = Field(default=30, ge=1, le=200)
     default_reply_mode: str = "draft"
+    autopilot_min_confidence: float = Field(default=0.85, ge=0.0, le=1.0)
+    autopilot_max_rule_risk: Literal["low", "medium", "high"] = "medium"
+    suggestion_min_confidence: float = Field(default=0.70, ge=0.0, le=1.0)
 
 
 class AssistantProfileUpdate(BaseModel):
@@ -30,6 +34,8 @@ class AssistantProfileUpdate(BaseModel):
     briefing_enabled: bool | None = None
     voice_enabled: bool | None = None
     autopilot_enabled: bool | None = None
+    skip_confirmation: bool | None = None
+    ai_suggestions_enabled: bool | None = None
     timezone: str | None = None
     delivery_time: str | None = None
     llm_provider: str | None = None
@@ -39,6 +45,9 @@ class AssistantProfileUpdate(BaseModel):
     stt_provider: str | None = None
     max_items_per_run: int | None = Field(default=None, ge=1, le=200)
     default_reply_mode: str | None = None
+    autopilot_min_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    autopilot_max_rule_risk: Literal["low", "medium", "high"] | None = None
+    suggestion_min_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
 
 
 class AssistantProfileResponse(BaseModel):
@@ -51,6 +60,8 @@ class AssistantProfileResponse(BaseModel):
     briefing_enabled: bool
     voice_enabled: bool
     autopilot_enabled: bool
+    skip_confirmation: bool
+    ai_suggestions_enabled: bool
     timezone: str
     delivery_time: str | None
     llm_provider: str
@@ -60,6 +71,9 @@ class AssistantProfileResponse(BaseModel):
     stt_provider: str
     max_items_per_run: int
     default_reply_mode: str
+    autopilot_min_confidence: float
+    autopilot_max_rule_risk: Literal["low", "medium", "high"]
+    suggestion_min_confidence: float
     created_at: datetime
     updated_at: datetime
 
@@ -128,6 +142,128 @@ class AssistantSourceResponse(BaseModel):
     connection: ConnectionInfo | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class AssistantMailboxPolicyFolder(BaseModel):
+    """Resolved folder mapping for one status."""
+
+    status: str
+    folder_id: str | None = None
+    display_name: str | None = None
+    configured: bool = False
+    system: bool = False
+
+
+class AssistantMailboxPolicyResponse(BaseModel):
+    """Mailbox policy state for one assistant source."""
+
+    source_id: int
+    connection_id: int
+    mailbox_address: str | None
+    provider: str
+    setup_complete: bool
+    status_folders: dict[str, AssistantMailboxPolicyFolder]
+    configured_folder_names: dict[str, str]
+    available_folders: list[dict]
+
+
+class AssistantMailboxPolicySetupRequest(BaseModel):
+    """Setup or repair status-folder mapping for a mailbox."""
+
+    create_missing: bool = True
+    folder_names: dict[str, str] | None = None
+
+
+# ---------------------------------------------------------------------------
+# Category registry
+# ---------------------------------------------------------------------------
+
+
+class AssistantCategoryCreate(BaseModel):
+    """Create a tenant category for assistant email policy."""
+
+    name: str = Field(..., min_length=1, max_length=120)
+    category_type: str = "fixed"
+    color: str | None = Field(default=None, max_length=30)
+    active: bool = True
+    metadata_json: dict | None = None
+
+
+class AssistantCategoryUpdate(BaseModel):
+    """Partial update for a tenant category."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    color: str | None = Field(default=None, max_length=30)
+    active: bool | None = None
+    metadata_json: dict | None = None
+
+
+class AssistantCategoryResponse(BaseModel):
+    """Tenant category configuration."""
+
+    id: int
+    tenant_id: str
+    user_id: int | None
+    name: str
+    category_type: str
+    color: str | None
+    active: bool
+    system_default: bool
+    metadata_json: dict | None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ---------------------------------------------------------------------------
+# TEMP tracking
+# ---------------------------------------------------------------------------
+
+
+class AssistantTempTrackingResponse(BaseModel):
+    """Tracked TEMP email with expiry metadata."""
+
+    id: int
+    tenant_id: str
+    user_id: int
+    connection_id: int | None
+    message_external_id: str
+    thread_external_id: str | None
+    mailbox_address: str | None
+    subject: str | None
+    sender: str | None
+    expires_at: datetime
+    last_reviewed_at: datetime | None
+    resolved_at: datetime | None
+    resolution_status: str | None
+    metadata_json: dict | None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ---------------------------------------------------------------------------
+# Mailbox review / triage
+# ---------------------------------------------------------------------------
+
+
+class AssistantMailboxReviewItemResponse(BaseModel):
+    """Mailbox item returned by review or triage endpoints."""
+
+    source_id: int
+    connection_id: int
+    mailbox_address: str | None
+    status: str
+    message_id: str
+    thread_id: str | None
+    subject: str
+    sender: str | None
+    received_at: datetime | None
+    snippet: str | None
+    is_unread: bool
+    has_attachments: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -226,6 +362,127 @@ class AssistantActionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class AssistantDraftUpdate(BaseModel):
+    """Partial update for an assistant draft."""
+
+    subject: str | None = Field(default=None, max_length=500)
+    body_text: str | None = None
+    to_recipients: list[str] | None = None
+
+
+class AssistantDraftResponse(BaseModel):
+    """Persisted reply or send draft."""
+
+    id: int
+    tenant_id: str
+    user_id: int
+    conversation_id: int | None
+    connection_id: int | None
+    draft_type: str
+    status: str
+    target_external_id: str | None
+    thread_external_id: str | None
+    to_recipients_json: dict | None
+    cc_recipients_json: dict | None
+    bcc_recipients_json: dict | None
+    subject: str | None
+    body_text: str | None
+    body_html: str | None
+    provider_draft_id: str | None
+    sent_at: datetime | None
+    discarded_at: datetime | None
+    metadata_json: dict | None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AssistantPendingIntentResponse(BaseModel):
+    """Pending voice/UI action that awaits confirmation."""
+
+    id: int
+    tenant_id: str
+    user_id: int
+    conversation_id: int | None
+    connection_id: int | None
+    intent_type: str
+    status: str
+    target_type: str | None
+    target_ref_json: dict | None
+    payload_json: dict | None
+    confirmation_token: str | None
+    expires_at: datetime | None
+    confirmed_at: datetime | None
+    executed_at: datetime | None
+    cancelled_at: datetime | None
+    error_message: str | None
+    metadata_json: dict | None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AssistantConversationTurnResponse(BaseModel):
+    """Single persisted conversation turn."""
+
+    id: int
+    tenant_id: str
+    user_id: int
+    conversation_id: int
+    role: str
+    turn_type: str
+    content_text: str | None
+    tool_name: str | None
+    tool_args_json: dict | None
+    tool_result_text: str | None
+    latency_ms: int | None
+    metadata_json: dict | None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AssistantUndoLogResponse(BaseModel):
+    """Undo/audit record for an executed assistant action."""
+
+    id: int
+    tenant_id: str
+    user_id: int
+    conversation_id: int | None
+    connection_id: int | None
+    draft_id: int | None
+    pending_intent_id: int | None
+    action_type: str
+    status: str
+    can_undo: bool
+    undone_at: datetime | None
+    target_ref_json: dict | None
+    before_state_json: dict | None
+    after_state_json: dict | None
+    metadata_json: dict | None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AssistantMailboxHealthResponse(BaseModel):
+    """Mailbox health snapshot for dashboard and triage."""
+
+    connection_id: int
+    mailbox_address: str | None
+    account_label: str | None
+    provider: str
+    unread_count: int
+    recent_sample_count: int
+    cleanup_candidate_count: int
+    cleanup_recommended: bool
+    health_score: int
+    summary: str
+
+
 # ---------------------------------------------------------------------------
 # Feedback
 # ---------------------------------------------------------------------------
@@ -290,3 +547,43 @@ class BriefingRunResponse(BaseModel):
     briefing_text: str
     audio_url: str | None = None
     generated_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# Voice Chat
+# ---------------------------------------------------------------------------
+
+
+class VoiceChatRequest(BaseModel):
+    """Voice chat text input."""
+
+    text: str = Field(..., min_length=1, max_length=2000)
+    conversation_id: int | None = None
+    tts_enabled: bool = True
+
+
+class VoiceChatContext(BaseModel):
+    """Current conversation context for frontend."""
+
+    current_email: dict | None = None
+    email_count: int = 0
+    current_index: int = 0
+    pending_draft_id: int | None = None
+    pending_intent_id: int | None = None
+    cleanup_preview_summary: str | None = None
+
+
+class VoiceChatResponse(BaseModel):
+    """Voice chat response with optional audio."""
+
+    text: str
+    audio_base64: str | None = None
+    conversation_id: int
+    context: VoiceChatContext
+    transcribed_text: str | None = None
+
+
+class TranscribeResponse(BaseModel):
+    """STT transcription result."""
+
+    text: str
