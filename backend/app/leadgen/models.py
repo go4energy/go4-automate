@@ -1,0 +1,266 @@
+"""Leadgen models - Campaign, Run, Place, Impressum, LLM Insights."""
+
+from datetime import datetime
+
+from sqlalchemy import ForeignKey, Index, Numeric, String, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.database import Base
+from app.models.base import TimestampMixin
+
+
+class LeadgenCampaign(TimestampMixin, Base):
+    """Leadgen campaign - a set of search queries plus target pipeline + thresholds."""
+
+    __tablename__ = "leadgen_campaigns"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(
+        String(50),
+        ForeignKey("tenants.tenant_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    owner_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+
+    # Identity
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    slug: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Search config
+    queries: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
+    language: Mapped[str] = mapped_column(String(10), default="de", nullable=False)
+    region: Mapped[str] = mapped_column(String(10), default="DE", nullable=False)
+
+    # Qualification
+    pv_relevance_threshold: Mapped[int] = mapped_column(default=5, nullable=False)
+
+    # Handoff target (nullable: can be set later or left manual)
+    target_engagement_pipeline_id: Mapped[int | None] = mapped_column(
+        ForeignKey("engagement_pipelines.id", ondelete="SET NULL"), nullable=True
+    )
+
+    # Status: draft | active | paused | completed
+    status: Mapped[str] = mapped_column(String(20), default="draft", nullable=False)
+
+    # Relationships
+    tenant = relationship("Tenant")
+    runs = relationship(
+        "LeadgenRun", back_populates="campaign", cascade="all, delete-orphan"
+    )
+    places = relationship(
+        "LeadgenPlace", back_populates="campaign", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "slug", name="uq_leadgen_campaign_slug"),
+        Index("ix_leadgen_campaigns_tenant", "tenant_id"),
+    )
+
+
+class LeadgenRun(TimestampMixin, Base):
+    """Single execution of the leadgen pipeline for a campaign."""
+
+    __tablename__ = "leadgen_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(
+        String(50),
+        ForeignKey("tenants.tenant_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    campaign_id: Mapped[int] = mapped_column(
+        ForeignKey("leadgen_campaigns.id", ondelete="CASCADE"), nullable=False
+    )
+
+    # Stage: places | impressum | llm | fallback | completed
+    current_stage: Mapped[str] = mapped_column(
+        String(20), default="places", nullable=False
+    )
+    # Status: queued | running | paused | completed | failed
+    status: Mapped[str] = mapped_column(String(20), default="queued", nullable=False)
+
+    # Progress counters (updated per batch)
+    processed_count: Mapped[int] = mapped_column(default=0, nullable=False)
+    success_count: Mapped[int] = mapped_column(default=0, nullable=False)
+    error_count: Mapped[int] = mapped_column(default=0, nullable=False)
+
+    # Cost tracking (stored in cents to avoid float)
+    cost_cents: Mapped[int] = mapped_column(default=0, nullable=False)
+
+    # Per-stage progress state for resume (e.g. last query index, last place id)
+    stage_state: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
+
+    started_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Relationships
+    campaign = relationship("LeadgenCampaign", back_populates="runs")
+    places = relationship("LeadgenPlace", back_populates="run")
+
+    __table_args__ = (
+        Index("ix_leadgen_runs_tenant_status", "tenant_id", "status"),
+        Index("ix_leadgen_runs_campaign", "campaign_id"),
+    )
+
+
+class LeadgenPlace(TimestampMixin, Base):
+    """A single place (business) discovered via Google Places API."""
+
+    __tablename__ = "leadgen_places"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(
+        String(50),
+        ForeignKey("tenants.tenant_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    campaign_id: Mapped[int] = mapped_column(
+        ForeignKey("leadgen_campaigns.id", ondelete="CASCADE"), nullable=False
+    )
+    run_id: Mapped[int | None] = mapped_column(
+        ForeignKey("leadgen_runs.id", ondelete="SET NULL"), nullable=True
+    )
+
+    # Google Places identity
+    google_place_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    source_query: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    # Core fields (parsed from Places payload)
+    name: Mapped[str] = mapped_column(String(300), nullable=False)
+    address_street: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    address_zip: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    address_city: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    address_country: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    formatted_address: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    lat: Mapped[float | None] = mapped_column(Numeric(10, 7), nullable=True)
+    lng: Mapped[float | None] = mapped_column(Numeric(10, 7), nullable=True)
+    website: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    google_categories: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
+    rating: Mapped[float | None] = mapped_column(Numeric(3, 2), nullable=True)
+    user_ratings_total: Mapped[int | None] = mapped_column(nullable=True)
+    business_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
+    # Full Places API payload for debugging / schema changes
+    raw_payload: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
+
+    # Pipeline status: discovered | impressum_done | impressum_failed |
+    # llm_done | llm_failed | rejected | enrolled
+    status: Mapped[str] = mapped_column(
+        String(30), default="discovered", nullable=False
+    )
+    rejected_reason: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+    # Handoff
+    contact_id: Mapped[int | None] = mapped_column(
+        ForeignKey("contacts.id", ondelete="SET NULL"), nullable=True
+    )
+
+    # Relationships
+    campaign = relationship("LeadgenCampaign", back_populates="places")
+    run = relationship("LeadgenRun", back_populates="places")
+    impressum = relationship(
+        "LeadgenImpressum",
+        back_populates="place",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+    llm_insights = relationship(
+        "LeadgenLLMInsights",
+        back_populates="place",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id", "google_place_id", name="uq_leadgen_place_google_id"
+        ),
+        Index("ix_leadgen_places_campaign_status", "campaign_id", "status"),
+        Index("ix_leadgen_places_tenant", "tenant_id"),
+    )
+
+
+class LeadgenImpressum(TimestampMixin, Base):
+    """Structured data extracted from a business's Impressum (§5 TMG)."""
+
+    __tablename__ = "leadgen_impressum"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(
+        String(50),
+        ForeignKey("tenants.tenant_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    place_id: Mapped[int] = mapped_column(
+        ForeignKey("leadgen_places.id", ondelete="CASCADE"), nullable=False
+    )
+
+    source_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
+    # §5 TMG fields
+    managing_directors: Mapped[list] = mapped_column(
+        JSONB, default=list, nullable=False
+    )
+    email: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    postal_address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    handelsregister: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    ust_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
+    # Extraction status
+    extraction_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    extracted_at: Mapped[datetime | None] = mapped_column(nullable=True)
+
+    # Relationships
+    place = relationship("LeadgenPlace", back_populates="impressum")
+
+    __table_args__ = (
+        UniqueConstraint("place_id", name="uq_leadgen_impressum_place"),
+    )
+
+
+class LeadgenLLMInsights(TimestampMixin, Base):
+    """LLM-extracted business intelligence per place."""
+
+    __tablename__ = "leadgen_llm_insights"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(
+        String(50),
+        ForeignKey("tenants.tenant_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    place_id: Mapped[int] = mapped_column(
+        ForeignKey("leadgen_places.id", ondelete="CASCADE"), nullable=False
+    )
+
+    # Scores & structured fields (0..10 for relevance)
+    pv_relevance_score: Mapped[int | None] = mapped_column(nullable=True)
+    services: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
+    brands: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
+    customer_segments: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
+    company_size_indicator: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    personalization_hook: Mapped[str | None] = mapped_column(Text, nullable=True)
+    red_flags: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
+
+    # Provenance / cost
+    pages_analyzed: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
+    input_tokens: Mapped[int | None] = mapped_column(nullable=True)
+    output_tokens: Mapped[int | None] = mapped_column(nullable=True)
+    cost_cents: Mapped[int] = mapped_column(default=0, nullable=False)
+    model_used: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    extraction_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    extracted_at: Mapped[datetime | None] = mapped_column(nullable=True)
+
+    # Relationships
+    place = relationship("LeadgenPlace", back_populates="llm_insights")
+
+    __table_args__ = (
+        UniqueConstraint("place_id", name="uq_leadgen_llm_insights_place"),
+    )
