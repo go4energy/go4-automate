@@ -381,7 +381,7 @@ async function toggleExpand(pipeline) {
       :open="showDeleteDialog"
       title="Pipeline löschen"
       message="Möchten Sie diese Pipeline wirklich löschen? Alle Deals in dieser Pipeline werden ebenfalls gelöscht."
-      confirm-label="Löschen"
+      confirm-text="Löschen"
       @confirm="deletePipeline"
       @cancel="showDeleteDialog = false"
     />

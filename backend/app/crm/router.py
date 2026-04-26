@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.dependencies import get_current_user
+from app.auth.models import User
 from app.crm.config_schema import crm_interface
 from app.crm.schemas import (
     ActivityCreate,
@@ -613,17 +615,18 @@ async def delete_deal(
 async def create_activity(
     data: ActivityCreate,
     tenant_id: str = Depends(get_current_tenant_id),
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> ActivityResponse:
     """Create a new activity."""
     try:
         service = ActivityService(db)
-        activity = await service.create(tenant_id, None, data)  # TODO: get user_id
+        activity = await service.create(tenant_id, user.id, data)
         return ActivityResponse(
             **{
                 **activity.__dict__,
                 "metadata": activity.metadata_,
-                "user_name": None,
+                "user_name": user.display_name,
             }
         )
     except AppError as e:
@@ -728,12 +731,13 @@ async def list_tasks(
 async def create_task(
     data: TaskCreate,
     tenant_id: str = Depends(get_current_tenant_id),
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> TaskResponse:
     """Create a new task."""
     try:
         service = TaskService(db)
-        task = await service.create(tenant_id, None, data)  # TODO: get user_id
+        task = await service.create(tenant_id, user.id, data)
         task = await service.get_by_id(tenant_id, task.id)
         return TaskResponse(
             **{

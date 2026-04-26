@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user
 from app.auth.models import User
+from app.config import settings
 from app.database import get_db
 from app.exceptions import NotFoundError
 from app.surveys.models import SurveyStatus
@@ -308,7 +309,7 @@ async def get_share_link(
         raise HTTPException(status_code=404, detail=e.message) from None
 
     # Build URL (adjust base URL as needed)
-    base_url = "https://app.go4-automate.com"  # TODO: make configurable
+    base_url = settings.app_url.rstrip("/")
     url = f"{base_url}/s/{survey.slug}"
 
     return ShareLink(
@@ -337,7 +338,7 @@ async def get_qr_code(
         raise HTTPException(status_code=404, detail=e.message) from None
 
     # Build URL
-    base_url = "https://app.go4-automate.com"  # TODO: make configurable
+    base_url = settings.app_url.rstrip("/")
     url = f"{base_url}/s/{survey.slug}"
 
     # Generate QR code

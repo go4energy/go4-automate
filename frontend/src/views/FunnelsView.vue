@@ -300,11 +300,11 @@ async function deleteFunnel() {
 
     <!-- Delete Confirmation -->
     <ConfirmDialog
-      :show="showDeleteConfirm"
+      :open="showDeleteConfirm"
       title="Funnel loeschen?"
       :message="`Möchtest du den Funnel '${funnelToDelete?.name}' wirklich löschen? Alle Prospects und Companies werden ebenfalls gelöscht.`"
-      confirm-label="Loeschen"
-      confirm-variant="danger"
+      confirm-text="Loeschen"
+      variant="danger"
       @confirm="deleteFunnel"
       @cancel="showDeleteConfirm = false"
     />

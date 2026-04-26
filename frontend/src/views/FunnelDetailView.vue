@@ -1097,15 +1097,15 @@ function getStatusColor(status) {
 
     <!-- Delete Confirmation -->
     <ConfirmDialog
-      :show="showDeleteConfirm"
+      :open="showDeleteConfirm"
       :title="deleteType === 'funnel' ? 'Funnel loeschen?' : 'Firma loeschen?'"
       :message="
         deleteType === 'funnel'
           ? `Möchtest du den Funnel '${deleteTarget?.name}' wirklich löschen? Alle Firmen, Prospects und Aktivitäten werden ebenfalls gelöscht.`
           : `Möchtest du die Firma '${deleteTarget?.name}' wirklich löschen?`
       "
-      confirm-label="Loeschen"
-      confirm-variant="danger"
+      confirm-text="Loeschen"
+      variant="danger"
       @confirm="executeDelete"
       @cancel="showDeleteConfirm = false"
     />

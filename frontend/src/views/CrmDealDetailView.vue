@@ -528,7 +528,7 @@ async function markLost() {
       :open="showDeleteDialog"
       title="Deal löschen"
       message="Möchten Sie diesen Deal wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden."
-      confirm-label="Löschen"
+      confirm-text="Löschen"
       @confirm="deleteDeal"
       @cancel="showDeleteDialog = false"
     />

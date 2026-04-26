@@ -1,10 +1,21 @@
 """API Key encryption using Fernet symmetric encryption.
 
 Environment Variables:
-    EMAIL_ENCRYPTION_KEY - 32-byte base64-encoded key for Fernet
-                          Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    EMAIL_ENCRYPTION_KEY      - 32-byte base64-encoded key for Fernet.
+                                Generate via:
+                                python -m app.emailmarketing.encryption
+    REQUIRE_ENCRYPTION_KEYS   - When set to "true"/"1" the app refuses to
+                                operate without an encryption key. Set this
+                                in production. In dev (default) we degrade
+                                to plaintext storage with a loud warning so
+                                local setup stays frictionless.
 
-If no key is set, a warning is logged and keys are stored in plaintext (development mode).
+Behaviour:
+- REQUIRE_ENCRYPTION_KEYS=true + key missing → raises RuntimeError on first
+  encrypt/decrypt call (loud failure, prevents silent plaintext leak).
+- REQUIRE_ENCRYPTION_KEYS=false (default) + key missing → logs a one-time
+  warning at logger.error level and returns None (existing behaviour
+  preserved for dev systems).
 """
 
 import os
@@ -17,14 +28,28 @@ from loguru import logger
 ENCRYPTED_PREFIX = "enc::"
 
 
+def _require_keys() -> bool:
+    """True when the platform should refuse plaintext-fallback storage."""
+    return os.getenv("REQUIRE_ENCRYPTION_KEYS", "").lower() in {"1", "true", "yes"}
+
+
 @lru_cache(maxsize=1)
 def _get_fernet() -> Fernet | None:
     """Get Fernet instance, cached for performance."""
     key = os.getenv("EMAIL_ENCRYPTION_KEY")
 
     if not key:
-        logger.warning(
-            "EMAIL_ENCRYPTION_KEY nicht gesetzt - API-Keys werden im Klartext gespeichert!"
+        if _require_keys():
+            raise RuntimeError(
+                "EMAIL_ENCRYPTION_KEY ist nicht gesetzt und "
+                "REQUIRE_ENCRYPTION_KEYS=true. API-Keys dürfen nicht im "
+                "Klartext gespeichert werden. Setze EMAIL_ENCRYPTION_KEY "
+                "(generieren via `python -m app.emailmarketing.encryption`)."
+            )
+        logger.error(
+            "⚠️  EMAIL_ENCRYPTION_KEY nicht gesetzt — API-Keys werden im "
+            "Klartext gespeichert. Setze REQUIRE_ENCRYPTION_KEYS=true in "
+            "Production, um diesen Fallback zu deaktivieren."
         )
         return None
 
@@ -32,6 +57,10 @@ def _get_fernet() -> Fernet | None:
         return Fernet(key.encode())
     except Exception as e:
         logger.error("Ungültiger EMAIL_ENCRYPTION_KEY: {err}", err=str(e))
+        if _require_keys():
+            raise RuntimeError(
+                f"Ungültiger EMAIL_ENCRYPTION_KEY und REQUIRE_ENCRYPTION_KEYS=true: {e}"
+            ) from e
         return None
 
 

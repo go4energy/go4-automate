@@ -573,11 +573,11 @@ function getStepLabel(type) {
 
     <!-- Delete Step Confirmation -->
     <ConfirmDialog
-      :show="showDeleteStepConfirm"
+      :open="showDeleteStepConfirm"
       title="Schritt loeschen?"
       message="Moechtest du diesen Schritt wirklich loeschen?"
-      confirm-label="Loeschen"
-      confirm-variant="danger"
+      confirm-text="Loeschen"
+      variant="danger"
       @confirm="confirmRemoveStep"
       @cancel="showDeleteStepConfirm = false"
     />

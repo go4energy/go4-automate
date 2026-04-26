@@ -926,21 +926,21 @@ function formatDate(dateStr) {
 
     <!-- Handoff Confirmation -->
     <ConfirmDialog
-      :show="showHandoffConfirm"
+      :open="showHandoffConfirm"
       title="Handoff zu CRM?"
       message="Der Prospect wird ins CRM uebertragen. Ein Kontakt und optional ein Deal werden erstellt."
-      confirm-label="Handoff starten"
+      confirm-text="Handoff starten"
       @confirm="triggerHandoff"
       @cancel="showHandoffConfirm = false"
     />
 
     <!-- Delete Confirmation -->
     <ConfirmDialog
-      :show="showDeleteConfirm"
+      :open="showDeleteConfirm"
       title="Prospect loeschen?"
       :message="`Möchtest du '${prospect?.name}' wirklich löschen? Alle Aktivitäten werden ebenfalls gelöscht.`"
-      confirm-label="Loeschen"
-      confirm-variant="danger"
+      confirm-text="Loeschen"
+      variant="danger"
       @confirm="deleteProspect"
       @cancel="showDeleteConfirm = false"
     />

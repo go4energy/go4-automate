@@ -636,11 +636,11 @@ function openContact(lead) {
 
     <!-- Remove Lead Confirmation -->
     <ConfirmDialog
-      :show="showRemoveLeadConfirm"
+      :open="showRemoveLeadConfirm"
       title="Lead entfernen?"
       :message="`Moechtest du '${leadToRemove?.contact_name}' aus dieser Kampagne entfernen?`"
-      confirm-label="Entfernen"
-      confirm-variant="danger"
+      confirm-text="Entfernen"
+      variant="danger"
       @confirm="removeLead"
       @cancel="showRemoveLeadConfirm = false"
     />

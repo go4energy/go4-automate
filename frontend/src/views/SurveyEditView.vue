@@ -738,11 +738,11 @@ async function moveQuestion(index, direction) {
 
     <!-- Delete Confirmation -->
     <ConfirmDialog
-      :show="showDeleteConfirm"
+      :open="showDeleteConfirm"
       title="Frage loeschen?"
       :message="`Moechtest du die Frage '${questionToDelete?.title}' wirklich loeschen?`"
-      confirm-label="Loeschen"
-      confirm-variant="danger"
+      confirm-text="Loeschen"
+      variant="danger"
       @confirm="deleteQuestion"
       @cancel="showDeleteConfirm = false"
     />

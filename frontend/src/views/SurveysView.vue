@@ -562,11 +562,11 @@ async function toggleStatus(survey) {
 
     <!-- Delete Confirmation -->
     <ConfirmDialog
-      :show="showDeleteConfirm"
+      :open="showDeleteConfirm"
       title="Umfrage loeschen?"
       :message="`Moechtest du die Umfrage '${surveyToDelete?.title}' wirklich loeschen? Alle Antworten werden ebenfalls geloescht.`"
-      confirm-label="Loeschen"
-      confirm-variant="danger"
+      confirm-text="Loeschen"
+      variant="danger"
       @confirm="deleteSurvey"
       @cancel="showDeleteConfirm = false"
     />

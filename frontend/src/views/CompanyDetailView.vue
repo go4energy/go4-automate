@@ -270,11 +270,11 @@ async function deleteCompany() {
 
     <!-- Delete Confirmation -->
     <ConfirmDialog
-      :show="showDeleteConfirm"
+      :open="showDeleteConfirm"
       title="Firma loeschen?"
       :message="`Moechtest du '${company?.name}' wirklich loeschen?`"
-      confirm-label="Loeschen"
-      confirm-variant="danger"
+      confirm-text="Loeschen"
+      variant="danger"
       @confirm="deleteCompany"
       @cancel="showDeleteConfirm = false"
     />
