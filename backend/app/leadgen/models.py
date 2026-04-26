@@ -30,13 +30,20 @@ class LeadgenCampaign(TimestampMixin, Base):
     slug: Mapped[str] = mapped_column(String(100), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    # Search config
+    # Search config (legacy Stage-1 freetext queries).
     queries: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
     language: Mapped[str] = mapped_column(String(10), default="de", nullable=False)
     region: Mapped[str] = mapped_column(String(10), default="DE", nullable=False)
 
-    # Qualification
-    pv_relevance_threshold: Mapped[int] = mapped_column(default=5, nullable=False)
+    # Data source: google_places | northdata | handelsregister | ...
+    source: Mapped[str] = mapped_column(
+        String(30), default="google_places", nullable=False
+    )
+    # Source-specific parameters. For google_places, see places_source.py.
+    source_config: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
+
+    # Qualification: minimum target_match_score (0-10) for handoff to engagement.
+    target_match_threshold: Mapped[int] = mapped_column(default=5, nullable=False)
 
     # Handoff target (nullable: can be set later or left manual)
     target_engagement_pipeline_id: Mapped[int | None] = mapped_column(
@@ -126,7 +133,14 @@ class LeadgenPlace(TimestampMixin, Base):
         ForeignKey("leadgen_runs.id", ondelete="SET NULL"), nullable=True
     )
 
-    # Google Places identity
+    # Source attribution
+    source: Mapped[str] = mapped_column(
+        String(30), default="google_places", nullable=False
+    )
+    source_record_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    # Google Places identity (kept for backwards compat; new code writes
+    # source_record_id in parallel).
     google_place_id: Mapped[str] = mapped_column(String(255), nullable=False)
     source_query: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
@@ -155,6 +169,11 @@ class LeadgenPlace(TimestampMixin, Base):
         String(30), default="discovered", nullable=False
     )
     rejected_reason: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+    # Generic sales-signal bag populated during enrichment (Serper-verify,
+    # Places-payload heuristics). Schema is intentionally loose so new signals
+    # can be added without migrations.
+    enrichment_flags: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
 
     # Handoff
     contact_id: Mapped[int | None] = mapped_column(
@@ -240,14 +259,21 @@ class LeadgenLLMInsights(TimestampMixin, Base):
         ForeignKey("leadgen_places.id", ondelete="CASCADE"), nullable=False
     )
 
-    # Scores & structured fields (0..10 for relevance)
-    pv_relevance_score: Mapped[int | None] = mapped_column(nullable=True)
+    # Scores & structured fields (0..10, match against campaign target profile)
+    target_match_score: Mapped[int | None] = mapped_column(nullable=True)
     services: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
     brands: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
     customer_segments: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
     company_size_indicator: Mapped[str | None] = mapped_column(String(200), nullable=True)
     personalization_hook: Mapped[str | None] = mapped_column(Text, nullable=True)
     red_flags: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)
+    # Structured contact person picked from team/contact/impressum pages so the
+    # downstream mail/letter module can address the right person directly.
+    # Schema: {"salutation": "Herr|Frau|null", "first_name": "...",
+    #          "last_name": "...", "gender": "m|f|null",
+    #          "role": "Geschaeftsfuehrer|Vertrieb|...",
+    #          "source": "impressum|team-seite|kontakt-seite|unklar"}
+    primary_contact: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     # Provenance / cost
     pages_analyzed: Mapped[list] = mapped_column(JSONB, default=list, nullable=False)

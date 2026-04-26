@@ -19,6 +19,7 @@ manifest = {
     "frontend": {
         "base_route": "/leadgen",
         "routes": [
+            # Module entry = campaign list (no top-level tabs anymore).
             {
                 "path": "",
                 "name": "leadgen",
@@ -26,27 +27,6 @@ manifest = {
                 "meta": {
                     "title": "Leadgen",
                     "breadcrumb": {"label": "Leadgen"},
-                    "tab": "dashboard",
-                },
-            },
-            {
-                "path": "dashboard",
-                "name": "leadgen-dashboard",
-                "view": "LeadgenView",
-                "meta": {
-                    "title": "Dashboard",
-                    "breadcrumb": {"label": "Dashboard", "parent": "leadgen"},
-                    "tab": "dashboard",
-                },
-            },
-            {
-                "path": "campaigns",
-                "name": "leadgen-campaigns",
-                "view": "LeadgenView",
-                "meta": {
-                    "title": "Kampagnen",
-                    "breadcrumb": {"label": "Kampagnen", "parent": "leadgen"},
-                    "tab": "campaigns",
                 },
             },
             {
@@ -55,9 +35,10 @@ manifest = {
                 "view": "LeadgenCampaignEditView",
                 "meta": {
                     "title": "Neue Kampagne",
-                    "breadcrumb": {"label": "Neu", "parent": "leadgen-campaigns"},
+                    "breadcrumb": {"label": "Neu", "parent": "leadgen"},
                 },
             },
+            # Campaign detail with sub-tabs (details + places).
             {
                 "path": "campaigns/:id",
                 "name": "leadgen-campaign-detail",
@@ -65,7 +46,30 @@ manifest = {
                 "props": True,
                 "meta": {
                     "title": "Kampagne",
-                    "breadcrumb": {"label": "Details", "parent": "leadgen-campaigns"},
+                    "breadcrumb": {"label": "Details", "parent": "leadgen"},
+                    "tab": "details",
+                },
+            },
+            {
+                "path": "campaigns/:id/details",
+                "name": "leadgen-campaign-details",
+                "view": "LeadgenCampaignDetailView",
+                "props": True,
+                "meta": {
+                    "title": "Details",
+                    "breadcrumb": {"label": "Details", "parent": "leadgen"},
+                    "tab": "details",
+                },
+            },
+            {
+                "path": "campaigns/:id/places",
+                "name": "leadgen-campaign-places",
+                "view": "LeadgenCampaignDetailView",
+                "props": True,
+                "meta": {
+                    "title": "Prospects",
+                    "breadcrumb": {"label": "Prospects", "parent": "leadgen"},
+                    "tab": "places",
                 },
             },
             {
@@ -75,47 +79,33 @@ manifest = {
                 "props": True,
                 "meta": {
                     "title": "Kampagne bearbeiten",
-                    "breadcrumb": {"label": "Bearbeiten", "parent": "leadgen-campaigns"},
+                    "breadcrumb": {"label": "Bearbeiten", "parent": "leadgen-campaign-detail"},
                 },
             },
+            # Place detail keeps its standalone path; breadcrumb walks back to
+            # the campaign's places sub-tab.
             {
-                "path": "places",
-                "name": "leadgen-places",
-                "view": "LeadgenView",
-                "meta": {
-                    "title": "Places",
-                    "breadcrumb": {"label": "Places", "parent": "leadgen"},
-                    "tab": "places",
-                },
-            },
-            {
-                "path": "places/:id",
+                "path": "campaigns/:campaignId/places/:id",
                 "name": "leadgen-place-detail",
                 "view": "LeadgenPlaceDetailView",
                 "props": True,
                 "meta": {
-                    "title": "Place",
-                    "breadcrumb": {"label": "Details", "parent": "leadgen-places"},
+                    "title": "Prospect",
+                    "breadcrumb": {
+                        "label": "Prospect-Details",
+                        "parent": "leadgen-campaign-places",
+                    },
                 },
             },
+            # Legacy direct prospect URL (kept so old links don't break).
             {
-                "path": "runs",
-                "name": "leadgen-runs",
-                "view": "LeadgenView",
+                "path": "places/:id",
+                "name": "leadgen-place-detail-legacy",
+                "view": "LeadgenPlaceDetailView",
+                "props": True,
                 "meta": {
-                    "title": "Runs",
-                    "breadcrumb": {"label": "Runs", "parent": "leadgen"},
-                    "tab": "runs",
-                },
-            },
-            {
-                "path": "settings",
-                "name": "leadgen-settings",
-                "view": "LeadgenView",
-                "meta": {
-                    "title": "Einstellungen",
-                    "breadcrumb": {"label": "Einstellungen", "parent": "leadgen"},
-                    "tab": "settings",
+                    "title": "Prospect",
+                    "breadcrumb": {"label": "Prospect-Details", "parent": "leadgen"},
                 },
             },
         ],

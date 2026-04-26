@@ -68,6 +68,9 @@ class AsyncSessionShim:
     async def execute(self, *args, **kwargs):
         return self._session.execute(*args, **kwargs)
 
+    async def scalar(self, *args, **kwargs):
+        return self._session.scalar(*args, **kwargs)
+
     async def flush(self) -> None:
         self._session.flush()
 
