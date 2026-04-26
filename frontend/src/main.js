@@ -36,6 +36,15 @@ async function bootstrap() {
     } catch {
       // Continue without dynamic routes
     }
+    // Per-tenant module licensing. Permissive default if backend has no
+    // rows for this tenant — degrades silently if endpoint is unavailable.
+    try {
+      const { useLicensingStore } = await import('@/stores/licensing')
+      const licensingStore = useLicensingStore()
+      await licensingStore.fetchEnabled()
+    } catch {
+      // Soft-fail: licensing store keeps its permissive default.
+    }
   }
 
   // Install router AFTER dynamic routes are registered

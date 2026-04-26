@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { getModules, getDesktopModules } from '@/api/modules'
+import { useLicensingStore } from '@/stores/licensing'
 
 export const useModuleStore = defineStore('modules', () => {
   const modules = ref([])
@@ -30,9 +31,13 @@ export const useModuleStore = defineStore('modules', () => {
   const groupOrder = ['SALES', 'MARKETING', 'CONTENT', 'VERWALTUNG', 'SYSTEM', 'TOOLS']
 
   const sidebarGroups = computed(() => {
+    const licensing = useLicensingStore()
     const groups = {}
     for (const mod of modules.value) {
       if (!mod.sidebar) continue
+      // Per-tenant licensing gate. Permissive when no license rows exist
+      // (legacy default → every module passes).
+      if (!licensing.isModuleEnabled(mod.name)) continue
       const groupLabel = mod.sidebar.group || 'SONSTIGES'
       if (!groups[groupLabel]) groups[groupLabel] = []
       groups[groupLabel].push({
