@@ -219,8 +219,8 @@ class EngagementBrain:
             items.extend(await self._check_phone_prerequisites())
         elif channel == "whatsapp":
             items.extend(await self._check_whatsapp_prerequisites())
-        elif channel == "postmail":
-            items.extend(await self._check_postmail_prerequisites())
+        elif channel == "letter":
+            items.extend(await self._check_letter_prerequisites())
 
         return items
 
@@ -483,15 +483,15 @@ class EngagementBrain:
 
         return items
 
-    async def _check_postmail_prerequisites(self) -> list[PrerequisiteItem]:
-        """Check Post-Mail prerequisites."""
-        # Post-mail is currently manual - always show as warning
+    async def _check_letter_prerequisites(self) -> list[PrerequisiteItem]:
+        """Check Letter prerequisites."""
+        # Letter is currently manual - always show as warning
         return [
             PrerequisiteItem(
-                channel="postmail",
+                channel="letter",
                 component="module",
                 status=PrerequisiteStatus.WARNING,
-                message="Post-Versand erfolgt manuell",
+                message="Brief-Versand erfolgt manuell",
                 action_required="Briefe werden als Aufgaben im CRM erstellt",
             )
         ]
@@ -885,8 +885,8 @@ class EngagementBrain:
                 "auto_capable": True,
             },
             {
-                "id": "postmail",
-                "name": "Post/Brief",
+                "id": "letter",
+                "name": "Brief",
                 "actions": [
                     "create_letter",
                 ],

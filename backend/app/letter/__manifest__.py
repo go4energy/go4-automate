@@ -1,9 +1,9 @@
-"""Post-Mail Module Manifest."""
+"""Letter Module Manifest."""
 
 manifest = {
-    "name": "postmail",
-    "label": "Post-Mail",
-    "display_name": "Post-Mail",
+    "name": "letter",
+    "label": "Letter",
+    "display_name": "Letter",
     "description": "Physische Briefe als Engagement-Kanal",
     "icon": "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z",
     "color": "#10B981",
@@ -16,7 +16,7 @@ manifest = {
     "has_models": True,
     "has_config_schema": False,
     "routers": ["router"],
-    "router_prefix": "/postmail",
+    "router_prefix": "/letter",
     "sidebar": {"group": "MARKETING", "order": 56},
     "config_schema": {
         "lettershop_api_url": {
@@ -57,62 +57,62 @@ manifest = {
         },
     },
     "frontend": {
-        "base_route": "/postmail",
+        "base_route": "/letter",
         "icon": "mdi-email-outline",
-        "nav_label": "Post-Mail",
+        "nav_label": "Letter",
         "nav_position": 55,
         "routes": [
             {
                 "path": "",
-                "name": "postmail",
-                "view": "PostmailView",
+                "name": "letter",
+                "view": "LetterView",
                 "meta": {
-                    "title": "Post-Mail",
-                    "breadcrumb": {"label": "Post-Mail"},
+                    "title": "Letter",
+                    "breadcrumb": {"label": "Letter"},
                     "tab": "letters",
                 },
             },
             {
                 "path": "templates",
-                "name": "postmail-templates",
-                "view": "PostmailView",
+                "name": "letter-templates",
+                "view": "LetterView",
                 "meta": {
                     "title": "Templates",
-                    "breadcrumb": {"label": "Templates", "parent": "postmail"},
+                    "breadcrumb": {"label": "Templates", "parent": "letter"},
                     "tab": "templates",
                 },
             },
             {
                 "path": "templates/:id/edit",
-                "name": "postmail-template-edit",
-                "view": "PostmailTemplateEditView",
+                "name": "letter-template-edit",
+                "view": "LetterTemplateEditView",
                 "props": True,
                 "meta": {
                     "title": "Template bearbeiten",
                     "breadcrumb": {
                         "label": "Bearbeiten",
-                        "parent": "postmail-templates",
+                        "parent": "letter-templates",
                     },
                 },
             },
             {
                 "path": "batches",
-                "name": "postmail-batches",
-                "view": "PostmailView",
+                "name": "letter-batches",
+                "view": "LetterView",
                 "meta": {
                     "title": "Batches",
-                    "breadcrumb": {"label": "Batches", "parent": "postmail"},
+                    "breadcrumb": {"label": "Batches", "parent": "letter"},
                     "tab": "batches",
                 },
             },
             {
                 "path": "letters/:id",
-                "name": "postmail-letter-detail",
-                "view": "PostmailLetterDetailView",
+                "name": "letter-detail",
+                "view": "LetterDetailView",
                 "props": True,
                 "meta": {
                     "title": "Brief-Details",
-                    "breadcrumb": {"label": "Details", "parent": "postmail"},
+                    "breadcrumb": {"label": "Details", "parent": "letter"},
                 },
             },
         ],

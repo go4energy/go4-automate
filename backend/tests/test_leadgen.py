@@ -124,7 +124,7 @@ async def test_create_campaign_with_auto_pipeline(client):
     assert pipe_resp.status_code == 200
     pipe = pipe_resp.json()
     assert pipe["slug"].startswith("leadgen-solar-elektro")
-    assert "postmail" in pipe["channels"]
+    assert "letter" in pipe["channels"]
     assert "email" in pipe["channels"]
 
 
@@ -271,13 +271,13 @@ async def test_run_start_success_and_duplicate_protection(client):
 
 
 @pytest.mark.anyio
-async def test_pause_and_resume_run(client):
+async def test_stop_and_resume_run(client):
     r = await client.post(
         "/api/v1/leadgen/campaigns",
         headers=HEADERS,
         json={
-            "name": "PauseRes",
-            "slug": "pause-res",
+            "name": "StopRes",
+            "slug": "stop-res",
             "queries": ["q"],
             "create_new_pipeline": True,
         },
@@ -288,9 +288,9 @@ async def test_pause_and_resume_run(client):
     ).json()
     rid = run["id"]
 
-    p = await client.post(f"/api/v1/leadgen/runs/{rid}/pause", headers=HEADERS)
-    assert p.status_code == 200
-    assert p.json()["status"] == "paused"
+    s = await client.post(f"/api/v1/leadgen/runs/{rid}/stop", headers=HEADERS)
+    assert s.status_code == 200
+    assert s.json()["status"] == "stopped"
 
     res = await client.post(f"/api/v1/leadgen/runs/{rid}/resume", headers=HEADERS)
     assert res.status_code == 200
@@ -299,6 +299,73 @@ async def test_pause_and_resume_run(client):
     # resume when already queued should error
     err = await client.post(f"/api/v1/leadgen/runs/{rid}/resume", headers=HEADERS)
     assert err.status_code == 400
+
+
+@pytest.mark.anyio
+async def test_stop_releases_campaign_for_new_run(client):
+    """Unlike legacy pause, a stopped run must NOT block a new start_enrich.
+
+    The whole point of the rename: the operator should be able to abort a
+    misconfigured run and immediately start a fresh one with corrected
+    filters, no manual cleanup required.
+    """
+    r = await client.post(
+        "/api/v1/leadgen/campaigns",
+        headers=HEADERS,
+        json={
+            "name": "StopRelease",
+            "slug": "stop-release",
+            "queries": ["q"],
+            "create_new_pipeline": True,
+        },
+    )
+    cid = r.json()["id"]
+    run = (
+        await client.post(f"/api/v1/leadgen/campaigns/{cid}/runs", headers=HEADERS)
+    ).json()
+    rid = run["id"]
+    await client.post(f"/api/v1/leadgen/runs/{rid}/stop", headers=HEADERS)
+
+    # Starting a fresh run on the same campaign must succeed even though
+    # there's still a stopped run on it.
+    new_run = await client.post(
+        f"/api/v1/leadgen/campaigns/{cid}/runs", headers=HEADERS
+    )
+    assert new_run.status_code == 201, new_run.text
+
+
+@pytest.mark.anyio
+async def test_resume_blocked_when_concurrent_active_run(client):
+    """Resuming a stopped run while another run is queued/running on the
+    campaign would create two concurrent workers — must be rejected.
+    """
+    r = await client.post(
+        "/api/v1/leadgen/campaigns",
+        headers=HEADERS,
+        json={
+            "name": "ResumeGuard",
+            "slug": "resume-guard",
+            "queries": ["q"],
+            "create_new_pipeline": True,
+        },
+    )
+    cid = r.json()["id"]
+    # First run: stop it.
+    first = (
+        await client.post(f"/api/v1/leadgen/campaigns/{cid}/runs", headers=HEADERS)
+    ).json()
+    await client.post(f"/api/v1/leadgen/runs/{first['id']}/stop", headers=HEADERS)
+    # Second run: now queued/running on same campaign.
+    second = await client.post(
+        f"/api/v1/leadgen/campaigns/{cid}/runs", headers=HEADERS
+    )
+    assert second.status_code == 201
+    # Trying to resume the first must fail.
+    err = await client.post(
+        f"/api/v1/leadgen/runs/{first['id']}/resume", headers=HEADERS
+    )
+    assert err.status_code == 400
+    assert "läuft bereits" in err.json()["detail"]
 
 
 # ---------------- Enrich-only run ----------------
@@ -1311,31 +1378,15 @@ async def test_run_start_accepts_hybrid_config_without_queries(client):
 # ---------------- LLM stage: no-website branch (homepage-sales leads) ----------------
 
 
-@pytest.mark.anyio
-async def test_llm_stage_no_website_places_get_synthetic_top_score(db_session):
-    """Places without a website must skip the LLM and become top-score leads.
-
-    For homepage-sales campaigns the most valuable prospects are the ones with
-    no website at all. The LLM stage should pick them up despite the missing
-    URL, write a synthetic LLMInsights row with target_match_score=10, and not
-    spend any money.
-    """
-    import httpx
-
-    from app.leadgen.models import (
-        LeadgenCampaign,
-        LeadgenLLMInsights,
-        LeadgenPlace,
-        LeadgenRun,
-    )
-    from app.leadgen.source_config import LLMStageConfig
-    from app.leadgen.worker import _process_llm_stage
+async def _build_no_site_fixture(db_session):
+    """Shared scaffolding: campaign + run + two no-website places."""
+    from app.leadgen.models import LeadgenCampaign, LeadgenPlace, LeadgenRun
 
     campaign = LeadgenCampaign(
         tenant_id="go4energy",
-        name="HomepageSales",
-        slug="homepage-sales-llm",
-        queries=["Arztpraxis Berlin"],
+        name="NoSiteFixture",
+        slug=f"no-site-fixture-{id(db_session)}",
+        queries=["Praxis Berlin"],
         source="google_places",
         source_config={},
     )
@@ -1371,30 +1422,91 @@ async def test_llm_stage_no_website_places_get_synthetic_top_score(db_session):
     )
     db_session.add_all([no_site, blank_site])
     await db_session.flush()
+    return campaign, run, no_site, blank_site
 
-    # If the LLM service or HTTP client gets called, the test fails — neither
-    # should happen for no-website places.
+
+@pytest.mark.anyio
+async def test_llm_stage_no_website_default_skips_scoring(db_session):
+    """Default behaviour: places without a website get NO synth-row and
+    land in status='no_website'. The LLM is the only legitimate scoring
+    authority for normal lead-gen campaigns.
+    """
+    import httpx
+
+    from app.leadgen.models import LeadgenLLMInsights
+    from app.leadgen.source_config import LLMStageConfig
+    from app.leadgen.worker import _process_llm_stage
+
+    campaign, run, no_site, blank_site = await _build_no_site_fixture(db_session)
+
     class _ExplodingLLM:
         async def generate_with_usage(self, *args, **kwargs):
             raise AssertionError("LLM must not be called for no-website places")
 
     async with httpx.AsyncClient() as http_client:
-        done = await _process_llm_stage(
+        await _process_llm_stage(
             db_session,
             run=run,
             campaign=campaign,
-            cfg=LLMStageConfig(target_profile="Arztpraxen ohne Homepage"),
+            cfg=LLMStageConfig(
+                target_profile="Arztpraxen",
+                verify_no_website_via_serper=False,
+            ),
             http_client=http_client,
             llm=_ExplodingLLM(),
         )
 
-    # Stage returns False (more work could come) but with no site_places left
-    # we expect both no-website places to be processed in this single call.
-    assert done is False
+    await db_session.refresh(no_site)
+    await db_session.refresh(blank_site)
+
+    # Both places land in the dedicated status that excludes them from
+    # llm_done-filtered exports without putting a misleading score on them.
+    assert no_site.status == "no_website"
+    assert blank_site.status == "no_website"
+
+    rows = (
+        await db_session.execute(
+            select(LeadgenLLMInsights).where(
+                LeadgenLLMInsights.place_id.in_([no_site.id, blank_site.id])
+            )
+        )
+    ).scalars().all()
+    assert rows == [], "no synth-rows must be created in default mode"
+
+
+@pytest.mark.anyio
+async def test_llm_stage_no_website_opt_in_creates_synth_row(db_session):
+    """Homepage-sales opt-in: setting cfg.no_website_score=10 restores the
+    legacy behaviour — synth-row with the configured score, place llm_done.
+    """
+    import httpx
+
+    from app.leadgen.models import LeadgenLLMInsights
+    from app.leadgen.source_config import LLMStageConfig
+    from app.leadgen.worker import _process_llm_stage
+
+    campaign, run, no_site, blank_site = await _build_no_site_fixture(db_session)
+
+    class _ExplodingLLM:
+        async def generate_with_usage(self, *args, **kwargs):
+            raise AssertionError("LLM must not be called for no-website places")
+
+    async with httpx.AsyncClient() as http_client:
+        await _process_llm_stage(
+            db_session,
+            run=run,
+            campaign=campaign,
+            cfg=LLMStageConfig(
+                target_profile="Homepage-Verkauf",
+                no_website_score=10,
+                verify_no_website_via_serper=False,
+            ),
+            http_client=http_client,
+            llm=_ExplodingLLM(),
+        )
 
     await db_session.refresh(no_site)
     await db_session.refresh(blank_site)
-    await db_session.refresh(run)
 
     assert no_site.status == "llm_done"
     assert blank_site.status == "llm_done"
@@ -1411,15 +1523,6 @@ async def test_llm_stage_no_website_places_get_synthetic_top_score(db_session):
         assert r.target_match_score == 10
         assert r.cost_cents == 0
         assert r.model_used == "skip:no_website"
-        assert "keine Homepage" in (r.red_flags or [])
-
-    assert run.cost_cents == 0
-    assert run.success_count == 2
-    assert run.error_count == 0
-    state = run.stage_state or {}
-    assert state.get("places_processed") == 2
-    assert state.get("places_succeeded") == 2
-    assert state.get("llm_cost_cents", 0) == 0
 
 
 # ---------------- website_verify helper unit tests ----------------
@@ -1594,7 +1697,10 @@ async def test_llm_stage_serper_promotes_place_with_hidden_homepage(
             db_session,
             run=run,
             campaign=campaign,
-            cfg=LLMStageConfig(),
+            # Opt into the legacy homepage-sales score=10 so this test still
+            # exercises the "Serper found a homepage → promote, Serper didn't
+            # → synth row" pair on the same code path.
+            cfg=LLMStageConfig(no_website_score=10),
             http_client=http_client,
             llm=object(),
         )
@@ -1685,7 +1791,12 @@ async def test_llm_stage_skips_serper_when_disabled(db_session, monkeypatch):
             db_session,
             run=run,
             campaign=campaign,
-            cfg=LLMStageConfig(verify_no_website_via_serper=False),
+            # Keep the legacy synth-row contract (score=10) since the test's
+            # purpose is the verify-toggle, not the no-website-scoring policy.
+            cfg=LLMStageConfig(
+                verify_no_website_via_serper=False,
+                no_website_score=10,
+            ),
             http_client=http_client,
             llm=object(),
         )

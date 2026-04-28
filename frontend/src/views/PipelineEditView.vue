@@ -65,7 +65,7 @@ const availableChannels = [
   { value: 'linkedin', label: 'LinkedIn' },
   { value: 'email', label: 'Email' },
   { value: 'phone', label: 'Telefon' },
-  { value: 'postmail', label: 'Brief' },
+  { value: 'letter', label: 'Brief' },
   { value: 'whatsapp', label: 'WhatsApp' }
 ]
 

@@ -269,7 +269,7 @@ class ActivityCreate(BaseModel):
     pipeline_id: int | None = None
     enrollment_id: int | None = None
     channel: str = Field(
-        ..., pattern=r"^(linkedin|email|phone|postmail|whatsapp|meeting|sms|other)$"
+        ..., pattern=r"^(linkedin|email|phone|letter|whatsapp|meeting|sms|other)$"
     )
     activity_type: str = Field(..., min_length=1, max_length=100)
     direction: str = Field(..., pattern=r"^(outbound|inbound)$")

@@ -1,14 +1,14 @@
 /**
  * Post-Mail Store
  *
- * Pinia store for managing postmail state
+ * Pinia store for managing letter state
  */
 
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
-import postmailApi from '@/api/postmail'
+import letterApi from '@/api/letter'
 
-export const usePostmailStore = defineStore('postmail', () => {
+export const useLetterStore = defineStore('letter', () => {
   // ============== State ==============
   const templates = ref([])
   const letters = ref([])
@@ -49,7 +49,7 @@ export const usePostmailStore = defineStore('postmail', () => {
     loading.value = true
     error.value = null
     try {
-      const data = await postmailApi.getTemplates(params)
+      const data = await letterApi.getTemplates(params)
       templates.value = data.items
       return data
     } catch (err) {
@@ -64,7 +64,7 @@ export const usePostmailStore = defineStore('postmail', () => {
     loading.value = true
     error.value = null
     try {
-      const template = await postmailApi.getTemplate(id)
+      const template = await letterApi.getTemplate(id)
       currentTemplate.value = template
       return template
     } catch (err) {
@@ -79,7 +79,7 @@ export const usePostmailStore = defineStore('postmail', () => {
     loading.value = true
     error.value = null
     try {
-      const template = await postmailApi.createTemplate(data)
+      const template = await letterApi.createTemplate(data)
       templates.value.push(template)
       return template
     } catch (err) {
@@ -94,7 +94,7 @@ export const usePostmailStore = defineStore('postmail', () => {
     loading.value = true
     error.value = null
     try {
-      const template = await postmailApi.updateTemplate(id, data)
+      const template = await letterApi.updateTemplate(id, data)
       const idx = templates.value.findIndex((t) => t.id === id)
       if (idx !== -1) templates.value[idx] = template
       if (currentTemplate.value?.id === id) currentTemplate.value = template
@@ -111,7 +111,7 @@ export const usePostmailStore = defineStore('postmail', () => {
     loading.value = true
     error.value = null
     try {
-      await postmailApi.deleteTemplate(id)
+      await letterApi.deleteTemplate(id)
       templates.value = templates.value.filter((t) => t.id !== id)
       if (currentTemplate.value?.id === id) currentTemplate.value = null
     } catch (err) {
@@ -126,7 +126,7 @@ export const usePostmailStore = defineStore('postmail', () => {
     loading.value = true
     error.value = null
     try {
-      return await postmailApi.previewTemplate(params)
+      return await letterApi.previewTemplate(params)
     } catch (err) {
       error.value = err.response?.data?.detail || err.message
       throw err
@@ -140,7 +140,7 @@ export const usePostmailStore = defineStore('postmail', () => {
     loading.value = true
     error.value = null
     try {
-      const data = await postmailApi.getLetters(params)
+      const data = await letterApi.getLetters(params)
       letters.value = data.items
       return data
     } catch (err) {
@@ -155,7 +155,7 @@ export const usePostmailStore = defineStore('postmail', () => {
     loading.value = true
     error.value = null
     try {
-      const letter = await postmailApi.getLetter(id)
+      const letter = await letterApi.getLetter(id)
       currentLetter.value = letter
       return letter
     } catch (err) {
@@ -170,7 +170,7 @@ export const usePostmailStore = defineStore('postmail', () => {
     loading.value = true
     error.value = null
     try {
-      const letter = await postmailApi.createLetter(data)
+      const letter = await letterApi.createLetter(data)
       letters.value.push(letter)
       return letter
     } catch (err) {
@@ -185,7 +185,7 @@ export const usePostmailStore = defineStore('postmail', () => {
     loading.value = true
     error.value = null
     try {
-      const letter = await postmailApi.createLetterFromAction(params)
+      const letter = await letterApi.createLetterFromAction(params)
       letters.value.push(letter)
       return letter
     } catch (err) {
@@ -200,7 +200,7 @@ export const usePostmailStore = defineStore('postmail', () => {
     loading.value = true
     error.value = null
     try {
-      const letter = await postmailApi.updateLetter(id, data)
+      const letter = await letterApi.updateLetter(id, data)
       const idx = letters.value.findIndex((l) => l.id === id)
       if (idx !== -1) letters.value[idx] = letter
       if (currentLetter.value?.id === id) currentLetter.value = letter
@@ -217,7 +217,7 @@ export const usePostmailStore = defineStore('postmail', () => {
     loading.value = true
     error.value = null
     try {
-      await postmailApi.deleteLetter(id)
+      await letterApi.deleteLetter(id)
       letters.value = letters.value.filter((l) => l.id !== id)
       if (currentLetter.value?.id === id) currentLetter.value = null
     } catch (err) {
@@ -232,7 +232,7 @@ export const usePostmailStore = defineStore('postmail', () => {
     loading.value = true
     error.value = null
     try {
-      const letter = await postmailApi.approveLetter(id)
+      const letter = await letterApi.approveLetter(id)
       const idx = letters.value.findIndex((l) => l.id === id)
       if (idx !== -1) letters.value[idx] = letter
       if (currentLetter.value?.id === id) currentLetter.value = letter
@@ -249,7 +249,7 @@ export const usePostmailStore = defineStore('postmail', () => {
     loading.value = true
     error.value = null
     try {
-      const letter = await postmailApi.generateLetterPdf(id)
+      const letter = await letterApi.generateLetterPdf(id)
       const idx = letters.value.findIndex((l) => l.id === id)
       if (idx !== -1) letters.value[idx] = letter
       if (currentLetter.value?.id === id) currentLetter.value = letter
@@ -267,7 +267,7 @@ export const usePostmailStore = defineStore('postmail', () => {
     loading.value = true
     error.value = null
     try {
-      const data = await postmailApi.getBatches(params)
+      const data = await letterApi.getBatches(params)
       batches.value = data.items
       return data
     } catch (err) {
@@ -282,7 +282,7 @@ export const usePostmailStore = defineStore('postmail', () => {
     loading.value = true
     error.value = null
     try {
-      const batch = await postmailApi.getBatch(id)
+      const batch = await letterApi.getBatch(id)
       currentBatch.value = batch
       return batch
     } catch (err) {
@@ -297,7 +297,7 @@ export const usePostmailStore = defineStore('postmail', () => {
     loading.value = true
     error.value = null
     try {
-      const batch = await postmailApi.createBatch(data)
+      const batch = await letterApi.createBatch(data)
       batches.value.push(batch)
       return batch
     } catch (err) {
@@ -312,7 +312,7 @@ export const usePostmailStore = defineStore('postmail', () => {
     loading.value = true
     error.value = null
     try {
-      const batch = await postmailApi.updateBatch(id, data)
+      const batch = await letterApi.updateBatch(id, data)
       const idx = batches.value.findIndex((b) => b.id === id)
       if (idx !== -1) batches.value[idx] = batch
       if (currentBatch.value?.id === id) currentBatch.value = batch
@@ -329,7 +329,7 @@ export const usePostmailStore = defineStore('postmail', () => {
     loading.value = true
     error.value = null
     try {
-      const result = await postmailApi.exportBatch(id)
+      const result = await letterApi.exportBatch(id)
       // Update batch in list
       const idx = batches.value.findIndex((b) => b.id === id)
       if (idx !== -1) {
@@ -349,7 +349,7 @@ export const usePostmailStore = defineStore('postmail', () => {
     loading.value = true
     error.value = null
     try {
-      const batch = await postmailApi.markBatchSent(id)
+      const batch = await letterApi.markBatchSent(id)
       const idx = batches.value.findIndex((b) => b.id === id)
       if (idx !== -1) batches.value[idx] = batch
       if (currentBatch.value?.id === id) currentBatch.value = batch
@@ -367,7 +367,7 @@ export const usePostmailStore = defineStore('postmail', () => {
     loading.value = true
     error.value = null
     try {
-      stats.value = await postmailApi.getStats()
+      stats.value = await letterApi.getStats()
       return stats.value
     } catch (err) {
       error.value = err.response?.data?.detail || err.message

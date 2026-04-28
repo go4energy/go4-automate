@@ -1,22 +1,22 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { usePostmailStore } from '@/stores/postmail'
+import { useLetterStore } from '@/stores/letter'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import Breadcrumb from '@/components/ui/Breadcrumb.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 
 const route = useRoute()
 const router = useRouter()
-const store = usePostmailStore()
+const store = useLetterStore()
 
 // Active tab from route
 const activeTab = computed(() => route.meta?.tab || 'letters')
 
 const tabs = [
-  { key: 'letters', label: 'Briefe', route: '/postmail' },
-  { key: 'templates', label: 'Templates', route: '/postmail/templates' },
-  { key: 'batches', label: 'Batches', route: '/postmail/batches' },
+  { key: 'letters', label: 'Briefe', route: '/letter' },
+  { key: 'templates', label: 'Templates', route: '/letter/templates' },
+  { key: 'batches', label: 'Batches', route: '/letter/batches' },
 ]
 
 // Stats
@@ -126,7 +126,7 @@ async function loadData() {
       store.fetchBatches(),
     ])
   } catch (err) {
-    console.error('Failed to load postmail data:', err)
+    console.error('Failed to load letter data:', err)
   }
 }
 
@@ -167,7 +167,7 @@ async function generatePdf(id) {
 }
 
 function viewLetter(letter) {
-  router.push(`/postmail/letters/${letter.id}`)
+  router.push(`/letter/letters/${letter.id}`)
 }
 
 // Template actions
@@ -182,7 +182,7 @@ async function createTemplate() {
 }
 
 function editTemplate(template) {
-  router.push(`/postmail/templates/${template.id}/edit`)
+  router.push(`/letter/templates/${template.id}/edit`)
 }
 
 async function deleteTemplate(id) {

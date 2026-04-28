@@ -122,7 +122,7 @@ MODULE_REQUIREMENTS = {
 - Schnelle Antwort-Templates
 - Opt-in beachten
 """,
-    "postmail": """
+    "letter": """
 - Anschreiben für physischen Versand
 - Formelle Anrede
 - A4-Format
@@ -163,7 +163,7 @@ CONTACT_ANALYSIS_PROMPT = """Analysiere den Kontakt und empfehle den nächsten S
 Antworte im JSON-Format:
 ```json
 {
-    "channel": "linkedin|email|phone|whatsapp|postmail",
+    "channel": "linkedin|email|phone|whatsapp|letter",
     "action": "action_type",
     "content_suggestion": "Vorgeschlagener Inhalt oder Gesprächseinstieg",
     "new_stage": "neue_stage oder null",

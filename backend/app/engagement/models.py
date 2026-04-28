@@ -223,7 +223,7 @@ class ContactActivity(Base):
     )
 
     # Activity Info
-    # Channel: linkedin, email, phone, postmail, whatsapp, meeting, sms, other
+    # Channel: linkedin, email, phone, letter, whatsapp, meeting, sms, other
     channel: Mapped[str] = mapped_column(String(50), nullable=False)
     # Activity Type: message_sent, message_received, call_made, call_received,
     #                email_sent, email_received, email_opened, email_clicked,

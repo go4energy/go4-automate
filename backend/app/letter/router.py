@@ -1,4 +1,4 @@
-"""Post-Mail Module Router.
+"""Letter Module Router.
 
 API endpoints for letter templates, letters, and batches.
 """
@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.postmail.schemas import (
+from app.letter.schemas import (
     BatchCreate,
     BatchExportResponse,
     BatchList,
@@ -15,8 +15,8 @@ from app.postmail.schemas import (
     LetterCreate,
     LetterList,
     LetterResponse,
+    LetterStats,
     LetterUpdate,
-    PostmailStats,
     RenderPreviewRequest,
     RenderPreviewResponse,
     TemplateCreate,
@@ -24,10 +24,10 @@ from app.postmail.schemas import (
     TemplateResponse,
     TemplateUpdate,
 )
-from app.postmail.service import PostmailService
+from app.letter.service import LetterService
 from app.utils.dependencies import get_current_tenant_id
 
-router = APIRouter(prefix="/postmail", tags=["postmail"])
+router = APIRouter(prefix="/letter", tags=["letter"])
 
 
 # ============== Dependencies ==============
@@ -36,9 +36,9 @@ router = APIRouter(prefix="/postmail", tags=["postmail"])
 async def get_service(
     db: AsyncSession = Depends(get_db),
     tenant_id: str = Depends(get_current_tenant_id),
-) -> PostmailService:
-    """Get PostmailService instance."""
-    return PostmailService(db, tenant_id)
+) -> LetterService:
+    """Get LetterService instance."""
+    return LetterService(db, tenant_id)
 
 
 # ============== Templates ==============
@@ -54,7 +54,7 @@ async def list_templates(
     active_only: bool = Query(False, description="Only active templates"),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    service: PostmailService = Depends(get_service),
+    service: LetterService = Depends(get_service),
 ) -> TemplateList:
     """List all templates."""
     templates, total = await service.list_templates(
@@ -94,7 +94,7 @@ async def list_templates(
 )
 async def create_template(
     data: TemplateCreate,
-    service: PostmailService = Depends(get_service),
+    service: LetterService = Depends(get_service),
 ) -> TemplateResponse:
     """Create a new template."""
     template = await service.create_template(
@@ -130,7 +130,7 @@ async def create_template(
 )
 async def get_template(
     template_id: int,
-    service: PostmailService = Depends(get_service),
+    service: LetterService = Depends(get_service),
 ) -> TemplateResponse:
     """Get template by ID."""
     template = await service.get_template(template_id)
@@ -162,7 +162,7 @@ async def get_template(
 async def update_template(
     template_id: int,
     data: TemplateUpdate,
-    service: PostmailService = Depends(get_service),
+    service: LetterService = Depends(get_service),
 ) -> TemplateResponse:
     """Update a template."""
     update_data = data.model_dump(exclude_unset=True)
@@ -197,7 +197,7 @@ async def update_template(
 )
 async def delete_template(
     template_id: int,
-    service: PostmailService = Depends(get_service),
+    service: LetterService = Depends(get_service),
 ) -> None:
     """Delete (deactivate) a template."""
     success = await service.delete_template(template_id)
@@ -213,7 +213,7 @@ async def delete_template(
 )
 async def preview_template(
     data: RenderPreviewRequest,
-    service: PostmailService = Depends(get_service),
+    service: LetterService = Depends(get_service),
 ) -> RenderPreviewResponse:
     """Render template preview."""
     try:
@@ -243,7 +243,7 @@ async def list_letters(
     pipeline_id: int | None = Query(None, description="Filter by pipeline"),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    service: PostmailService = Depends(get_service),
+    service: LetterService = Depends(get_service),
 ) -> LetterList:
     """List all letters."""
     letters, total = await service.list_letters(
@@ -296,7 +296,7 @@ async def list_letters(
 )
 async def create_letter(
     data: LetterCreate,
-    service: PostmailService = Depends(get_service),
+    service: LetterService = Depends(get_service),
 ) -> LetterResponse:
     """Create a new letter."""
     try:
@@ -347,7 +347,7 @@ async def create_letter_from_contact(
     contact_id: int,
     template_id: int = Query(..., description="Template to use"),
     pipeline_id: int | None = Query(None, description="Optional pipeline"),
-    service: PostmailService = Depends(get_service),
+    service: LetterService = Depends(get_service),
 ) -> LetterResponse:
     """Create letter from contact."""
     try:
@@ -393,7 +393,7 @@ async def create_letter_from_contact(
 )
 async def get_letter(
     letter_id: int,
-    service: PostmailService = Depends(get_service),
+    service: LetterService = Depends(get_service),
 ) -> LetterResponse:
     """Get letter by ID."""
     letter = await service.get_letter(letter_id)
@@ -435,7 +435,7 @@ async def get_letter(
 async def update_letter(
     letter_id: int,
     data: LetterUpdate,
-    service: PostmailService = Depends(get_service),
+    service: LetterService = Depends(get_service),
 ) -> LetterResponse:
     """Update a letter."""
     update_data = data.model_dump(exclude_unset=True)
@@ -480,7 +480,7 @@ async def update_letter(
 )
 async def approve_letter(
     letter_id: int,
-    service: PostmailService = Depends(get_service),
+    service: LetterService = Depends(get_service),
 ) -> LetterResponse:
     """Approve a draft letter."""
     letter = await service.approve_letter(letter_id)
@@ -523,7 +523,7 @@ async def approve_letter(
 )
 async def generate_letter_pdf(
     letter_id: int,
-    service: PostmailService = Depends(get_service),
+    service: LetterService = Depends(get_service),
 ) -> dict:
     """Generate PDF for letter."""
     try:
@@ -541,7 +541,7 @@ async def generate_letter_pdf(
 )
 async def delete_letter(
     letter_id: int,
-    service: PostmailService = Depends(get_service),
+    service: LetterService = Depends(get_service),
 ) -> None:
     """Delete a draft letter."""
     success = await service.delete_letter(letter_id)
@@ -564,7 +564,7 @@ async def list_batches(
     status: str | None = Query(None, description="Filter by status"),
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    service: PostmailService = Depends(get_service),
+    service: LetterService = Depends(get_service),
 ) -> BatchList:
     """List all batches."""
     batches, total = await service.list_batches(
@@ -601,7 +601,7 @@ async def list_batches(
 )
 async def create_batch(
     data: BatchCreate,
-    service: PostmailService = Depends(get_service),
+    service: LetterService = Depends(get_service),
 ) -> BatchResponse:
     """Create a new batch."""
     batch = await service.create_batch(
@@ -631,7 +631,7 @@ async def create_batch(
 )
 async def get_batch(
     batch_id: int,
-    service: PostmailService = Depends(get_service),
+    service: LetterService = Depends(get_service),
 ) -> BatchResponse:
     """Get batch by ID."""
     batch = await service.get_batch(batch_id)
@@ -660,7 +660,7 @@ async def get_batch(
 )
 async def export_batch(
     batch_id: int,
-    service: PostmailService = Depends(get_service),
+    service: LetterService = Depends(get_service),
 ) -> BatchExportResponse:
     """Export batch as CSV."""
     try:
@@ -683,7 +683,7 @@ async def export_batch(
 )
 async def mark_batch_sent(
     batch_id: int,
-    service: PostmailService = Depends(get_service),
+    service: LetterService = Depends(get_service),
 ) -> BatchResponse:
     """Mark batch as sent."""
     batch = await service.mark_batch_sent(batch_id)
@@ -711,13 +711,13 @@ async def mark_batch_sent(
 
 @router.get(
     "/stats",
-    response_model=PostmailStats,
+    response_model=LetterStats,
     summary="Get Stats",
-    description="Get post-mail statistics.",
+    description="Get letter statistics.",
 )
 async def get_stats(
-    service: PostmailService = Depends(get_service),
-) -> PostmailStats:
-    """Get post-mail statistics."""
+    service: LetterService = Depends(get_service),
+) -> LetterStats:
+    """Get letter statistics."""
     stats = await service.get_stats()
-    return PostmailStats(**stats)
+    return LetterStats(**stats)

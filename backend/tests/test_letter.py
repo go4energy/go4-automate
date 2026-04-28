@@ -1,18 +1,18 @@
-"""Tests for Post-Mail Module."""
+"""Tests for Letter Module."""
 
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.postmail.models import (
+from app.letter.models import (
     BatchStatus,
+    Letter,
+    LetterBatch,
     LetterStatus,
-    PostmailBatch,
-    PostmailLetter,
-    PostmailTemplate,
+    LetterTemplate,
 )
-from app.postmail.schemas import RecipientData
-from app.postmail.service import PostmailService
+from app.letter.schemas import RecipientData
+from app.letter.service import LetterService
 
 TENANT_ID = "test-tenant"
 
@@ -21,15 +21,15 @@ TENANT_ID = "test-tenant"
 
 
 @pytest_asyncio.fixture
-async def postmail_service(db_session: AsyncSession) -> PostmailService:
-    """Create PostmailService instance."""
-    return PostmailService(db_session, TENANT_ID)
+async def letter_service(db_session: AsyncSession) -> LetterService:
+    """Create LetterService instance."""
+    return LetterService(db_session, TENANT_ID)
 
 
 @pytest_asyncio.fixture
-async def sample_template(db_session: AsyncSession) -> PostmailTemplate:
+async def sample_template(db_session: AsyncSession) -> LetterTemplate:
     """Create a sample template."""
-    template = PostmailTemplate(
+    template = LetterTemplate(
         tenant_id=TENANT_ID,
         name="Test Template",
         description="A test template",
@@ -47,10 +47,10 @@ async def sample_template(db_session: AsyncSession) -> PostmailTemplate:
 
 @pytest_asyncio.fixture
 async def sample_letter(
-    db_session: AsyncSession, sample_template: PostmailTemplate
-) -> PostmailLetter:
+    db_session: AsyncSession, sample_template: LetterTemplate
+) -> Letter:
     """Create a sample letter."""
-    letter = PostmailLetter(
+    letter = Letter(
         tenant_id=TENANT_ID,
         template_id=sample_template.id,
         recipient_name="Max Mustermann",
@@ -70,10 +70,10 @@ async def sample_letter(
 
 @pytest_asyncio.fixture
 async def approved_letter(
-    db_session: AsyncSession, sample_template: PostmailTemplate
-) -> PostmailLetter:
+    db_session: AsyncSession, sample_template: LetterTemplate
+) -> Letter:
     """Create an approved letter."""
-    letter = PostmailLetter(
+    letter = Letter(
         tenant_id=TENANT_ID,
         template_id=sample_template.id,
         recipient_name="Anna Schmidt",
@@ -98,9 +98,9 @@ class TestTemplates:
     """Tests for template operations."""
 
     @pytest.mark.asyncio
-    async def test_create_template(self, postmail_service: PostmailService):
+    async def test_create_template(self, letter_service: LetterService):
         """Test creating a template."""
-        template = await postmail_service.create_template(
+        template = await letter_service.create_template(
             name="New Template",
             content_html="<p>Content</p>",
             description="Description",
@@ -114,10 +114,10 @@ class TestTemplates:
 
     @pytest.mark.asyncio
     async def test_list_templates(
-        self, postmail_service: PostmailService, sample_template: PostmailTemplate
+        self, letter_service: LetterService, sample_template: LetterTemplate
     ):
         """Test listing templates."""
-        templates, total = await postmail_service.list_templates()
+        templates, total = await letter_service.list_templates()
 
         assert total >= 1
         assert any(t.id == sample_template.id for t in templates)
@@ -125,13 +125,13 @@ class TestTemplates:
     @pytest.mark.asyncio
     async def test_list_templates_active_only(
         self,
-        postmail_service: PostmailService,
-        sample_template: PostmailTemplate,
+        letter_service: LetterService,
+        sample_template: LetterTemplate,
         db_session: AsyncSession,
     ):
         """Test filtering active templates."""
         # Create inactive template
-        inactive = PostmailTemplate(
+        inactive = LetterTemplate(
             tenant_id=TENANT_ID,
             name="Inactive",
             format="a4",
@@ -141,15 +141,15 @@ class TestTemplates:
         db_session.add(inactive)
         await db_session.commit()
 
-        templates, total = await postmail_service.list_templates(active_only=True)
+        templates, total = await letter_service.list_templates(active_only=True)
         assert all(t.is_active for t in templates)
 
     @pytest.mark.asyncio
     async def test_get_template(
-        self, postmail_service: PostmailService, sample_template: PostmailTemplate
+        self, letter_service: LetterService, sample_template: LetterTemplate
     ):
         """Test getting a template by ID."""
-        template = await postmail_service.get_template(sample_template.id)
+        template = await letter_service.get_template(sample_template.id)
 
         assert template is not None
         assert template.id == sample_template.id
@@ -157,10 +157,10 @@ class TestTemplates:
 
     @pytest.mark.asyncio
     async def test_update_template(
-        self, postmail_service: PostmailService, sample_template: PostmailTemplate
+        self, letter_service: LetterService, sample_template: LetterTemplate
     ):
         """Test updating a template."""
-        template = await postmail_service.update_template(
+        template = await letter_service.update_template(
             sample_template.id, name="Updated Name", is_active=False
         )
 
@@ -169,10 +169,10 @@ class TestTemplates:
 
     @pytest.mark.asyncio
     async def test_delete_template(
-        self, postmail_service: PostmailService, db_session: AsyncSession
+        self, letter_service: LetterService, db_session: AsyncSession
     ):
         """Test deleting (deactivating) a template."""
-        template = PostmailTemplate(
+        template = LetterTemplate(
             tenant_id=TENANT_ID,
             name="To Delete",
             format="a4",
@@ -181,11 +181,11 @@ class TestTemplates:
         db_session.add(template)
         await db_session.commit()
 
-        result = await postmail_service.delete_template(template.id)
+        result = await letter_service.delete_template(template.id)
         assert result is True
 
         # Verify soft-deleted (deactivated)
-        deleted = await postmail_service.get_template(template.id)
+        deleted = await letter_service.get_template(template.id)
         assert deleted is not None
         assert deleted.is_active is False
 
@@ -198,7 +198,7 @@ class TestLetters:
 
     @pytest.mark.asyncio
     async def test_create_letter(
-        self, postmail_service: PostmailService, sample_template: PostmailTemplate
+        self, letter_service: LetterService, sample_template: LetterTemplate
     ):
         """Test creating a letter."""
         recipient = RecipientData(
@@ -208,7 +208,7 @@ class TestLetters:
             zip="80331",
             city="München",
         )
-        letter = await postmail_service.create_letter(
+        letter = await letter_service.create_letter(
             template_id=sample_template.id,
             recipient=recipient,
         )
@@ -219,29 +219,29 @@ class TestLetters:
 
     @pytest.mark.asyncio
     async def test_list_letters(
-        self, postmail_service: PostmailService, sample_letter: PostmailLetter
+        self, letter_service: LetterService, sample_letter: Letter
     ):
         """Test listing letters."""
-        letters, total = await postmail_service.list_letters()
+        letters, total = await letter_service.list_letters()
 
         assert total >= 1
         assert any(letter.id == sample_letter.id for letter in letters)
 
     @pytest.mark.asyncio
     async def test_list_letters_by_status(
-        self, postmail_service: PostmailService, sample_letter: PostmailLetter
+        self, letter_service: LetterService, sample_letter: Letter
     ):
         """Test filtering letters by status."""
-        letters, total = await postmail_service.list_letters(status="draft")
+        letters, total = await letter_service.list_letters(status="draft")
 
         assert all(letter.status == "draft" for letter in letters)
 
     @pytest.mark.asyncio
     async def test_get_letter(
-        self, postmail_service: PostmailService, sample_letter: PostmailLetter
+        self, letter_service: LetterService, sample_letter: Letter
     ):
         """Test getting a letter by ID."""
-        letter = await postmail_service.get_letter(sample_letter.id)
+        letter = await letter_service.get_letter(sample_letter.id)
 
         assert letter is not None
         assert letter.id == sample_letter.id
@@ -249,36 +249,36 @@ class TestLetters:
 
     @pytest.mark.asyncio
     async def test_approve_letter(
-        self, postmail_service: PostmailService, sample_letter: PostmailLetter
+        self, letter_service: LetterService, sample_letter: Letter
     ):
         """Test approving a draft letter."""
-        letter = await postmail_service.approve_letter(sample_letter.id)
+        letter = await letter_service.approve_letter(sample_letter.id)
 
         assert letter is not None
         assert letter.status == LetterStatus.APPROVED
 
     @pytest.mark.asyncio
     async def test_approve_non_draft_returns_none(
-        self, postmail_service: PostmailService, approved_letter: PostmailLetter
+        self, letter_service: LetterService, approved_letter: Letter
     ):
         """Test approving an already approved letter returns None."""
-        result = await postmail_service.approve_letter(approved_letter.id)
+        result = await letter_service.approve_letter(approved_letter.id)
         assert result is None
 
     @pytest.mark.asyncio
     async def test_delete_letter(
-        self, postmail_service: PostmailService, sample_letter: PostmailLetter
+        self, letter_service: LetterService, sample_letter: Letter
     ):
         """Test deleting a draft letter."""
-        result = await postmail_service.delete_letter(sample_letter.id)
+        result = await letter_service.delete_letter(sample_letter.id)
         assert result is True
 
     @pytest.mark.asyncio
     async def test_delete_non_draft_returns_false(
-        self, postmail_service: PostmailService, approved_letter: PostmailLetter
+        self, letter_service: LetterService, approved_letter: Letter
     ):
         """Test that non-draft letters cannot be deleted."""
-        result = await postmail_service.delete_letter(approved_letter.id)
+        result = await letter_service.delete_letter(approved_letter.id)
         assert result is False
 
 
@@ -291,14 +291,14 @@ class TestBatches:
     @pytest.mark.asyncio
     async def test_create_batch(
         self,
-        postmail_service: PostmailService,
+        letter_service: LetterService,
         db_session: AsyncSession,
-        sample_template: PostmailTemplate,
+        sample_template: LetterTemplate,
     ):
         """Test creating a batch from approved letters."""
         letters = []
         for i in range(3):
-            letter = PostmailLetter(
+            letter = Letter(
                 tenant_id=TENANT_ID,
                 template_id=sample_template.id,
                 recipient_name=f"Person {i}",
@@ -310,7 +310,7 @@ class TestBatches:
             letters.append(letter)
         await db_session.commit()
 
-        batch = await postmail_service.create_batch(
+        batch = await letter_service.create_batch(
             name="Test Batch",
             letter_ids=[letter.id for letter in letters],
         )
@@ -323,11 +323,11 @@ class TestBatches:
     @pytest.mark.asyncio
     async def test_list_batches(
         self,
-        postmail_service: PostmailService,
+        letter_service: LetterService,
         db_session: AsyncSession,
     ):
         """Test listing batches."""
-        batch = PostmailBatch(
+        batch = LetterBatch(
             tenant_id=TENANT_ID,
             name="List Test Batch",
             letter_count=0,
@@ -336,7 +336,7 @@ class TestBatches:
         db_session.add(batch)
         await db_session.commit()
 
-        batches, total = await postmail_service.list_batches()
+        batches, total = await letter_service.list_batches()
 
         assert total >= 1
         assert any(b.name == "List Test Batch" for b in batches)
@@ -350,10 +350,10 @@ class TestTemplateRendering:
 
     @pytest.mark.asyncio
     async def test_render_template_with_custom_data(
-        self, postmail_service: PostmailService, sample_template: PostmailTemplate
+        self, letter_service: LetterService, sample_template: LetterTemplate
     ):
         """Test template rendering with custom data."""
-        html = await postmail_service.render_template(
+        html = await letter_service.render_template(
             sample_template,
             custom_data={
                 "contact": {"name": "Test Person"},
@@ -365,10 +365,10 @@ class TestTemplateRendering:
 
     @pytest.mark.asyncio
     async def test_render_template_without_data(
-        self, postmail_service: PostmailService, sample_template: PostmailTemplate
+        self, letter_service: LetterService, sample_template: LetterTemplate
     ):
         """Test rendering fallback when no contact data."""
-        html = await postmail_service.render_template(sample_template)
+        html = await letter_service.render_template(sample_template)
 
         # Without contact data, Jinja renders empty or uses undefined
         assert html is not None
@@ -383,12 +383,12 @@ class TestStats:
     @pytest.mark.asyncio
     async def test_get_stats(
         self,
-        postmail_service: PostmailService,
-        sample_template: PostmailTemplate,
-        sample_letter: PostmailLetter,
+        letter_service: LetterService,
+        sample_template: LetterTemplate,
+        sample_letter: Letter,
     ):
         """Test getting statistics."""
-        stats = await postmail_service.get_stats()
+        stats = await letter_service.get_stats()
 
         assert stats["total_templates"] >= 1
         assert stats["total_letters"] >= 1
@@ -405,7 +405,7 @@ class TestAPIEndpoints:
     async def test_get_stats_endpoint(self, client):
         """Test stats endpoint."""
         response = await client.get(
-            "/api/v1/postmail/stats",
+            "/api/v1/letter/stats",
             headers={"X-Tenant-ID": TENANT_ID},
         )
         assert response.status_code == 200
@@ -416,7 +416,7 @@ class TestAPIEndpoints:
     async def test_list_templates_endpoint(self, client):
         """Test list templates endpoint."""
         response = await client.get(
-            "/api/v1/postmail/templates",
+            "/api/v1/letter/templates",
             headers={"X-Tenant-ID": TENANT_ID},
         )
         assert response.status_code == 200
@@ -425,7 +425,7 @@ class TestAPIEndpoints:
     async def test_list_letters_endpoint(self, client):
         """Test list letters endpoint."""
         response = await client.get(
-            "/api/v1/postmail/letters",
+            "/api/v1/letter/letters",
             headers={"X-Tenant-ID": TENANT_ID},
         )
         assert response.status_code == 200
@@ -434,7 +434,7 @@ class TestAPIEndpoints:
     async def test_list_batches_endpoint(self, client):
         """Test list batches endpoint."""
         response = await client.get(
-            "/api/v1/postmail/batches",
+            "/api/v1/letter/batches",
             headers={"X-Tenant-ID": TENANT_ID},
         )
         assert response.status_code == 200

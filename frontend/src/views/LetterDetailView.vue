@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { usePostmailStore } from '@/stores/postmail'
+import { useLetterStore } from '@/stores/letter'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import Breadcrumb from '@/components/ui/Breadcrumb.vue'
 
@@ -14,7 +14,7 @@ const props = defineProps({
 
 const route = useRoute()
 const router = useRouter()
-const store = usePostmailStore()
+const store = useLetterStore()
 
 const letterId = computed(() => props.id || route.params.id)
 
@@ -74,7 +74,7 @@ async function deleteLetter() {
   if (!confirm('Brief wirklich löschen?')) return
   try {
     await store.deleteLetter(letterId.value)
-    router.push('/postmail')
+    router.push('/letter')
   } catch (err) {
     error.value = err.response?.data?.detail || err.message
   }
@@ -92,7 +92,7 @@ function formatDate(dateStr) {
 }
 
 function goBack() {
-  router.push('/postmail')
+  router.push('/letter')
 }
 
 onMounted(() => {

@@ -1,12 +1,12 @@
 /**
- * Post-Mail API Client
+ * Letter API Client
  *
  * Physische Briefe als Engagement-Kanal
  */
 
 import api from './index'
 
-const BASE_URL = '/postmail'
+const BASE_URL = '/letter'
 
 // ============== Templates ==============
 
@@ -198,7 +198,7 @@ export async function markBatchSent(id) {
 // ============== Stats ==============
 
 /**
- * Get postmail statistics
+ * Get letter statistics
  */
 export async function getStats() {
   const { data } = await api.get(`${BASE_URL}/stats`)

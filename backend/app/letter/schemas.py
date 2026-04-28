@@ -1,4 +1,4 @@
-"""Post-Mail Module Schemas.
+"""Letter Module Schemas.
 
 Pydantic schemas for API validation.
 """
@@ -236,8 +236,8 @@ class RenderPreviewResponse(BaseModel):
 # ============== Stats ==============
 
 
-class PostmailStats(BaseModel):
-    """Post-Mail statistics."""
+class LetterStats(BaseModel):
+    """Letter statistics."""
 
     total_templates: int
     active_templates: int

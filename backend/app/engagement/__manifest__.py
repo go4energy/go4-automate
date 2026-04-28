@@ -281,7 +281,7 @@ Du erhältst:
 Antworte im JSON-Format:
 {
     "recommendation": {
-        "channel": "linkedin|email|phone|postmail|whatsapp",
+        "channel": "linkedin|email|phone|letter|whatsapp",
         "action": "send_connection_request|send_message|send_email|make_call|send_letter",
         "reasoning": "Kurze Begründung",
         "suggested_content": "Vorgeschlagener Inhalt (optional)",

@@ -19,7 +19,7 @@ const showPasswordModal = ref(false)
 const pipelineMenuOpen = ref(false)
 
 // Pipeline selector only visible on pipeline-relevant modules
-const pipelineModulePrefixes = ['/engagement', '/linkedin', '/contacts', '/crm', '/postmail', '/campaigns', '/whatsapp', '/emailmarketing']
+const pipelineModulePrefixes = ['/engagement', '/linkedin', '/contacts', '/crm', '/letter', '/campaigns', '/whatsapp', '/emailmarketing']
 const showPipelineSelector = computed(() => {
   const path = route.path
   return pipelineModulePrefixes.some((prefix) => path.startsWith(prefix))

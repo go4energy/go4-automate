@@ -1,4 +1,4 @@
-"""Post-Mail Module Service.
+"""Letter Module Service.
 
 Business logic for letter management, template rendering,
 and batch processing.
@@ -17,24 +17,24 @@ from sqlalchemy.orm import selectinload
 
 from app.contacts.models import Contact
 from app.engagement.activity_helper import Channel, Direction, log_activity
-from app.postmail.models import (
+from app.letter.models import (
     BatchStatus,
+    Letter,
+    LetterBatch,
     LetterStatus,
-    PostmailBatch,
-    PostmailLetter,
-    PostmailTemplate,
+    LetterTemplate,
 )
-from app.postmail.schemas import RecipientData
+from app.letter.schemas import RecipientData
 
 
-class PostmailService:
+class LetterService:
     """Service für Brief-Management."""
 
     def __init__(self, db: AsyncSession, tenant_id: str):
         self.db = db
         self.tenant_id = tenant_id
         # Base path for generated files
-        self.output_dir = Path("data/postmail")
+        self.output_dir = Path("data/letter")
 
     # ============== Templates ==============
 
@@ -43,14 +43,14 @@ class PostmailService:
         active_only: bool = False,
         limit: int = 50,
         offset: int = 0,
-    ) -> tuple[list[PostmailTemplate], int]:
+    ) -> tuple[list[LetterTemplate], int]:
         """List templates with pagination."""
-        query = select(PostmailTemplate).where(
-            PostmailTemplate.tenant_id == self.tenant_id
+        query = select(LetterTemplate).where(
+            LetterTemplate.tenant_id == self.tenant_id
         )
 
         if active_only:
-            query = query.where(PostmailTemplate.is_active.is_(True))
+            query = query.where(LetterTemplate.is_active.is_(True))
 
         # Count
         count_result = await self.db.execute(
@@ -59,19 +59,19 @@ class PostmailService:
         total = count_result.scalar() or 0
 
         # Fetch
-        query = query.order_by(PostmailTemplate.created_at.desc())
+        query = query.order_by(LetterTemplate.created_at.desc())
         query = query.offset(offset).limit(limit)
         result = await self.db.execute(query)
         templates = list(result.scalars().all())
 
         return templates, total
 
-    async def get_template(self, template_id: int) -> PostmailTemplate | None:
+    async def get_template(self, template_id: int) -> LetterTemplate | None:
         """Get template by ID."""
         result = await self.db.execute(
-            select(PostmailTemplate).where(
-                PostmailTemplate.id == template_id,
-                PostmailTemplate.tenant_id == self.tenant_id,
+            select(LetterTemplate).where(
+                LetterTemplate.id == template_id,
+                LetterTemplate.tenant_id == self.tenant_id,
             )
         )
         return result.scalar_one_or_none()
@@ -84,9 +84,9 @@ class PostmailService:
         format: str = "a4",
         header_html: str | None = None,
         footer_html: str | None = None,
-    ) -> PostmailTemplate:
+    ) -> LetterTemplate:
         """Create a new template."""
-        template = PostmailTemplate(
+        template = LetterTemplate(
             tenant_id=self.tenant_id,
             name=name,
             description=description,
@@ -98,14 +98,14 @@ class PostmailService:
         self.db.add(template)
         await self.db.commit()
         await self.db.refresh(template)
-        logger.info(f"Created postmail template: {template.id}")
+        logger.info(f"Created letter template: {template.id}")
         return template
 
     async def update_template(
         self,
         template_id: int,
         **kwargs,
-    ) -> PostmailTemplate | None:
+    ) -> LetterTemplate | None:
         """Update a template."""
         template = await self.get_template(template_id)
         if not template:
@@ -141,22 +141,22 @@ class PostmailService:
         pipeline_id: int | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> tuple[list[PostmailLetter], int]:
+    ) -> tuple[list[Letter], int]:
         """List letters with filters."""
         query = (
-            select(PostmailLetter)
-            .options(selectinload(PostmailLetter.template))
-            .where(PostmailLetter.tenant_id == self.tenant_id)
+            select(Letter)
+            .options(selectinload(Letter.template))
+            .where(Letter.tenant_id == self.tenant_id)
         )
 
         if status:
-            query = query.where(PostmailLetter.status == status)
+            query = query.where(Letter.status == status)
         if batch_id:
-            query = query.where(PostmailLetter.batch_id == batch_id)
+            query = query.where(Letter.batch_id == batch_id)
         if contact_id:
-            query = query.where(PostmailLetter.contact_id == contact_id)
+            query = query.where(Letter.contact_id == contact_id)
         if pipeline_id is not None:
-            query = query.where(PostmailLetter.pipeline_id == pipeline_id)
+            query = query.where(Letter.pipeline_id == pipeline_id)
 
         # Count
         count_result = await self.db.execute(
@@ -165,21 +165,21 @@ class PostmailService:
         total = count_result.scalar() or 0
 
         # Fetch
-        query = query.order_by(PostmailLetter.created_at.desc())
+        query = query.order_by(Letter.created_at.desc())
         query = query.offset(offset).limit(limit)
         result = await self.db.execute(query)
         letters = list(result.scalars().all())
 
         return letters, total
 
-    async def get_letter(self, letter_id: int) -> PostmailLetter | None:
+    async def get_letter(self, letter_id: int) -> Letter | None:
         """Get letter by ID."""
         result = await self.db.execute(
-            select(PostmailLetter)
-            .options(selectinload(PostmailLetter.template))
+            select(Letter)
+            .options(selectinload(Letter.template))
             .where(
-                PostmailLetter.id == letter_id,
-                PostmailLetter.tenant_id == self.tenant_id,
+                Letter.id == letter_id,
+                Letter.tenant_id == self.tenant_id,
             )
         )
         return result.scalar_one_or_none()
@@ -191,14 +191,14 @@ class PostmailService:
         contact_id: int | None = None,
         pipeline_id: int | None = None,
         content_html: str | None = None,
-    ) -> PostmailLetter:
+    ) -> Letter:
         """Create a new letter."""
         # Verify template exists
         template = await self.get_template(template_id)
         if not template:
             raise ValueError(f"Template {template_id} not found")
 
-        letter = PostmailLetter(
+        letter = Letter(
             tenant_id=self.tenant_id,
             template_id=template_id,
             contact_id=contact_id,
@@ -215,7 +215,7 @@ class PostmailService:
         self.db.add(letter)
         await self.db.commit()
         await self.db.refresh(letter)
-        logger.info(f"Created postmail letter: {letter.id}")
+        logger.info(f"Created letter: {letter.id}")
         return letter
 
     async def create_letter_from_contact(
@@ -223,7 +223,7 @@ class PostmailService:
         template_id: int,
         contact_id: int,
         pipeline_id: int | None = None,
-    ) -> PostmailLetter:
+    ) -> Letter:
         """Create letter with contact's address."""
         # Get contact
         result = await self.db.execute(
@@ -268,7 +268,7 @@ class PostmailService:
         self,
         letter_id: int,
         **kwargs,
-    ) -> PostmailLetter | None:
+    ) -> Letter | None:
         """Update a letter."""
         letter = await self.get_letter(letter_id)
         if not letter:
@@ -293,7 +293,7 @@ class PostmailService:
         await self.db.refresh(letter)
         return letter
 
-    async def approve_letter(self, letter_id: int) -> PostmailLetter | None:
+    async def approve_letter(self, letter_id: int) -> Letter | None:
         """Approve a draft letter."""
         letter = await self.get_letter(letter_id)
         if not letter or letter.status != LetterStatus.DRAFT:
@@ -319,7 +319,7 @@ class PostmailService:
 
     async def render_template(
         self,
-        template: PostmailTemplate,
+        template: LetterTemplate,
         contact: Contact | None = None,
         custom_data: dict | None = None,
     ) -> str:
@@ -452,12 +452,12 @@ class PostmailService:
         status: str | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> tuple[list[PostmailBatch], int]:
+    ) -> tuple[list[LetterBatch], int]:
         """List batches with filters."""
-        query = select(PostmailBatch).where(PostmailBatch.tenant_id == self.tenant_id)
+        query = select(LetterBatch).where(LetterBatch.tenant_id == self.tenant_id)
 
         if status:
-            query = query.where(PostmailBatch.status == status)
+            query = query.where(LetterBatch.status == status)
 
         # Count
         count_result = await self.db.execute(
@@ -466,19 +466,19 @@ class PostmailService:
         total = count_result.scalar() or 0
 
         # Fetch
-        query = query.order_by(PostmailBatch.created_at.desc())
+        query = query.order_by(LetterBatch.created_at.desc())
         query = query.offset(offset).limit(limit)
         result = await self.db.execute(query)
         batches = list(result.scalars().all())
 
         return batches, total
 
-    async def get_batch(self, batch_id: int) -> PostmailBatch | None:
+    async def get_batch(self, batch_id: int) -> LetterBatch | None:
         """Get batch by ID."""
         result = await self.db.execute(
-            select(PostmailBatch).where(
-                PostmailBatch.id == batch_id,
-                PostmailBatch.tenant_id == self.tenant_id,
+            select(LetterBatch).where(
+                LetterBatch.id == batch_id,
+                LetterBatch.tenant_id == self.tenant_id,
             )
         )
         return result.scalar_one_or_none()
@@ -487,9 +487,9 @@ class PostmailService:
         self,
         name: str,
         letter_ids: list[int],
-    ) -> PostmailBatch:
+    ) -> LetterBatch:
         """Create a batch from letters."""
-        batch = PostmailBatch(
+        batch = LetterBatch(
             tenant_id=self.tenant_id,
             name=name,
             letter_count=len(letter_ids),
@@ -510,7 +510,7 @@ class PostmailService:
         await self.db.commit()
         await self.db.refresh(batch)
         logger.info(
-            f"Created postmail batch: {batch.id} with {len(letter_ids)} letters"
+            f"Created letter batch: {batch.id} with {len(letter_ids)} letters"
         )
         return batch
 
@@ -577,7 +577,7 @@ class PostmailService:
         logger.info(f"Exported batch {batch_id} to {export_path}")
         return str(export_path)
 
-    async def mark_batch_sent(self, batch_id: int) -> PostmailBatch | None:
+    async def mark_batch_sent(self, batch_id: int) -> LetterBatch | None:
         """Mark batch as sent."""
         batch = await self.get_batch(batch_id)
         if not batch or batch.status != BatchStatus.EXPORTED:
@@ -599,12 +599,12 @@ class PostmailService:
                         db=self.db,
                         tenant_id=self.tenant_id,
                         contact_id=letter.contact_id,
-                        channel=Channel.POSTMAIL,
+                        channel=Channel.LETTER,
                         activity_type="letter_sent",
                         direction=Direction.OUTBOUND,
                         subject=f"Brief versendet: {letter.recipient_name}",
                         content=letter.content_html[:500] if letter.content_html else None,
-                        source_module="postmail",
+                        source_module="letter",
                         pipeline_id=letter.pipeline_id,
                         metadata={"letter_id": letter.id, "batch_id": batch_id},
                         commit=False,
@@ -619,45 +619,45 @@ class PostmailService:
     # ============== Stats ==============
 
     async def get_stats(self) -> dict:
-        """Get post-mail statistics."""
+        """Get letter statistics."""
         # Templates
         result = await self.db.execute(
-            select(func.count()).where(PostmailTemplate.tenant_id == self.tenant_id)
+            select(func.count()).where(LetterTemplate.tenant_id == self.tenant_id)
         )
         total_templates = result.scalar() or 0
 
         result = await self.db.execute(
             select(func.count()).where(
-                PostmailTemplate.tenant_id == self.tenant_id,
-                PostmailTemplate.is_active.is_(True),
+                LetterTemplate.tenant_id == self.tenant_id,
+                LetterTemplate.is_active.is_(True),
             )
         )
         active_templates = result.scalar() or 0
 
         # Letters
         result = await self.db.execute(
-            select(func.count()).where(PostmailLetter.tenant_id == self.tenant_id)
+            select(func.count()).where(Letter.tenant_id == self.tenant_id)
         )
         total_letters = result.scalar() or 0
 
         # Letters by status
         result = await self.db.execute(
-            select(PostmailLetter.status, func.count())
-            .where(PostmailLetter.tenant_id == self.tenant_id)
-            .group_by(PostmailLetter.status)
+            select(Letter.status, func.count())
+            .where(Letter.tenant_id == self.tenant_id)
+            .group_by(Letter.status)
         )
         letters_by_status = {row[0]: row[1] for row in result.all()}
 
         # Batches
         result = await self.db.execute(
-            select(func.count()).where(PostmailBatch.tenant_id == self.tenant_id)
+            select(func.count()).where(LetterBatch.tenant_id == self.tenant_id)
         )
         total_batches = result.scalar() or 0
 
         result = await self.db.execute(
             select(func.count()).where(
-                PostmailBatch.tenant_id == self.tenant_id,
-                PostmailBatch.status.in_([BatchStatus.COLLECTING, BatchStatus.READY]),
+                LetterBatch.tenant_id == self.tenant_id,
+                LetterBatch.status.in_([BatchStatus.COLLECTING, BatchStatus.READY]),
             )
         )
         pending_batches = result.scalar() or 0

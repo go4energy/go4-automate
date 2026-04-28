@@ -75,7 +75,7 @@ const channelLabels = {
   linkedin: 'LinkedIn',
   email: 'Email',
   phone: 'Telefon',
-  postmail: 'Brief',
+  letter: 'Brief',
   whatsapp: 'WhatsApp'
 }
 

@@ -49,7 +49,7 @@ class Channel:
     PHONE = "phone"
     WHATSAPP = "whatsapp"
     WEBSITE = "website"
-    POSTMAIL = "postmail"
+    LETTER = "letter"
     MEETING = "meeting"
     CRM = "crm"
 

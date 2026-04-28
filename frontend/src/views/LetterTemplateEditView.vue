@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { usePostmailStore } from '@/stores/postmail'
+import { useLetterStore } from '@/stores/letter'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import Breadcrumb from '@/components/ui/Breadcrumb.vue'
 
@@ -14,7 +14,7 @@ const props = defineProps({
 
 const route = useRoute()
 const router = useRouter()
-const store = usePostmailStore()
+const store = useLetterStore()
 
 const templateId = computed(() => props.id || route.params.id)
 const isNew = computed(() => !templateId.value || templateId.value === 'new')
@@ -79,7 +79,7 @@ async function save() {
     } else {
       await store.updateTemplate(templateId.value, form.value)
     }
-    router.push('/postmail/templates')
+    router.push('/letter/templates')
   } catch (err) {
     error.value = err.response?.data?.detail || err.message
   } finally {
@@ -88,7 +88,7 @@ async function save() {
 }
 
 function cancel() {
-  router.push('/postmail/templates')
+  router.push('/letter/templates')
 }
 
 function insertPlaceholder(placeholder) {

@@ -1,4 +1,4 @@
-"""Post-Mail Module Models.
+"""Letter Module Models.
 
 SQLAlchemy models for letter templates, letters, and batches.
 """
@@ -44,10 +44,10 @@ class BatchStatus:
 # ============== Models ==============
 
 
-class PostmailTemplate(Base):
+class LetterTemplate(Base):
     """Brief-Templates mit Platzhaltern."""
 
-    __tablename__ = "postmail_templates"
+    __tablename__ = "letter_templates"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     tenant_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
@@ -66,6 +66,10 @@ class PostmailTemplate(Base):
     # Preview
     preview_image: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Provider/Layout assets
+    letterhead_image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    css_styles: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     # Lifecycle
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -76,18 +80,18 @@ class PostmailTemplate(Base):
     )
 
     # Relationships
-    letters: Mapped[list["PostmailLetter"]] = relationship(
-        "PostmailLetter", back_populates="template"
+    letters: Mapped[list["Letter"]] = relationship(
+        "Letter", back_populates="template"
     )
 
     def __repr__(self) -> str:
-        return f"<PostmailTemplate {self.id}: {self.name}>"
+        return f"<LetterTemplate {self.id}: {self.name}>"
 
 
-class PostmailBatch(Base):
+class LetterBatch(Base):
     """Batch für Sammelversand."""
 
-    __tablename__ = "postmail_batches"
+    __tablename__ = "letter_batches"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     tenant_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
@@ -119,25 +123,25 @@ class PostmailBatch(Base):
     )
 
     # Relationships
-    letters: Mapped[list["PostmailLetter"]] = relationship(
-        "PostmailLetter", back_populates="batch"
+    letters: Mapped[list["Letter"]] = relationship(
+        "Letter", back_populates="batch"
     )
 
     def __repr__(self) -> str:
-        return f"<PostmailBatch {self.id}: {self.name}>"
+        return f"<LetterBatch {self.id}: {self.name}>"
 
 
-class PostmailLetter(Base):
+class Letter(Base):
     """Einzelner Brief zum Versand."""
 
-    __tablename__ = "postmail_letters"
+    __tablename__ = "letters"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     tenant_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
 
     # References
     template_id: Mapped[int] = mapped_column(
-        Integer, ForeignKey("postmail_templates.id"), nullable=False
+        Integer, ForeignKey("letter_templates.id"), nullable=False
     )
     contact_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("contacts.id"), nullable=True, index=True
@@ -147,7 +151,7 @@ class PostmailLetter(Base):
     )
     pending_action_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     batch_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("postmail_batches.id"), nullable=True, index=True
+        Integer, ForeignKey("letter_batches.id"), nullable=True, index=True
     )
 
     # Recipient
@@ -182,6 +186,15 @@ class PostmailLetter(Base):
     )
     return_reason: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
+    # Letterxpress provider fields
+    letterxpress_job_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    send_mode: Mapped[str] = mapped_column(String(10), nullable=False, default="test")
+    provider_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    provider_cost_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    provider_synced_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     # Lifecycle
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow
@@ -191,12 +204,12 @@ class PostmailLetter(Base):
     )
 
     # Relationships
-    template: Mapped["PostmailTemplate"] = relationship(
-        "PostmailTemplate", back_populates="letters"
+    template: Mapped["LetterTemplate"] = relationship(
+        "LetterTemplate", back_populates="letters"
     )
-    batch: Mapped["PostmailBatch | None"] = relationship(
-        "PostmailBatch", back_populates="letters"
+    batch: Mapped["LetterBatch | None"] = relationship(
+        "LetterBatch", back_populates="letters"
     )
 
     def __repr__(self) -> str:
-        return f"<PostmailLetter {self.id}: {self.recipient_name}>"
+        return f"<Letter {self.id}: {self.recipient_name}>"
