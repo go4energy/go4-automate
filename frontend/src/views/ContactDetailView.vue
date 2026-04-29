@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useContactsStore } from '@/stores/contacts'
+import { getContactContext } from '@/api/contacts'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import AvatarInitials from '@/components/ui/AvatarInitials.vue'
 import ContactFormModal from '@/components/contacts/ContactFormModal.vue'
@@ -22,9 +23,28 @@ const deleteLoading = ref(false)
 
 const contact = computed(() => store.currentContact)
 
+// Insights from leadgen + linkedin (loaded via /contacts/{id}/context)
+const ctx = ref(null)
+const ctxError = ref(null)
+
+const hasLeadgenInsights = computed(() => ctx.value?.leadgen_origin)
+const hasLinkedInData = computed(() => ctx.value?.linkedin_origin)
+
+async function loadContext(id) {
+  ctxError.value = null
+  try {
+    const { data } = await getContactContext(id)
+    ctx.value = data
+  } catch (err) {
+    ctxError.value = err.response?.data?.detail || err.message
+    ctx.value = null
+  }
+}
+
 onMounted(async () => {
   await store.fetchContact(contactId.value)
   await store.fetchCompanies()
+  await loadContext(contactId.value)
 })
 
 function goBack() {
@@ -325,6 +345,177 @@ function formatDate(dateString) {
             <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
               {{ contact.notes }}
             </p>
+          </div>
+
+          <!-- Leadgen Insights -->
+          <div
+            v-if="hasLeadgenInsights"
+            class="rounded-lg bg-white dark:bg-gray-800 p-6 shadow-sm"
+          >
+            <div class="mb-4 flex items-center gap-2">
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                Leadgen-Insights
+              </h2>
+              <span
+                v-if="ctx.target_match_score != null"
+                class="inline-flex rounded px-2 py-0.5 text-xs font-medium uppercase"
+                :class="ctx.target_match_score >= 8 ? 'bg-emerald-100 text-emerald-800' : ctx.target_match_score >= 5 ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'"
+              >
+                Score: {{ ctx.target_match_score }}/10
+              </span>
+            </div>
+
+            <!-- Personalization hook (the gold) -->
+            <div
+              v-if="ctx.personalization_hook"
+              class="mb-4 rounded-md border-l-4 border-go4-primary bg-blue-50 dark:bg-blue-900/20 p-3"
+            >
+              <div class="text-xs font-medium uppercase text-go4-primary mb-1">
+                Personalisierungs-Hook
+              </div>
+              <p class="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">
+                {{ ctx.personalization_hook }}
+              </p>
+            </div>
+
+            <dl class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div v-if="ctx.services?.length">
+                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">
+                  Services
+                </dt>
+                <dd class="text-sm text-gray-900 dark:text-gray-100">
+                  <span
+                    v-for="(s, i) in ctx.services"
+                    :key="i"
+                    class="inline-block mr-1 mb-1 rounded bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-xs"
+                  >{{ s }}</span>
+                </dd>
+              </div>
+              <div v-if="ctx.brands?.length">
+                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">
+                  Marken
+                </dt>
+                <dd class="text-sm text-gray-900 dark:text-gray-100">
+                  <span
+                    v-for="(b, i) in ctx.brands"
+                    :key="i"
+                    class="inline-block mr-1 mb-1 rounded bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-xs"
+                  >{{ b }}</span>
+                </dd>
+              </div>
+              <div v-if="ctx.customer_segments?.length">
+                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">
+                  Kundengruppen
+                </dt>
+                <dd class="text-sm text-gray-900 dark:text-gray-100">
+                  {{ ctx.customer_segments.join(', ') }}
+                </dd>
+              </div>
+              <div v-if="ctx.company_size_indicator">
+                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">
+                  Unternehmensgröße
+                </dt>
+                <dd class="text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap">
+                  {{ ctx.company_size_indicator }}
+                </dd>
+              </div>
+              <div v-if="ctx.google_categories?.length">
+                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">
+                  Branche (Google)
+                </dt>
+                <dd class="text-sm text-gray-900 dark:text-gray-100">
+                  {{ ctx.google_categories.join(', ') }}
+                </dd>
+              </div>
+              <div v-if="ctx.rating != null">
+                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">
+                  Rating
+                </dt>
+                <dd class="text-sm text-gray-900 dark:text-gray-100">
+                  {{ ctx.rating }} ★ ({{ ctx.user_ratings_total || 0 }} Bewertungen)
+                </dd>
+              </div>
+              <div
+                v-if="ctx.red_flags?.length"
+                class="sm:col-span-2"
+              >
+                <dt class="text-xs uppercase text-red-600 dark:text-red-400">
+                  Red Flags
+                </dt>
+                <dd class="text-sm text-red-700 dark:text-red-300">
+                  <ul class="list-disc list-inside">
+                    <li
+                      v-for="(rf, i) in ctx.red_flags"
+                      :key="i"
+                    >
+                      {{ rf }}
+                    </li>
+                  </ul>
+                </dd>
+              </div>
+            </dl>
+          </div>
+
+          <!-- LinkedIn data -->
+          <div
+            v-if="hasLinkedInData"
+            class="rounded-lg bg-white dark:bg-gray-800 p-6 shadow-sm"
+          >
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+              LinkedIn
+            </h2>
+            <dl class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div
+                v-if="ctx.linkedin_headline"
+                class="sm:col-span-2"
+              >
+                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">
+                  Headline
+                </dt>
+                <dd class="text-sm text-gray-900 dark:text-gray-100">
+                  {{ ctx.linkedin_headline }}
+                </dd>
+              </div>
+              <div v-if="ctx.linkedin_position">
+                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">
+                  Position
+                </dt>
+                <dd class="text-sm text-gray-900 dark:text-gray-100">
+                  {{ ctx.linkedin_position }}
+                </dd>
+              </div>
+              <div v-if="ctx.linkedin_location">
+                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">
+                  Standort
+                </dt>
+                <dd class="text-sm text-gray-900 dark:text-gray-100">
+                  {{ ctx.linkedin_location }}
+                </dd>
+              </div>
+              <div v-if="ctx.linkedin_company_industry">
+                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">
+                  Branche
+                </dt>
+                <dd class="text-sm text-gray-900 dark:text-gray-100">
+                  {{ ctx.linkedin_company_industry }}
+                </dd>
+              </div>
+              <div
+                v-if="ctx.linkedin_skills?.length"
+                class="sm:col-span-2"
+              >
+                <dt class="text-xs uppercase text-gray-500 dark:text-gray-400">
+                  Skills
+                </dt>
+                <dd class="text-sm text-gray-900 dark:text-gray-100">
+                  <span
+                    v-for="(s, i) in ctx.linkedin_skills.slice(0, 12)"
+                    :key="i"
+                    class="inline-block mr-1 mb-1 rounded bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-xs"
+                  >{{ s }}</span>
+                </dd>
+              </div>
+            </dl>
           </div>
         </div>
 

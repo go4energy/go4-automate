@@ -129,7 +129,9 @@ watch([searchQuery, activeFilters], async () => {
 })
 
 async function loadData() {
-  const params = {}
+  // The list views are filterable + searchable in-page, so we pull a
+  // big-enough page in one shot. Backend caps at 10000.
+  const params = { limit: 10000 }
   if (searchQuery.value) {
     params.search = searchQuery.value
   }
@@ -146,8 +148,8 @@ async function loadData() {
   if (activeTab.value === 'contacts') {
     await store.fetchContacts(params)
     await store.fetchFilters()
-    // Also load companies for the form dropdown
-    await store.fetchCompanies()
+    // Also load companies for the form dropdown (smaller subset is fine)
+    await store.fetchCompanies({ limit: 10000 })
   } else {
     await store.fetchCompanies(params)
   }

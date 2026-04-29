@@ -1,55 +1,55 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useNavStore } from '@/stores/nav'
 
 const route = useRoute()
 const router = useRouter()
+const navStore = useNavStore()
 
-// Build breadcrumb trail from current route and its parents
+// Trail-driven breadcrumb: shows the actual path the user took (not
+// the manifest's hierarchical parent chain). Lets the user jump back
+// to any previous step. The current page is always the last,
+// non-clickable crumb.
 const breadcrumbs = computed(() => {
-  const crumbs = []
+  const crumbs = [{ label: 'Home', to: '/', isLast: false }]
 
-  // Always start with Home
-  crumbs.push({
-    label: 'Home',
-    to: '/',
-    isLast: false
-  })
-
-  // Build trail from route meta
-  const buildTrail = (routeName) => {
-    const matchedRoute = router.getRoutes().find((r) => r.name === routeName)
-    if (!matchedRoute) return
-
-    const meta = matchedRoute.meta || {}
-    const breadcrumb = meta.breadcrumb || {}
-
-    // First, add parent if exists
-    if (breadcrumb.parent) {
-      buildTrail(breadcrumb.parent)
-    }
-
-    // Then add this route
-    const label = breadcrumb.label || meta.title || routeName
+  for (let i = 0; i < navStore.trail.length; i++) {
+    const item = navStore.trail[i]
     crumbs.push({
-      label,
-      to: matchedRoute.path.includes(':') ? null : { name: routeName },
-      isLast: false
+      label: item.label,
+      to: item.path,
+      trailIndex: i,
+      isLast: false,
     })
   }
 
-  // Start building from current route
-  if (route.name) {
-    buildTrail(route.name)
-  }
-
-  // Mark the last one
-  if (crumbs.length > 0) {
-    crumbs[crumbs.length - 1].isLast = true
-  }
+  // Current page (active)
+  const meta = route.meta || {}
+  const breadcrumbMeta = meta.breadcrumb || {}
+  const currentLabel =
+    breadcrumbMeta.label || meta.title || route.name || route.path
+  crumbs.push({
+    label: currentLabel,
+    to: null,
+    isLast: true,
+  })
 
   return crumbs
 })
+
+function navigateTo(crumb) {
+  if (!crumb.to) return
+  // When the user clicks a trail crumb, trim the trail to that point so
+  // it doesn't look like they're moving forward into something they
+  // already visited.
+  if (typeof crumb.trailIndex === 'number') {
+    navStore.trimTo(crumb.trailIndex)
+  } else if (crumb.to === '/') {
+    navStore.reset()
+  }
+  router.push(crumb.to)
+}
 </script>
 
 <template>
@@ -77,17 +77,19 @@ const breadcrumbs = computed(() => {
           />
         </svg>
 
-        <!-- Crumb -->
-        <router-link
+        <!-- Clickable crumb -->
+        <button
           v-if="crumb.to && !crumb.isLast"
-          :to="crumb.to"
+          type="button"
           class="hover:text-gray-700 hover:underline transition-colors"
+          @click="navigateTo(crumb)"
         >
           {{ crumb.label }}
-        </router-link>
+        </button>
+        <!-- Current (last) -->
         <span
           v-else
-          class="text-gray-900 font-medium"
+          class="text-gray-900 dark:text-gray-100 font-medium"
         >
           {{ crumb.label }}
         </span>

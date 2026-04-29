@@ -61,6 +61,17 @@ router.beforeEach(async (to) => {
   }
 })
 
+// Navigation trail — feeds the global breadcrumb. Records the *previous*
+// route on every successful navigation so the breadcrumb shows how the
+// user arrived at the current page (not the manifest's parent hierarchy).
+router.afterEach(async (to, from) => {
+  // Skip Login/initial-load transitions — they'd pollute the trail.
+  if (!from.name || to.path === '/login' || from.path === '/login') return
+  const { useNavStore } = await import('@/stores/nav')
+  const navStore = useNavStore()
+  navStore.recordTransition(from, to)
+})
+
 // View resolver: pre-scan all views for dynamic import
 const viewModules = import.meta.glob('@/views/*.vue')
 

@@ -10,6 +10,10 @@ export function getContact(id) {
   return api.get(`/v1/contacts/${id}`)
 }
 
+export function getContactContext(id) {
+  return api.get(`/v1/contacts/${id}/context`)
+}
+
 export function createContact(data) {
   return api.post('/v1/contacts/', data)
 }

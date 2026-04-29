@@ -43,7 +43,7 @@ async def list_companies(
     owner_id: int | None = Query(None),
     industry: str | None = Query(None),
     sort: str = Query("-created_at"),
-    limit: int = Query(50, ge=1, le=500),
+    limit: int = Query(50, ge=1, le=10000),
     offset: int = Query(0, ge=0),
 ) -> list[CompanyListResponse]:
     """List companies for the current tenant."""
@@ -203,7 +203,7 @@ async def list_contacts(
     owner_id: int | None = Query(None),
     source: str | None = Query(None),
     sort: str = Query("-created_at"),
-    limit: int = Query(50, ge=1, le=500),
+    limit: int = Query(50, ge=1, le=10000),
     offset: int = Query(0, ge=0),
 ) -> list[ContactListResponse]:
     """List contacts for the current tenant."""
@@ -317,6 +317,26 @@ async def get_contact(
     except Exception as e:
         logger.exception("Unerwarteter Fehler in get_contact")
         raise HTTPException(status_code=500, detail="Interner Serverfehler") from e
+
+
+@router.get("/{contact_id}/context")
+async def get_contact_context_endpoint(
+    contact_id: int,
+    tenant_id: str = Depends(get_current_tenant_id),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Aggregated contact context (contact + company + leadgen insights +
+    LinkedIn data). Same data the engagement brain reads — exposed for the
+    UI's "Insights" tab on contact and company detail pages."""
+    from app.contacts.context_loader import get_contact_context
+
+    try:
+        return await get_contact_context(db, tenant_id, contact_id)
+    except NotFoundError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message) from e
+    except Exception as e:
+        logger.exception("get_contact_context failed for contact {cid}", cid=contact_id)
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.put("/{contact_id}", response_model=ContactResponse)
