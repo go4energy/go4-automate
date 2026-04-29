@@ -749,6 +749,11 @@ class EngagementBrain:
     ) -> ActionRecommendation:
         """Analyze a contact and recommend the next action.
 
+        Pulls a unified context bundle via ``get_contact_context`` which
+        includes leadgen-sourced insights (personalization_hook, services,
+        match score, …) when the contact has a ``leadgen_place_id``. The
+        prompt template degrades gracefully when fields are missing.
+
         Args:
             enrollment: The pipeline enrollment
             activities: Recent activities for this contact
@@ -756,11 +761,26 @@ class EngagementBrain:
         Returns:
             ActionRecommendation with next step details
         """
+        from app.contacts.context_loader import get_contact_context
+
         pipeline = enrollment.pipeline
         contact = enrollment.contact
 
+        try:
+            ctx = await get_contact_context(self.db, self.tenant_id, contact.id)
+        except Exception as exc:
+            logger.warning(
+                "Context loader failed for contact {cid}: {err}",
+                cid=contact.id,
+                err=str(exc),
+            )
+            ctx = {}
+
         # Format activities for prompt
         activities_text = self._format_activities(activities)
+
+        def _join(items: list | None) -> str:
+            return ", ".join(items) if items else "—"
 
         prompt = CONTACT_ANALYSIS_PROMPT.format(
             pipeline_name=pipeline.name,
@@ -768,9 +788,11 @@ class EngagementBrain:
             goal=pipeline.goal or "",
             channels=", ".join(pipeline.channels),
             playbook=pipeline.playbook or "Kein Playbook definiert",
-            contact_name=contact.name,
-            contact_position=contact.position or "unbekannt",
-            contact_company=contact.company_name or "unbekannt",
+            contact_name=ctx.get("name") or contact.name,
+            contact_position=ctx.get("position") or contact.position or "unbekannt",
+            contact_company=(
+                ctx.get("company_name") or contact.company_name or "unbekannt"
+            ),
             current_stage=enrollment.stage,
             touch_count=enrollment.touch_count,
             last_touch=enrollment.last_touch_at.isoformat()
@@ -780,6 +802,15 @@ class EngagementBrain:
             if enrollment.last_response_at
             else "nie",
             activities=activities_text,
+            # Leadgen-sourced insights (optional)
+            personalization_hook=ctx.get("personalization_hook") or "—",
+            services=_join(ctx.get("services")),
+            brands=_join(ctx.get("brands")),
+            customer_segments=_join(ctx.get("customer_segments")),
+            company_size_indicator=ctx.get("company_size_indicator") or "—",
+            target_match_score=ctx.get("target_match_score") or "—",
+            google_categories=_join(ctx.get("google_categories")),
+            red_flags=_join(ctx.get("red_flags")),
         )
 
         try:

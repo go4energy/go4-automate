@@ -32,6 +32,7 @@ class Company(TimestampMixin, Base):
     domain: Mapped[str | None] = mapped_column(String(200), nullable=True)
     website: Mapped[str | None] = mapped_column(String(500), nullable=True)
     logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    linkedin_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     # Details
     industry: Mapped[str | None] = mapped_column(String(100), nullable=True)
@@ -105,6 +106,23 @@ class Contact(TimestampMixin, Base):
     # Notes
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Customer Journey
+    tracking_hash: Mapped[str | None] = mapped_column(String(12), nullable=True)
+    journey_status: Mapped[str | None] = mapped_column(
+        String(20), nullable=True, default=None
+    )
+    odoo_id: Mapped[int | None] = mapped_column(nullable=True)
+
+    # Module-extension FK: when this contact came from a leadgen handoff,
+    # this points back to the originating leadgen_place. The brain reads
+    # the place's LLM insights / impressum / scoring through this link
+    # instead of duplicating that data on the contact itself.
+    leadgen_place_id: Mapped[int | None] = mapped_column(
+        ForeignKey("leadgen_places.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
     # Relationships
     tenant = relationship("Tenant", back_populates="contacts")
     company = relationship("Company", back_populates="contacts")
@@ -116,12 +134,21 @@ class Contact(TimestampMixin, Base):
     pipeline_enrollments = relationship("PipelineEnrollment", back_populates="contact")
     pending_actions = relationship("PendingAction", back_populates="contact")
     engagement_activities = relationship("ContactActivity", back_populates="contact")
+    # Customer Journey relationships
+    journey_events = relationship("JourneyEvent", back_populates="contact")
+    journey_ref_codes = relationship("JourneyRefCode", back_populates="contact")
 
     __table_args__ = (
         UniqueConstraint("tenant_id", "email", name="uq_contacts_tenant_email"),
         Index("ix_contacts_tenant_email", "tenant_id", "email"),
         Index("ix_contacts_tenant_name", "tenant_id", "name"),
         Index("ix_contacts_tenant_company", "tenant_id", "company_id"),
+        Index(
+            "ix_contacts_tracking_hash",
+            "tracking_hash",
+            unique=True,
+            postgresql_where="tracking_hash IS NOT NULL",
+        ),
     )
 
     def __repr__(self) -> str:

@@ -1485,6 +1485,11 @@ class HandoffService:
                 # outreach URLs can carry the tracking parameter.
                 if not contact.tracking_hash:
                     contact.tracking_hash = generate_tracking_hash()
+                # Backfill the leadgen_place link on reused contacts so the
+                # brain can reach the insights/impressum even if the contact
+                # pre-existed (e.g. came in via CSV or /tracking/identify).
+                if contact.leadgen_place_id is None:
+                    contact.leadgen_place_id = place.id
             else:
                 contact = await self._build_contact_from_place(
                     tenant_id, place, _insights, impressum,
@@ -1705,6 +1710,10 @@ class HandoffService:
             # CSV import path — the partial UNIQUE index on
             # contacts.tracking_hash guarantees no collision.
             tracking_hash=generate_tracking_hash(),
+            # Module-extension link so the engagement brain can read insights /
+            # impressum / scoring directly from the originating place without
+            # the handoff having to copy them onto the contact.
+            leadgen_place_id=place.id,
         )
         self.db.add(contact)
         await self.db.flush()

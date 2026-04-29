@@ -135,7 +135,13 @@ MODULE_REQUIREMENTS = {
 """,
 }
 
-# Prompt for contact analysis (next step decision)
+# Prompt for contact analysis (next step decision).
+# All "## Insights"-Felder sind optional — wenn der Kontakt aus dem
+# Leadgen kommt, ist da der Reichtum an LLM-aufbereiteten Daten drin
+# (personalization_hook, services, customer_segments, …). Wenn der
+# Kontakt aus einem anderen Kanal kommt (CSV-Import, manuell), bleibt
+# der Block einfach leer und der Brain entscheidet auf Basis der
+# Pipeline + Aktivitätenhistorie wie zuvor.
 CONTACT_ANALYSIS_PROMPT = """Analysiere den Kontakt und empfehle den nächsten Schritt.
 
 ## Pipeline:
@@ -154,13 +160,24 @@ CONTACT_ANALYSIS_PROMPT = """Analysiere den Kontakt und empfehle den nächsten S
 - **Letzte Interaktion**: {last_touch}
 - **Letzte Antwort**: {last_response}
 
+## Insights (optional, aus Leadgen):
+- **Personalisierungs-Hook**: {personalization_hook}
+- **Services / Produkte**: {services}
+- **Marken / Hersteller**: {brands}
+- **Kundengruppen**: {customer_segments}
+- **Unternehmensgröße**: {company_size_indicator}
+- **Match-Score (0-10)**: {target_match_score}
+- **Branche (Google)**: {google_categories}
+- **Red Flags**: {red_flags}
+
 ## Bisherige Aktivitäten:
 {activities}
 
 ## Entscheide:
 1. Welcher Kanal soll als nächstes genutzt werden?
 2. Welche Art von Aktion? (z.B. connection_request, message, call, email)
-3. Was ist der empfohlene Inhalt/Ansatz?
+3. Was ist der empfohlene Inhalt/Ansatz? (Nutze die Insights für echte
+   Personalisierung — kein generisches Template-Geblubber.)
 4. Soll die Stage geändert werden?
 5. Benötigt diese Aktion eine Freigabe?
 
