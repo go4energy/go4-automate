@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.contacts.models import Company, Contact
+from app.contacts.utils import generate_tracking_hash
 from app.engagement.models import EngagementPipeline
 from app.engagement.schemas import (
     BulkEnrollRequest,
@@ -113,7 +114,7 @@ class CampaignService:
                 slug=slug,
                 product_name=data.name,
                 target_audience=data.description or "",
-                channels=["postmail", "email"],
+                channels=["letter", "email"],
                 goal="erstkontakt",
                 tone_of_voice="professionell",
                 min_days_between_touches=3,
@@ -204,7 +205,7 @@ class CampaignService:
                 .where(
                     LeadgenRun.tenant_id == tenant_id,
                     LeadgenRun.campaign_id.in_(ids),
-                    LeadgenRun.status.in_(["queued", "running", "paused"]),
+                    LeadgenRun.status.in_(["queued", "running"]),
                 )
                 .order_by(LeadgenRun.created_at.desc())
             )
@@ -346,7 +347,9 @@ class RunService:
             select(LeadgenRun).where(
                 LeadgenRun.tenant_id == tenant_id,
                 LeadgenRun.campaign_id == campaign_id,
-                LeadgenRun.status.in_(["queued", "running", "paused"]),
+                # Only running/queued runs block — stopped runs can be resumed
+                # later via /resume but don't lock the campaign for new starts.
+                LeadgenRun.status.in_(["queued", "running"]),
             )
         )
         if active.scalar_one_or_none():
@@ -377,6 +380,195 @@ class RunService:
         )
         return run
 
+    async def preview_enrich_eligible(
+        self,
+        tenant_id: str,
+        campaign_id: int,
+        *,
+        stages: list[str] | None = None,
+        min_match_score: int | None = None,
+        apollo_validate_existing_urls: bool = False,
+    ) -> dict:
+        """Return how many places + contacts an enrich run with these params
+        would touch. The frontend Run-Modal shows both numbers so the operator
+        understands the linkedin stage hits Firmen *and* Personen.
+        """
+        # Force the campaign-existence check to surface a 404 early.
+        await self.get_by_id_unscoped(tenant_id, campaign_id)
+        # Apollo runs over leadgen_contacts, not places — return apollo_count
+        # alongside the place/contact counts so the Run-Modal can show all
+        # three numbers in a single API call.
+        apollo_count = 0
+        if stages and "apollo" in stages:
+            apollo_count = await self._preview_apollo_eligible(
+                tenant_id,
+                campaign_id,
+                min_match_score=min_match_score,
+                validate_existing=apollo_validate_existing_urls,
+            )
+        if stages and "linkedin" in stages and "llm" not in stages:
+            place_count = await self._preview_linkedin_eligible(
+                tenant_id, campaign_id, min_match_score=min_match_score
+            )
+            contact_count = await self._preview_linkedin_contact_count(
+                tenant_id, campaign_id, min_match_score=min_match_score
+            )
+        elif stages and stages == ["apollo"]:
+            # Apollo-only run — places aren't iterated.
+            place_count = 0
+            contact_count = 0
+        else:
+            place_count = await self._preview_llm_eligible(
+                tenant_id, campaign_id, min_match_score=min_match_score
+            )
+            contact_count = 0  # llm stage doesn't iterate contacts
+        return {
+            "eligible_count": place_count,
+            "contact_count": contact_count,
+            "apollo_count": apollo_count,
+        }
+
+    async def _preview_apollo_eligible(
+        self,
+        tenant_id: str,
+        campaign_id: int,
+        *,
+        min_match_score: int | None,
+        validate_existing: bool = False,
+    ) -> int:
+        """How many leadgen_contacts the Apollo stage would attempt to match.
+
+        Filter mirrors the worker: contacts under campaign places, not yet
+        Apollo-enriched, and (default) without an existing LinkedIn URL.
+        ``validate_existing=True`` removes the URL filter so already-matched
+        contacts also count — same as the worker's behaviour.
+        """
+        from app.leadgen.models import LeadgenContact
+
+        stmt = (
+            select(func.count(LeadgenContact.id))
+            .select_from(LeadgenContact)
+            .join(LeadgenPlace, LeadgenPlace.id == LeadgenContact.place_id)
+            .where(
+                LeadgenPlace.tenant_id == tenant_id,
+                LeadgenPlace.campaign_id == campaign_id,
+                LeadgenContact.apollo_enriched_at.is_(None),
+            )
+        )
+        if min_match_score is not None:
+            stmt = stmt.join(
+                LeadgenLLMInsights,
+                LeadgenLLMInsights.place_id == LeadgenPlace.id,
+            ).where(LeadgenLLMInsights.target_match_score >= int(min_match_score))
+        if not validate_existing:
+            stmt = stmt.where(LeadgenContact.linkedin_url.is_(None))
+        return int(await self.db.scalar(stmt) or 0)
+
+    async def _preview_linkedin_contact_count(
+        self,
+        tenant_id: str,
+        campaign_id: int,
+        *,
+        min_match_score: int | None,
+    ) -> int:
+        """How many leadgen_contacts under the eligible places.
+
+        That's the per-person Serper-call count for the linkedin stage.
+        """
+        from app.leadgen.models import LeadgenContact
+
+        stmt = (
+            select(func.count(LeadgenContact.id))
+            .select_from(LeadgenContact)
+            .join(LeadgenPlace, LeadgenPlace.id == LeadgenContact.place_id)
+            .where(
+                LeadgenPlace.tenant_id == tenant_id,
+                LeadgenPlace.campaign_id == campaign_id,
+                LeadgenPlace.status.in_(["impressum_done", "llm_done", "llm_failed"]),
+            )
+        )
+        if min_match_score is not None:
+            stmt = stmt.join(
+                LeadgenLLMInsights,
+                LeadgenLLMInsights.place_id == LeadgenPlace.id,
+            ).where(LeadgenLLMInsights.target_match_score >= int(min_match_score))
+        return int(await self.db.scalar(stmt) or 0)
+
+    async def get_by_id_unscoped(
+        self, tenant_id: str, campaign_id: int
+    ) -> LeadgenCampaign:
+        result = await self.db.execute(
+            select(LeadgenCampaign).where(
+                LeadgenCampaign.tenant_id == tenant_id,
+                LeadgenCampaign.id == campaign_id,
+            )
+        )
+        c = result.scalar_one_or_none()
+        if c is None:
+            raise NotFoundError("Leadgen-Kampagne", campaign_id)
+        return c
+
+    async def _preview_linkedin_eligible(
+        self,
+        tenant_id: str,
+        campaign_id: int,
+        *,
+        min_match_score: int | None,
+    ) -> int:
+        # The worker filters in-Python on enrichment_flags, so we replicate
+        # the SQL parts here and let the operator see the *upper bound* —
+        # places that already carry linkedin_processed_at would still be
+        # skipped at run time. We accept the slight overcount because the
+        # alternative is a JSONB has-key op that breaks SQLite tests.
+        stmt = (
+            select(func.count(LeadgenPlace.id))
+            .select_from(LeadgenPlace)
+            .where(
+                LeadgenPlace.tenant_id == tenant_id,
+                LeadgenPlace.campaign_id == campaign_id,
+                LeadgenPlace.status.in_(["impressum_done", "llm_done", "llm_failed"]),
+            )
+        )
+        if min_match_score is not None:
+            stmt = stmt.join(
+                LeadgenLLMInsights,
+                LeadgenLLMInsights.place_id == LeadgenPlace.id,
+            ).where(LeadgenLLMInsights.target_match_score >= int(min_match_score))
+        return int(await self.db.scalar(stmt) or 0)
+
+    async def _preview_llm_eligible(
+        self,
+        tenant_id: str,
+        campaign_id: int,
+        *,
+        min_match_score: int | None,
+    ) -> int:
+        stmt = (
+            select(func.count(LeadgenPlace.id))
+            .select_from(LeadgenPlace)
+            .outerjoin(
+                LeadgenLLMInsights,
+                LeadgenLLMInsights.place_id == LeadgenPlace.id,
+            )
+            .where(
+                LeadgenPlace.tenant_id == tenant_id,
+                LeadgenPlace.campaign_id == campaign_id,
+                LeadgenPlace.status.in_(
+                    ["discovered", "impressum_done", "impressum_failed"]
+                ),
+                LeadgenLLMInsights.id.is_(None),
+            )
+        )
+        # min_match_score on a not-yet-llm-scored pool is by definition empty;
+        # the operator is asking for "Top-X leads to re-LLM" only when stages
+        # explicitly include 'llm'. We honour the filter literally so the
+        # number reflects what the worker will actually do.
+        if min_match_score is not None:
+            stmt = stmt.where(
+                LeadgenLLMInsights.target_match_score >= int(min_match_score)
+            )
+        return int(await self.db.scalar(stmt) or 0)
+
     async def start_enrich(
         self,
         tenant_id: str,
@@ -384,15 +576,22 @@ class RunService:
         *,
         limit: int,
         sampling: str = "top_rated",
+        stages: list[str] | None = None,
+        min_match_score: int | None = None,
+        enrich_companies: bool = False,
+        apollo_validate_existing_urls: bool = False,
+        apollo_reveal_email: bool = False,
+        apollo_reveal_phone: bool = False,
     ) -> LeadgenRun:
-        """Queue an LLM-only run that skips Stage 1+2 and enriches existing places.
+        """Queue an enrichment run that skips Google Places and runs the
+        selected ``stages`` on the existing place pool.
 
-        The run starts directly at ``current_stage='llm'``. The worker uses
-        ``stage_state['max_override']`` to cap processed places at ``limit``
-        and ``stage_state['sampling']`` to choose between top-rated and random
-        selection from the eligible pool (status in
-        ('discovered','impressum_done','impressum_failed'), website not null,
-        no llm_insights yet).
+        ``stages`` (subset of impressum/verify/llm/linkedin) is the new
+        contract introduced with the Run-Modal — the run starts at the first
+        listed stage and ``stage_state['explicit_stages']`` drives the auto-
+        chain in ``worker._transition_stage``. When ``stages`` is None we
+        fall back to the legacy "verify+llm" behaviour so existing callers
+        keep working.
 
         Fails if another run is already running/queued for the campaign.
         """
@@ -403,7 +602,9 @@ class RunService:
             select(LeadgenRun).where(
                 LeadgenRun.tenant_id == tenant_id,
                 LeadgenRun.campaign_id == campaign_id,
-                LeadgenRun.status.in_(["queued", "running", "paused"]),
+                # Only running/queued runs block — stopped runs can be resumed
+                # later via /resume but don't lock the campaign for new starts.
+                LeadgenRun.status.in_(["queued", "running"]),
             )
         )
         if active.scalar_one_or_none():
@@ -411,16 +612,53 @@ class RunService:
                 "Es laeuft bereits ein Run fuer diese Kampagne"
             )
 
+        # Validate the stages subset against the canonical order.
+        from app.leadgen.stage_state import STAGE_KEYS
+
+        valid_stage_set = set(STAGE_KEYS)
+        explicit_stages = list(stages) if stages else None
+        if explicit_stages:
+            unknown = [s for s in explicit_stages if s not in valid_stage_set]
+            if unknown:
+                raise ValidationError(
+                    f"Unbekannte Stage(s): {unknown}. Erlaubt: {list(STAGE_KEYS)}"
+                )
+            if "places" in explicit_stages:
+                raise ValidationError(
+                    "'places' ist im Enrich-Run nicht erlaubt — "
+                    "nutze stattdessen den vollen Pipeline-Run."
+                )
+            # Pick the first stage in canonical order to start at.
+            start_stage = next(s for s in STAGE_KEYS if s in explicit_stages)
+        else:
+            # Legacy behaviour: start at LLM, no explicit-stages marker so
+            # _transition_stage uses pipeline_mode-based defaults.
+            start_stage = "llm"
+
+        initial_state: dict = {
+            "enrich_only": True,
+            "max_override": int(limit),
+            "sampling": sampling,
+        }
+        if explicit_stages:
+            initial_state["explicit_stages"] = explicit_stages
+        if min_match_score is not None:
+            initial_state["min_match_score"] = int(min_match_score)
+        if enrich_companies:
+            initial_state["enrich_companies"] = True
+        if apollo_validate_existing_urls:
+            initial_state["apollo_validate_existing_urls"] = True
+        if apollo_reveal_email:
+            initial_state["apollo_reveal_email"] = True
+        if apollo_reveal_phone:
+            initial_state["apollo_reveal_phone"] = True
+
         run = LeadgenRun(
             tenant_id=tenant_id,
             campaign_id=campaign_id,
-            current_stage="llm",
+            current_stage=start_stage,
             status="queued",
-            stage_state={
-                "enrich_only": True,
-                "max_override": int(limit),
-                "sampling": sampling,
-            },
+            stage_state=initial_state,
         )
         self.db.add(run)
         await self.db.flush()
@@ -465,13 +703,21 @@ class RunService:
         )
         return list(result.scalars().all())
 
-    async def pause(self, tenant_id: str, run_id: int) -> LeadgenRun:
+    async def stop(self, tenant_id: str, run_id: int) -> LeadgenRun:
+        """Halt a running/queued run.
+
+        Unlike the legacy ``pause`` semantics, ``stopped`` does NOT block new
+        runs on the same campaign — the operator can immediately start a
+        fresh run (e.g. with corrected filters) without first having to
+        resume or abort. The stopped run can still be resumed via ``resume``
+        as long as no other run is currently active on the campaign.
+        """
         run = await self.get_by_id(tenant_id, run_id)
         if run.status not in ("queued", "running"):
             raise ValidationError(
-                f"Run in Status '{run.status}' kann nicht pausiert werden"
+                f"Run in Status '{run.status}' kann nicht gestoppt werden"
             )
-        run.status = "paused"
+        run.status = "stopped"
         await self.db.flush()
         await self.db.refresh(run)
         return run
@@ -484,9 +730,30 @@ class RunService:
         additional_budget: int | None = None,
     ) -> LeadgenRun:
         run = await self.get_by_id(tenant_id, run_id)
-        if run.status != "paused":
+        # ``paused`` kept for backward-compat with any old DB rows; new code
+        # always emits ``stopped``.
+        if run.status not in ("stopped", "paused"):
             raise ValidationError(
                 f"Run in Status '{run.status}' kann nicht fortgesetzt werden"
+            )
+
+        # Guard against starting a second concurrent run when another one is
+        # already active on the campaign (the operator started a fresh run
+        # after stopping this one — resuming would create a race).
+        other_active = (
+            await self.db.execute(
+                select(LeadgenRun).where(
+                    LeadgenRun.tenant_id == tenant_id,
+                    LeadgenRun.campaign_id == run.campaign_id,
+                    LeadgenRun.status.in_(["queued", "running"]),
+                    LeadgenRun.id != run.id,
+                )
+            )
+        ).scalar_one_or_none()
+        if other_active is not None:
+            raise ValidationError(
+                f"Ein anderer Run (#{other_active.id}) läuft bereits — "
+                "stoppe diesen zuerst oder warte bis er fertig ist."
             )
 
         if additional_budget and additional_budget > 0:
@@ -623,6 +890,9 @@ class PlaceService:
             .options(
                 selectinload(LeadgenPlace.impressum),
                 selectinload(LeadgenPlace.llm_insights),
+                # ``contacts`` is part of PlaceResponse — eager-load to avoid
+                # MissingGreenlet errors when Pydantic validates the relation.
+                selectinload(LeadgenPlace.contacts),
             )
         )
         result = await self.db.execute(stmt)
@@ -641,12 +911,70 @@ class PlaceService:
             .options(
                 selectinload(LeadgenPlace.impressum),
                 selectinload(LeadgenPlace.llm_insights),
+                selectinload(LeadgenPlace.contacts),
             )
         )
         place = result.scalar_one_or_none()
         if place is None:
             raise NotFoundError("Leadgen-Place", place_id)
         return place
+
+    async def neighbors(
+        self,
+        tenant_id: str,
+        place_id: int,
+        *,
+        order_by: str = "match",
+        order_dir: str = "desc",
+        status: str | None = None,
+    ) -> dict:
+        """Return the prev/next place ids for the same campaign + sort + filter.
+
+        Used by the detail view's forward/backward arrows so the operator can
+        walk through the prospect list without bouncing to the campaign view.
+        Returns ``{"prev_id": int|None, "next_id": int|None}``.
+        """
+        from app.leadgen.models import LeadgenLLMInsights as _Insights
+
+        # Resolve the campaign by loading the place once.
+        place = await self.get_by_id(tenant_id, place_id)
+
+        sort_map = {
+            "name": (LeadgenPlace.name, False),
+            "city": (LeadgenPlace.address_city, False),
+            "status": (LeadgenPlace.status, False),
+            "rating": (LeadgenPlace.rating, False),
+            "match": (_Insights.target_match_score, True),
+            "created_at": (LeadgenPlace.created_at, False),
+        }
+        sort_col, needs_join = sort_map.get(order_by, sort_map["created_at"])
+        is_desc = order_dir == "desc"
+
+        base = select(LeadgenPlace.id, sort_col).where(
+            LeadgenPlace.tenant_id == tenant_id,
+            LeadgenPlace.campaign_id == place.campaign_id,
+        )
+        if status:
+            base = base.where(LeadgenPlace.status == status)
+        if needs_join:
+            base = base.outerjoin(
+                _Insights, _Insights.place_id == LeadgenPlace.id
+            )
+        # Stable secondary sort by id so identical primary-sort values still
+        # produce a deterministic walk.
+        primary = sort_col.desc() if is_desc else sort_col.asc()
+        primary = primary.nullslast()
+        ordered = base.order_by(primary, LeadgenPlace.id.asc())
+
+        rows = (await self.db.execute(ordered)).all()
+        ids_in_order = [row[0] for row in rows]
+        try:
+            idx = ids_in_order.index(place_id)
+        except ValueError:
+            return {"prev_id": None, "next_id": None}
+        prev_id = ids_in_order[idx - 1] if idx > 0 else None
+        next_id = ids_in_order[idx + 1] if idx + 1 < len(ids_in_order) else None
+        return {"prev_id": prev_id, "next_id": next_id}
 
     async def reject(
         self, tenant_id: str, place_id: int, reason: str
@@ -697,6 +1025,8 @@ class LeadgenExportService:
         *,
         flt,
     ) -> dict:
+        from app.leadgen.models import LeadgenContact
+
         rows = await self._eligible(tenant_id, campaign_id, flt=flt)
         accounts = len(rows)
         leads = 0
@@ -709,7 +1039,38 @@ class LeadgenExportService:
                     1 for n in imp.managing_directors if isinstance(n, str) and n.strip()
                 )
             leads += max(extra, 1 if named else 0)
-        return {"accounts_count": accounts, "leads_count": leads}
+        # Apollo counts ``leadgen_contacts`` rows directly (one per person we
+        # already materialised). Falls back to ``leads`` when the linkedin
+        # stage hasn't run yet so the export-modal still shows a useful number.
+        apollo = 0
+        apollo_with_linkedin = 0
+        if rows:
+            place_ids = [p.id for p, _ins, _imp in rows]
+            apollo = int(
+                await self.db.scalar(
+                    select(func.count())
+                    .select_from(LeadgenContact)
+                    .where(LeadgenContact.place_id.in_(place_ids))
+                )
+                or 0
+            )
+            apollo_with_linkedin = int(
+                await self.db.scalar(
+                    select(func.count())
+                    .select_from(LeadgenContact)
+                    .where(
+                        LeadgenContact.place_id.in_(place_ids),
+                        LeadgenContact.linkedin_url.isnot(None),
+                    )
+                )
+                or 0
+            )
+        return {
+            "accounts_count": accounts,
+            "leads_count": leads,
+            "apollo_count": apollo or leads,
+            "apollo_with_linkedin": apollo_with_linkedin,
+        }
 
     async def build_accounts_csv(
         self,
@@ -894,6 +1255,113 @@ class LeadgenExportService:
         result = await self.db.execute(stmt)
         return list(result.all())
 
+    async def preview_apollo(
+        self,
+        tenant_id: str,
+        campaign_id: int,
+        *,
+        flt,
+    ) -> int:
+        """Return how many rows the Apollo CSV export would emit for ``flt``.
+
+        Apollo wants one row per *person*, so we count ``leadgen_contacts``
+        rows whose place is in the eligible pool — not places.
+        """
+        from app.leadgen.models import LeadgenContact
+
+        rows = await self._eligible(tenant_id, campaign_id, flt=flt)
+        if not rows:
+            return 0
+        place_ids = [p.id for p, _ins, _imp in rows]
+        result = await self.db.execute(
+            select(func.count())
+            .select_from(LeadgenContact)
+            .where(LeadgenContact.place_id.in_(place_ids))
+        )
+        return int(result.scalar() or 0)
+
+    async def build_apollo_csv(
+        self,
+        tenant_id: str,
+        campaign_id: int,
+        *,
+        flt,
+    ) -> str:
+        """Apollo-formatted CSV for direct upload via 'Import a CSV of Contacts'.
+
+        One row per leadgen_contacts entry, joined to the place + LLM insights
+        for industry / city. Empty cells are fine — Apollo matches on any
+        combination of name, company, website, email, LinkedIn URL.
+        """
+        import csv
+        import io
+
+        from app.leadgen.models import LeadgenContact
+
+        rows = await self._eligible(tenant_id, campaign_id, flt=flt)
+        buf = io.StringIO()
+        # UTF-8 BOM so Excel opens umlauts correctly.
+        buf.write("﻿")
+        writer = csv.writer(buf, quoting=csv.QUOTE_MINIMAL)
+        writer.writerow(
+            [
+                "First Name",
+                "Last Name",
+                "Title",
+                "Email",
+                "Contact LinkedIn URL",
+                "Company",
+                "Website",
+                "Company LinkedIn URL",
+                "City",
+                "State",
+                "Country",
+                "Industry",
+                "Notes",
+            ]
+        )
+        if not rows:
+            return buf.getvalue()
+
+        place_ids = [p.id for p, _ins, _imp in rows]
+        contact_rows = (
+            await self.db.execute(
+                select(LeadgenContact)
+                .where(LeadgenContact.place_id.in_(place_ids))
+                .order_by(LeadgenContact.place_id.asc(), LeadgenContact.id.asc())
+            )
+        ).scalars().all()
+        contacts_by_place: dict[int, list[LeadgenContact]] = {}
+        for c in contact_rows:
+            contacts_by_place.setdefault(c.place_id, []).append(c)
+
+        place_lookup = {p.id: (p, ins, imp) for p, ins, imp in rows}
+        for place_id, contacts in contacts_by_place.items():
+            place, ins, _imp = place_lookup[place_id]
+            services = (ins.services if ins else []) or []
+            industry = services[0] if services else "Elektroinstallation"
+            notes = "; ".join(services[:3]) if services else ""
+            country = place.address_country or "DE"
+            for contact in contacts:
+                writer.writerow(
+                    [
+                        contact.first_name or "",
+                        contact.last_name or "",
+                        contact.role or "",
+                        contact.email or "",
+                        contact.linkedin_url or "",
+                        place.name,
+                        place.website or "",
+                        place.linkedin_company_url or "",
+                        place.address_city or "",
+                        _region_from_zip(place.address_zip),
+                        country,
+                        industry,
+                        notes,
+                    ]
+                )
+        return buf.getvalue()
+
 
 class HandoffService:
     """Convert qualifying leadgen places into contacts and bulk-enroll them
@@ -920,19 +1388,29 @@ class HandoffService:
         *,
         min_score: int,
         limit: int,
+        include_without_email: bool = True,
     ) -> dict:
         """Return how many fresh places would be enrolled. Already-enrolled
-        places are filtered out at SQL level so they never show up here."""
+        places are filtered out at SQL level so they never show up here.
+
+        ``include_without_email=True`` (default) counts email-less places
+        as enrollable too — they get a synthetic placeholder email and
+        become reachable via Letter/Phone.
+        """
         rows = await self._eligible_query(
             tenant_id, campaign_id, min_score=min_score, limit=limit
         )
         with_email = sum(1 for _p, _ins, imp in rows if imp and imp.email)
         without_email = len(rows) - with_email
+        would_enroll = len(rows) if include_without_email else with_email
         return {
             "eligible_total": len(rows),
-            "would_enroll": with_email,
+            "would_enroll": would_enroll,
             "already_have_contact": 0,
             "missing_email": without_email,
+            "would_enroll_without_email": (
+                without_email if include_without_email else 0
+            ),
         }
 
     async def handoff(
@@ -943,8 +1421,16 @@ class HandoffService:
         min_score: int,
         limit: int,
         pipeline_id: int | None = None,
+        include_without_email: bool = True,
     ) -> dict:
-        """Execute the full handoff for the eligible places."""
+        """Execute the full handoff for the eligible places.
+
+        ``include_without_email=True`` lets places without an impressum
+        email through with a synthetic placeholder email so they can be
+        reached via Letter/Phone. The placeholder is stable per place id
+        (``noemail-{place_id}@placeholder.go4automate.local``) so re-runs
+        are idempotent.
+        """
         campaign_svc = CampaignService(self.db)
         campaign = await campaign_svc.get_by_id(tenant_id, campaign_id)
 
@@ -965,12 +1451,21 @@ class HandoffService:
         skipped_existing = 0  # always 0 now (dedup happens at SQL level)
         contacts_created = 0
         contacts_reused = 0
+        enrolled_without_email = 0
 
         for place, _insights, impressum in rows:
-            email = (impressum.email or "").strip().lower() if impressum else ""
-            if not email:
-                skipped_no_email += 1
-                continue
+            real_email = (impressum.email or "").strip().lower() if impressum else ""
+            if not real_email:
+                if not include_without_email:
+                    skipped_no_email += 1
+                    continue
+                # Synthetic placeholder so the Contact NOT NULL constraint
+                # holds. Stable per place so re-runs find the same row.
+                email = f"noemail-{place.id}@placeholder.go4automate.local"
+                is_synthetic_email = True
+            else:
+                email = real_email
+                is_synthetic_email = False
 
             existing = (
                 await self.db.execute(
@@ -984,11 +1479,21 @@ class HandoffService:
             if existing:
                 contact = existing
                 contacts_reused += 1
+                # Idempotent hash assignment: a contact that was imported via
+                # CSV / created via /tracking/identify already has a hash and
+                # we never overwrite it. Only fill the gap when missing so the
+                # outreach URLs can carry the tracking parameter.
+                if not contact.tracking_hash:
+                    contact.tracking_hash = generate_tracking_hash()
             else:
                 contact = await self._build_contact_from_place(
-                    tenant_id, place, _insights, impressum
+                    tenant_id, place, _insights, impressum,
+                    override_email=email if is_synthetic_email else None,
                 )
                 contacts_created += 1
+
+            if is_synthetic_email:
+                enrolled_without_email += 1
 
             place.contact_id = contact.id
             contact_ids.append(contact.id)
@@ -1005,6 +1510,7 @@ class HandoffService:
                 "skipped_no_email": skipped_no_email,
                 "skipped_existing": skipped_existing,
                 "pipeline_id": target_pipeline_id,
+                "enrolled_without_email": enrolled_without_email,
             }
 
         enroll_svc = EngagementEnrollmentService(self.db)
@@ -1027,6 +1533,7 @@ class HandoffService:
             "skipped_no_email": skipped_no_email,
             "skipped_existing": skipped_existing,
             "pipeline_id": target_pipeline_id,
+            "enrolled_without_email": enrolled_without_email,
         }
 
     async def _eligible_query(
@@ -1076,12 +1583,17 @@ class HandoffService:
         place: LeadgenPlace,
         insights: LeadgenLLMInsights | None,
         impressum: LeadgenImpressum | None,
+        *,
+        override_email: str | None = None,
     ) -> Contact:
         """Create a Contact (and Company) from a leadgen place's data.
 
-        Falls back gracefully when primary_contact is missing — uses the place
-        name as contact name in that case so the handoff never crashes.
+        Prefers a ``leadgen_contacts`` row when one exists (carries
+        LinkedIn URL + gender). Falls back to ``primary_contact`` JSON or the
+        place name when no contact rows have been materialised yet.
         """
+        from app.leadgen.models import LeadgenContact
+
         # 1. Find or create Company so contacts can be grouped by org.
         company = (
             await self.db.execute(
@@ -1096,6 +1608,7 @@ class HandoffService:
                 tenant_id=tenant_id,
                 name=place.name,
                 website=place.website,
+                linkedin_url=place.linkedin_company_url,
                 address={
                     "street": place.address_street,
                     "zip": place.address_zip,
@@ -1113,19 +1626,69 @@ class HandoffService:
             )
             self.db.add(company)
             await self.db.flush()
+        elif place.linkedin_company_url and not company.linkedin_url:
+            # Backfill LinkedIn URL on a previously-handed-off company so a
+            # later linkedin-stage rerun still propagates the data.
+            company.linkedin_url = place.linkedin_company_url
 
-        # 2. Build contact name from primary_contact when available.
-        pc = insights.primary_contact if insights else None
+        # 2. Pick the best person record. Prefer the leadgen_contacts row that
+        # came out of the linkedin stage (has gender + LinkedIn URL); fall back
+        # to primary_contact JSON; then to the place name.
+        leadgen_contact: LeadgenContact | None = (
+            await self.db.execute(
+                select(LeadgenContact)
+                .where(
+                    LeadgenContact.place_id == place.id,
+                    LeadgenContact.is_handed_off.is_(False),
+                )
+                .order_by(LeadgenContact.id.asc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+
         contact_name = place.name
-        if pc:
-            first = (pc.get("first_name") or "").strip()
-            last = (pc.get("last_name") or "").strip()
-            full = f"{first} {last}".strip()
+        first = ""
+        last = ""
+        position: str | None = None
+        linkedin_url: str | None = None
+        gender: str | None = None
+        gender_confidence: float | None = None
+
+        if leadgen_contact is not None:
+            first = (leadgen_contact.first_name or "").strip()
+            last = (leadgen_contact.last_name or "").strip()
+            full = (f"{first} {last}".strip()) or leadgen_contact.full_name
             if full:
                 contact_name = full
+            position = leadgen_contact.role
+            linkedin_url = leadgen_contact.linkedin_url
+            gender = leadgen_contact.gender
+            gender_confidence = leadgen_contact.gender_confidence
+        else:
+            pc = insights.primary_contact if insights else None
+            if pc:
+                first = (pc.get("first_name") or "").strip()
+                last = (pc.get("last_name") or "").strip()
+                full = f"{first} {last}".strip()
+                if full:
+                    contact_name = full
+                position = pc.get("role")
 
-        email = (impressum.email or "").strip().lower() if impressum else ""
+        # ``override_email`` lets the handoff path inject a synthetic
+        # placeholder when the impressum has no email and the user opted
+        # into "include without email". The contact stays addressable
+        # via Letter / Phone.
+        if override_email is not None:
+            email = override_email
+        else:
+            email = (impressum.email or "").strip().lower() if impressum else ""
         phone = (impressum.phone if impressum else None) or place.phone
+
+        custom_fields: dict = {}
+        if gender:
+            custom_fields["gender"] = gender
+        if gender_confidence is not None:
+            custom_fields["gender_confidence"] = gender_confidence
 
         contact = Contact(
             tenant_id=tenant_id,
@@ -1133,7 +1696,20 @@ class HandoffService:
             name=contact_name,
             email=email,
             phone=phone,
+            position=position,
+            linkedin=linkedin_url[:200] if linkedin_url else None,
+            custom_fields=custom_fields,
+            source="leadgen",
+            tags=["leadgen"],
+            # Single source of truth shared with /tracking/identify and the
+            # CSV import path — the partial UNIQUE index on
+            # contacts.tracking_hash guarantees no collision.
+            tracking_hash=generate_tracking_hash(),
         )
         self.db.add(contact)
         await self.db.flush()
+
+        if leadgen_contact is not None:
+            leadgen_contact.is_handed_off = True
+            leadgen_contact.contact_id = contact.id
         return contact

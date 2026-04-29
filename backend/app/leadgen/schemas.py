@@ -26,7 +26,7 @@ class CampaignCreate(CampaignBase):
         description=(
             "Wenn True und target_engagement_pipeline_id leer ist: "
             "Service legt eine neue Engagement-Pipeline mit Defaults "
-            "(channels=[postmail,email]) an und verknuepft sie."
+            "(channels=[letter,email]) an und verknuepft sie."
         ),
     )
 
@@ -176,10 +176,25 @@ class PlaceResponse(BaseModel):
     rejected_reason: str | None
     contact_id: int | None
     created_at: datetime
+    # Company-level LinkedIn URL discovered by impressum-link extraction or the
+    # linkedin worker stage. ``match_method`` says where it came from so the
+    # detail view can show provenance ('Impressum' vs 'Serper').
+    linkedin_company_url: str | None = None
+    linkedin_company_match_method: str | None = None
     impressum: ImpressumSummary | None = None
     llm_insights: LLMInsightsSummary | None = None
+    # Materialised person rows from leadgen_contacts. Empty list when the
+    # linkedin stage hasn't run yet — the detail view degrades gracefully.
+    contacts: list["LeadgenContactRead"] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class PlaceNeighborsResponse(BaseModel):
+    """Forward/backward neighbours for the prospect detail-view arrows."""
+
+    prev_id: int | None
+    next_id: int | None
 
 
 class PlaceListResponse(BaseModel):
@@ -206,10 +221,10 @@ class RunResumeRequest(BaseModel):
 
 
 class EnrichRunRequest(BaseModel):
-    """Start an LLM-only enrichment run on already-discovered places.
+    """Start an enrichment run on already-discovered places.
 
-    Skips Stage 1 (Google Places) and Stage 2 (Impressum-scraping) entirely
-    and runs the LLM analysis on `limit` places that are not yet enriched.
+    Skips Stage 1 (Google Places) entirely and runs the selected ``stages``
+    on ``limit`` places that are not yet fully enriched.
     """
 
     limit: int = Field(..., ge=1, le=10_000)
@@ -220,6 +235,109 @@ class EnrichRunRequest(BaseModel):
             "top_rated: best Google rating first (default); "
             "random: shuffle uniformly across the eligible pool"
         ),
+    )
+    stages: list[str] | None = Field(
+        default=None,
+        description=(
+            "Subset of ('impressum','verify','llm','linkedin') to run. "
+            "When None the legacy default ('verify','llm') is used so existing "
+            "callers keep their behaviour."
+        ),
+    )
+    # Filter eligible places by LLM match-score. The LinkedIn stage typically
+    # only makes sense on already-llm-scored leads, so this lets the operator
+    # cap Serper-spend to the top-quality prospects (e.g. min_match_score=7
+    # for "only Match >= 7/10"). None = no filter, run on the full pool.
+    min_match_score: int | None = Field(
+        default=None,
+        ge=0,
+        le=10,
+        description=(
+            "Optional: only consider places whose LLM target_match_score >= "
+            "this value. Requires the llm stage to have run on those places."
+        ),
+    )
+    # LinkedIn-stage knob: companies cost a separate Serper call per place,
+    # but for outreach personalisation the operator usually only needs the
+    # person-level URLs. Default off so the cheap path is the default; toggle
+    # on when the operator also wants linkedin_company_url filled.
+    enrich_companies: bool = Field(
+        default=False,
+        description=(
+            "When True the linkedin stage also issues a Serper query per "
+            "place for the company LinkedIn URL. Default False keeps the run "
+            "cheaper and focused on the per-person URLs that outreach needs."
+        ),
+    )
+    # Apollo-stage knob: by default Apollo runs on every contact under the
+    # campaign (whether or not we already found a LinkedIn URL). Toggle on to
+    # restrict Apollo lookups to contacts that already carry a LinkedIn URL,
+    # which gives Apollo its highest-confidence input and avoids burning
+    # credits on weakly-identified contacts.
+    apollo_validate_existing_urls: bool = Field(
+        default=False,
+        description=(
+            "When True, Apollo also processes contacts that already have a "
+            "LinkedIn URL (from Serper or manual) — confirms or replaces them. "
+            "Default False = Apollo only fills gaps Serper missed."
+        ),
+    )
+    # Reveal-Flags consume additional Apollo credits on top of the 1 export
+    # credit per match. Email reveals are unlimited on Pro Monthly (fair use)
+    # so the toggle is essentially free; phone reveals are capped at 100/mo
+    # AND require a configured webhook because Apollo delivers numbers async.
+    apollo_reveal_email: bool = Field(
+        default=False,
+        description=(
+            "When True, Apollo also returns the verified personal email "
+            "address for matched contacts. Pro Monthly: unlimited (fair use)."
+        ),
+    )
+    apollo_reveal_phone: bool = Field(
+        default=False,
+        description=(
+            "When True, Apollo also returns mobile phone numbers via webhook. "
+            "Pro Monthly: 100/month included. Requires "
+            "settings.apollo_phone_webhook_url to be configured."
+        ),
+    )
+
+
+class EnrichRunPreview(BaseModel):
+    """Live count of how many places a given enrich-config would touch."""
+
+    eligible_count: int
+    # Number of leadgen_contacts under those places — i.e. the per-person
+    # Serper calls the linkedin stage would issue. Same value the Apollo
+    # export shows for the same filter.
+    contact_count: int = 0
+    # Number of leadgen_contacts the apollo stage would attempt to match
+    # (= bulk-call requests / 10, rounded up). Equal to contact_count minus
+    # already-Apollo-enriched contacts; honours apollo_require_linkedin.
+    apollo_count: int = 0
+
+
+class RunRequest(BaseModel):
+    """Unified run request used by the new 'Run starten…' modal.
+
+    Lets the user pick exactly which stages to run plus the enrich-style
+    filters (only relevant when ``places`` is not selected).
+    """
+
+    stages: list[str] = Field(
+        ...,
+        min_length=1,
+        description="Any non-empty subset of ('places','impressum','verify','llm','linkedin').",
+    )
+    limit: int | None = Field(
+        default=None,
+        ge=1,
+        le=10_000,
+        description="Required when 'places' is NOT in stages.",
+    )
+    sampling: str = Field(
+        default="top_rated",
+        pattern=r"^(top_rated|random)$",
     )
 
 
@@ -236,6 +354,15 @@ class HandoffRequest(BaseModel):
             " Defaults to the campaign-linked pipeline."
         ),
     )
+    include_without_email: bool = Field(
+        default=True,
+        description=(
+            "Also enroll places without an impressum email. They get a"
+            " synthetic placeholder email so the Contact NOT NULL constraint"
+            " holds, and become reachable via Letter / Phone channels even"
+            " though Email is not viable for them."
+        ),
+    )
 
 
 class HandoffPreview(BaseModel):
@@ -245,6 +372,10 @@ class HandoffPreview(BaseModel):
     would_enroll: int
     already_have_contact: int
     missing_email: int
+    # New: how many of the would-enroll come without an email and rely on
+    # the synthetic-placeholder path. Frontend can warn that those leads
+    # are letter/phone-only.
+    would_enroll_without_email: int = 0
 
 
 class HandoffResponse(BaseModel):
@@ -258,6 +389,9 @@ class HandoffResponse(BaseModel):
     skipped_no_email: int
     skipped_existing: int
     pipeline_id: int
+    # New: how many enrolled contacts had no real email and got a synthetic
+    # placeholder. They are reachable only via Letter / Phone.
+    enrolled_without_email: int = 0
 
 
 class ExportFilter(BaseModel):
@@ -279,3 +413,46 @@ class ExportPreview(BaseModel):
 
     accounts_count: int
     leads_count: int
+    apollo_count: int = 0
+    # Subset of ``apollo_count`` that already carries a LinkedIn URL — lets
+    # the export modal show "10 255 gesamt, davon 1 234 mit LinkedIn-URL" so
+    # the operator knows whether running the linkedin stage first is worth it.
+    apollo_with_linkedin: int = 0
+
+
+# ---- LeadgenContact ----
+
+
+class LeadgenContactBase(BaseModel):
+    first_name: str | None = None
+    last_name: str | None = None
+    full_name: str
+    role: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    linkedin_url: str | None = None
+    linkedin_match_method: str | None = None
+    linkedin_match_confidence: float | None = None
+    gender: str | None = None
+    gender_confidence: float | None = None
+    gender_method: str | None = None
+    source: str
+
+
+class LeadgenContactRead(LeadgenContactBase):
+    id: int
+    place_id: int
+    tenant_id: str
+    is_handed_off: bool
+    contact_id: int | None
+    extra: dict = Field(default_factory=dict)
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# Resolve the forward reference in PlaceResponse — declared above
+# LeadgenContactRead so the FastAPI response model can serialise eager-loaded
+# contact rows.
+PlaceResponse.model_rebuild()
