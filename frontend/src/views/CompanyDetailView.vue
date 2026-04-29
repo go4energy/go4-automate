@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useContactsStore } from '@/stores/contacts'
+import { getContacts } from '@/api/contacts'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import AvatarInitials from '@/components/ui/AvatarInitials.vue'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
@@ -14,12 +15,30 @@ const showDeleteConfirm = ref(false)
 const companyId = computed(() => route.params.id)
 
 const company = computed(() => store.currentCompany)
-const contacts = computed(() => store.companyContacts)
+// Local contacts list (the store keeps a global list which we don't want
+// to overwrite when this view loads).
+const contacts = ref([])
+const contactsError = ref(null)
+
+async function loadCompanyContacts(id) {
+  contactsError.value = null
+  try {
+    const { data } = await getContacts({ company_id: id, limit: 200 })
+    contacts.value = Array.isArray(data) ? data : (data.items || [])
+  } catch (err) {
+    contactsError.value = err.response?.data?.detail || err.message
+    contacts.value = []
+  }
+}
 
 onMounted(async () => {
   if (companyId.value) {
-    await store.fetchCompany(companyId.value)
-    await store.fetchCompanyContacts(companyId.value)
+    try {
+      await store.fetchCompanyDetail(companyId.value)
+      await loadCompanyContacts(companyId.value)
+    } catch (err) {
+      console.error('Failed to load company:', err)
+    }
   }
 })
 

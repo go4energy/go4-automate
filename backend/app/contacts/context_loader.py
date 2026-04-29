@@ -184,7 +184,8 @@ async def get_contact_context(
         select(LeadgenContact)
         .where(LeadgenContact.place_id == place.id)
         .order_by(
-            LeadgenContact.contact_id.is_not(contact.id),  # match first
+            # rows where contact_id matches our contact come first
+            (LeadgenContact.contact_id == contact.id).desc(),
             LeadgenContact.id.asc(),
         )
         .limit(1)
