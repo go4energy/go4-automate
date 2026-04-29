@@ -146,15 +146,21 @@ async def _execute_cleanup(db, tenant: str, pipeline_id: int) -> dict:
     )
     deleted["leadgen_places_reset"] = r.rowcount
 
-    # 6. Reset is_handed_off + contact_id on leadgen_contacts for the orphaned
-    #    place set so re-handoff can produce fresh links.
+    # 6. Reset is_handed_off on leadgen_contacts whose contact_id has been
+    #    cleared by ON DELETE SET NULL. Without this, re-handoff would skip
+    #    these as already-done. Catches both the "contact still pointed at
+    #    deleted row" edge case AND the normal "FK was already nulled by the
+    #    delete cascade" path.
     r = await db.execute(
         text(
             "UPDATE leadgen_contacts lc "
             "SET is_handed_off = FALSE, contact_id = NULL "
             "WHERE lc.tenant_id=:t "
-            "  AND lc.contact_id IS NOT NULL "
-            "  AND NOT EXISTS (SELECT 1 FROM contacts c WHERE c.id = lc.contact_id)"
+            "  AND lc.is_handed_off = TRUE "
+            "  AND ("
+            "    lc.contact_id IS NULL"
+            "    OR NOT EXISTS (SELECT 1 FROM contacts c WHERE c.id = lc.contact_id)"
+            "  )"
         ),
         {"t": tenant},
     )
