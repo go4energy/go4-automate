@@ -15,8 +15,8 @@ const store = useLetterStore()
 const activeTab = computed(() => route.meta?.tab || 'letters')
 
 const tabs = [
-  { key: 'campaigns', label: 'Kampagnen', route: '/letter/campaigns' },
-  { key: 'letters', label: 'Briefe', route: '/letter' },
+  { key: 'campaigns', label: 'Kampagnen', route: '/letter' },
+  { key: 'letters', label: 'Briefe', route: '/letter/letters' },
   { key: 'templates', label: 'Templates', route: '/letter/templates' },
   { key: 'batches', label: 'Batches', route: '/letter/batches' },
   { key: 'settings', label: 'Einstellungen', route: '/letter/settings' },

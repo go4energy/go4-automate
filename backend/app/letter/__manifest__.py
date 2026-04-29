@@ -73,16 +73,6 @@ manifest = {
                 },
             },
             {
-                "path": "campaigns",
-                "name": "letter-campaigns",
-                "view": "LetterView",
-                "meta": {
-                    "title": "Kampagnen",
-                    "breadcrumb": {"label": "Kampagnen", "parent": "letter"},
-                    "tab": "campaigns",
-                },
-            },
-            {
                 "path": "letters",
                 "name": "letter-letters",
                 "view": "LetterView",
