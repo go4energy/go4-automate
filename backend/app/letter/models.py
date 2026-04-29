@@ -80,9 +80,7 @@ class LetterTemplate(Base):
     )
 
     # Relationships
-    letters: Mapped[list["Letter"]] = relationship(
-        "Letter", back_populates="template"
-    )
+    letters: Mapped[list["Letter"]] = relationship("Letter", back_populates="template")
 
     def __repr__(self) -> str:
         return f"<LetterTemplate {self.id}: {self.name}>"
@@ -123,9 +121,7 @@ class LetterBatch(Base):
     )
 
     # Relationships
-    letters: Mapped[list["Letter"]] = relationship(
-        "Letter", back_populates="batch"
-    )
+    letters: Mapped[list["Letter"]] = relationship("Letter", back_populates="batch")
 
     def __repr__(self) -> str:
         return f"<LetterBatch {self.id}: {self.name}>"
@@ -147,7 +143,9 @@ class Letter(Base):
         Integer, ForeignKey("contacts.id"), nullable=True, index=True
     )
     pipeline_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("engagement_pipelines.id", ondelete="SET NULL"), nullable=True
+        Integer,
+        ForeignKey("engagement_pipelines.id", ondelete="SET NULL"),
+        nullable=True,
     )
     pending_action_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     batch_id: Mapped[int | None] = mapped_column(
@@ -187,7 +185,9 @@ class Letter(Base):
     return_reason: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     # Letterxpress provider fields
-    letterxpress_job_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    letterxpress_job_id: Mapped[str | None] = mapped_column(
+        String(100), nullable=True, index=True
+    )
     send_mode: Mapped[str] = mapped_column(String(10), nullable=False, default="test")
     provider_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
     provider_cost_cents: Mapped[int | None] = mapped_column(Integer, nullable=True)

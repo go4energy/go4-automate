@@ -123,11 +123,15 @@ MODULE_REQUIREMENTS = {
 - Opt-in beachten
 """,
     "letter": """
-- Anschreiben für physischen Versand
-- Formelle Anrede
-- A4-Format
-- Klare Struktur: Problem → Lösung → Nutzen → CTA
-- QR-Code oder personalisierte URL einplanen
+- Anschreiben für physischen Versand (DIN A4, Letterxpress)
+- Formelle Anrede ("Sehr geehrte Frau …", "Sehr geehrter Herr …")
+- 250-350 Wörter: Anlass → Problem → Lösung → Nutzen → CTA
+- Konkretes Personalisierungs-Element aus den Lead-Insights nutzen
+  (Branche, Standort, Hook), nicht nur generische Argumente
+- Briefkopf/Adresse nicht selbst rendern — kommt vom Briefpapier-Template
+- Tracking via Ref-Code-URL erwähnen (kein QR-Code im V1)
+- Mit "Mit freundlichen Grüßen" + Name + Position abschließen
+- KEIN Datum, KEIN Adressblock, KEIN Briefkopf — nur den Body-Text liefern
 """,
 }
 

@@ -17,10 +17,40 @@ const tabs = [
   { key: 'letters', label: 'Briefe', route: '/letter' },
   { key: 'templates', label: 'Templates', route: '/letter/templates' },
   { key: 'batches', label: 'Batches', route: '/letter/batches' },
+  { key: 'settings', label: 'Einstellungen', route: '/letter/settings' },
 ]
 
-// Stats
+// Stats + provider data
 const stats = computed(() => store.stats)
+const balance = computed(() => store.balance)
+const costStats = computed(() => store.costStats)
+const settings = computed(() => store.settings)
+
+// Settings form (mirrored from store.settings, edited locally before save)
+const settingsForm = ref({
+  letterxpress_username: '',
+  letterxpress_apikey: '',
+  letterxpress_default_mode: 'test',
+  letterxpress_default_color: '4',
+  letterxpress_c4_envelope: '1',
+  letterxpress_default_shipping: 'national',
+})
+const settingsBusy = ref(false)
+const settingsMessage = ref('')
+
+// Cost-stats period filter
+const costPeriod = ref('month')
+const costMode = ref('all')
+
+function fmtEur(cents) {
+  if (cents == null) return '—'
+  return `${(cents / 100).toFixed(2).replace('.', ',')} €`
+}
+
+const provFmt = computed(() => ({
+  test: 'bg-amber-100 text-amber-800',
+  live: 'bg-emerald-100 text-emerald-800',
+}))
 
 // Letters
 const letters = computed(() => store.letters)
@@ -116,15 +146,108 @@ const filteredLetters = computed(() => {
   return result
 })
 
+// ============== Sending + status sync (Letterxpress) ==============
+async function handleSendLetter(letter, mode = 'test') {
+  const verb = mode === 'live' ? 'LIVE versenden' : 'an Letterxpress (Test) übergeben'
+  if (!confirm(`Brief #${letter.id} an ${letter.recipient_name} ${verb}?`)) return
+  try {
+    await store.sendLetter(letter.id, mode)
+    await store.fetchBalance()
+    await store.fetchCostStats({ period: costPeriod.value, mode: costMode.value })
+  } catch (err) {
+    console.error('Failed to send letter:', err)
+  }
+}
+
+async function handleSyncStatus(letter) {
+  try {
+    await store.syncLetterStatus(letter.id)
+  } catch (err) {
+    console.error('Failed to sync status:', err)
+  }
+}
+
+// ============== Settings ==============
+async function loadSettings() {
+  try {
+    await store.fetchSettings()
+    if (settings.value) {
+      settingsForm.value.letterxpress_username = settings.value.username || ''
+      // apikey stays blank — user must re-enter to change it
+      settingsForm.value.letterxpress_default_mode = settings.value.mode || 'test'
+      settingsForm.value.letterxpress_default_color = settings.value.color || '4'
+      settingsForm.value.letterxpress_c4_envelope = String(settings.value.c4 ?? 1)
+      settingsForm.value.letterxpress_default_shipping = settings.value.shipping || 'national'
+    }
+  } catch (err) {
+    console.error('Failed to load settings:', err)
+  }
+}
+
+async function saveSetting(variable, value) {
+  if (value === '' || value == null) return
+  settingsBusy.value = true
+  settingsMessage.value = ''
+  try {
+    await store.updateSetting(variable, String(value))
+    settingsMessage.value = 'Gespeichert.'
+    await loadSettings()
+  } catch (err) {
+    settingsMessage.value = `Fehler: ${err.response?.data?.detail || err.message}`
+  } finally {
+    settingsBusy.value = false
+  }
+}
+
+async function saveAllSettings() {
+  settingsBusy.value = true
+  settingsMessage.value = ''
+  try {
+    for (const [variable, value] of Object.entries(settingsForm.value)) {
+      // Skip apikey if blank (means: user did not change it)
+      if (variable === 'letterxpress_apikey' && !value) continue
+      if (value === '' || value == null) continue
+      await store.updateSetting(variable, String(value))
+    }
+    settingsMessage.value = 'Alle Einstellungen gespeichert.'
+    settingsForm.value.letterxpress_apikey = ''  // clear input
+    await loadSettings()
+    await store.fetchBalance()
+  } catch (err) {
+    settingsMessage.value = `Fehler: ${err.response?.data?.detail || err.message}`
+  } finally {
+    settingsBusy.value = false
+  }
+}
+
+async function testConnection() {
+  settingsBusy.value = true
+  settingsMessage.value = 'Teste Verbindung...'
+  try {
+    const b = await store.fetchBalance()
+    if (b) {
+      settingsMessage.value = `Verbindung OK — Guthaben: ${b.balance} ${b.currency} (Mode: ${b.mode})`
+    } else {
+      settingsMessage.value = `Verbindung fehlgeschlagen: ${store.error || 'unbekannt'}`
+    }
+  } finally {
+    settingsBusy.value = false
+  }
+}
+
 // Load data
 async function loadData() {
   try {
-    await Promise.all([
+    const tasks = [
       store.fetchStats(),
       store.fetchLetters(),
       store.fetchTemplates(),
       store.fetchBatches(),
-    ])
+      store.fetchBalance(),
+      store.fetchCostStats({ period: costPeriod.value, mode: costMode.value }),
+    ]
+    if (activeTab.value === 'settings') tasks.push(loadSettings())
+    await Promise.all(tasks)
   } catch (err) {
     console.error('Failed to load letter data:', err)
   }
@@ -343,7 +466,7 @@ watch(activeTab, () => {
     <!-- Stats Cards -->
     <div
       v-if="stats"
-      class="grid grid-cols-2 gap-4 sm:grid-cols-4"
+      class="grid grid-cols-2 gap-4 sm:grid-cols-5"
     >
       <div class="rounded-lg bg-white p-4 shadow-sm">
         <div class="text-sm text-gray-500">
@@ -370,11 +493,41 @@ watch(activeTab, () => {
         </div>
       </div>
       <div class="rounded-lg bg-white p-4 shadow-sm">
-        <div class="text-sm text-gray-500">
-          Offene Batches
+        <div class="flex items-center justify-between text-sm text-gray-500">
+          <span>Kosten ({{ costPeriod }})</span>
+          <span
+            v-if="costMode !== 'all'"
+            class="rounded px-1.5 py-0.5 text-[10px] font-medium uppercase"
+            :class="costMode === 'live' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'"
+          >{{ costMode }}</span>
         </div>
-        <div class="text-2xl font-bold text-yellow-600">
-          {{ stats.pending_batches }}
+        <div class="text-2xl font-bold text-gray-900">
+          {{ costStats ? fmtEur(costStats.cost_cents) : '—' }}
+        </div>
+        <div class="mt-1 text-[11px] text-gray-400">
+          {{ costStats?.count ?? 0 }} Briefe
+        </div>
+      </div>
+      <div class="rounded-lg bg-white p-4 shadow-sm">
+        <div class="flex items-center justify-between text-sm text-gray-500">
+          <span>Letterxpress-Guthaben</span>
+          <span
+            v-if="balance"
+            class="rounded px-1.5 py-0.5 text-[10px] font-medium uppercase"
+            :class="balance.mode === 'live' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'"
+          >{{ balance.mode }}</span>
+        </div>
+        <div
+          class="text-2xl font-bold"
+          :class="balance && balance.balance < 5 ? 'text-red-600' : 'text-gray-900'"
+        >
+          {{ balance ? `${balance.balance.toFixed(2).replace('.', ',')} ${balance.currency}` : '—' }}
+        </div>
+        <div
+          v-if="!balance"
+          class="mt-1 text-[11px] text-gray-400"
+        >
+          (Settings prüfen)
         </div>
       </div>
     </div>
@@ -503,6 +656,21 @@ watch(activeTab, () => {
               <th
                 class="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500"
               >
+                Mode
+              </th>
+              <th
+                class="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500"
+              >
+                Provider
+              </th>
+              <th
+                class="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500"
+              >
+                Kosten
+              </th>
+              <th
+                class="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500"
+              >
                 Batch
               </th>
               <th
@@ -548,6 +716,29 @@ watch(activeTab, () => {
                 >
                   {{ statusLabels[letter.status] || letter.status }}
                 </span>
+              </td>
+              <td class="px-4 py-3">
+                <span
+                  v-if="letter.send_mode"
+                  class="inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium uppercase"
+                  :class="provFmt[letter.send_mode] || 'bg-gray-100 text-gray-600'"
+                >
+                  {{ letter.send_mode }}
+                </span>
+              </td>
+              <td class="px-4 py-3 text-xs text-gray-500">
+                <div v-if="letter.letterxpress_job_id">
+                  <div class="font-mono">
+                    #{{ letter.letterxpress_job_id }}
+                  </div>
+                  <div class="text-[10px]">
+                    {{ letter.provider_status || '—' }}
+                  </div>
+                </div>
+                <span v-else>—</span>
+              </td>
+              <td class="px-4 py-3 text-right text-sm text-gray-700 tabular-nums">
+                {{ fmtEur(letter.provider_cost_cents) }}
               </td>
               <td class="px-4 py-3 text-sm text-gray-500">
                 {{ letter.batch_id ? `#${letter.batch_id}` : '-' }}
@@ -601,6 +792,30 @@ watch(activeTab, () => {
                         d="M5 13l4 4L19 7"
                       />
                     </svg>
+                  </button>
+                  <button
+                    v-if="['draft','approved','queued'].includes(letter.status)"
+                    class="rounded bg-amber-50 px-2 py-1 text-[11px] font-medium text-amber-800 hover:bg-amber-100"
+                    title="An Letterxpress (Test) senden"
+                    @click="handleSendLetter(letter, 'test')"
+                  >
+                    Senden (Test)
+                  </button>
+                  <button
+                    v-if="['draft','approved','queued'].includes(letter.status)"
+                    class="rounded bg-emerald-50 px-2 py-1 text-[11px] font-medium text-emerald-800 hover:bg-emerald-100"
+                    title="An Letterxpress (Live) senden"
+                    @click="handleSendLetter(letter, 'live')"
+                  >
+                    Senden (Live)
+                  </button>
+                  <button
+                    v-if="letter.letterxpress_job_id && letter.status === 'sent'"
+                    class="rounded bg-blue-50 px-2 py-1 text-[11px] font-medium text-blue-800 hover:bg-blue-100"
+                    title="Status synchronisieren"
+                    @click="handleSyncStatus(letter)"
+                  >
+                    Sync
                   </button>
                   <button
                     v-if="letter.status === 'approved' && !letter.pdf_path"
@@ -835,6 +1050,246 @@ watch(activeTab, () => {
             </tr>
           </tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- Settings Tab -->
+    <div
+      v-if="activeTab === 'settings'"
+      class="space-y-6"
+    >
+      <div class="rounded-lg bg-white p-6 shadow-sm">
+        <h2 class="mb-1 text-lg font-semibold text-gray-900">
+          Letterxpress-Zugangsdaten
+        </h2>
+        <p class="mb-4 text-sm text-gray-500">
+          API-Zugang zu letterxpress.de. Test-Mode landet im Postfach (kein Druck/Versand,
+          7 Tage Aufbewahrung). Live-Mode versendet sofort.
+        </p>
+
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Username</label>
+            <input
+              v-model="settingsForm.letterxpress_username"
+              type="text"
+              class="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              placeholder="LXPApi…"
+            >
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">
+              API-Key
+              <span
+                v-if="settings?.apikey_set"
+                class="ml-2 text-xs font-normal text-gray-400"
+              >
+                (gesetzt: {{ settings.apikey_masked }})
+              </span>
+            </label>
+            <input
+              v-model="settingsForm.letterxpress_apikey"
+              type="password"
+              autocomplete="new-password"
+              class="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              placeholder="leer lassen, um den vorhandenen Key zu behalten"
+            >
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Standard-Mode</label>
+            <select
+              v-model="settingsForm.letterxpress_default_mode"
+              class="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm"
+            >
+              <option value="test">
+                Test (Postbox, kein Druck)
+              </option>
+              <option value="live">
+                Live (sofort versenden)
+              </option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Standard-Farbe</label>
+            <select
+              v-model="settingsForm.letterxpress_default_color"
+              class="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm"
+            >
+              <option value="1">
+                Schwarz/Weiß
+              </option>
+              <option value="4">
+                Vollfarbe (CMYK)
+              </option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">C4-Kuvert</label>
+            <select
+              v-model="settingsForm.letterxpress_c4_envelope"
+              class="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm"
+            >
+              <option value="1">
+                Ja (für längere Briefe)
+              </option>
+              <option value="0">
+                Nein (Standard DL)
+              </option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Versand</label>
+            <select
+              v-model="settingsForm.letterxpress_default_shipping"
+              class="mt-1 block w-full rounded-md border border-gray-300 p-2 shadow-sm"
+            >
+              <option value="national">
+                National
+              </option>
+              <option value="international">
+                International
+              </option>
+              <option value="auto">
+                Auto
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <div class="mt-6 flex items-center gap-3">
+          <button
+            class="btn btn-primary"
+            :disabled="settingsBusy"
+            @click="saveAllSettings"
+          >
+            Speichern
+          </button>
+          <button
+            class="btn btn-secondary"
+            :disabled="settingsBusy"
+            @click="testConnection"
+          >
+            Verbindung testen
+          </button>
+          <span
+            v-if="settingsMessage"
+            class="text-sm"
+            :class="settingsMessage.startsWith('Fehler') ? 'text-red-600' : 'text-green-700'"
+          >
+            {{ settingsMessage }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Cost stats summary on settings tab -->
+      <div
+        v-if="costStats"
+        class="rounded-lg bg-white p-6 shadow-sm"
+      >
+        <div class="mb-4 flex flex-wrap items-center gap-3">
+          <h2 class="text-lg font-semibold text-gray-900">
+            Kosten
+          </h2>
+          <select
+            v-model="costPeriod"
+            class="rounded border border-gray-300 px-2 py-1 text-sm"
+            @change="store.fetchCostStats({ period: costPeriod, mode: costMode })"
+          >
+            <option value="today">
+              Heute
+            </option>
+            <option value="week">
+              7 Tage
+            </option>
+            <option value="month">
+              30 Tage
+            </option>
+            <option value="all">
+              Alle
+            </option>
+          </select>
+          <select
+            v-model="costMode"
+            class="rounded border border-gray-300 px-2 py-1 text-sm"
+            @change="store.fetchCostStats({ period: costPeriod, mode: costMode })"
+          >
+            <option value="all">
+              Test + Live
+            </option>
+            <option value="live">
+              Nur Live
+            </option>
+            <option value="test">
+              Nur Test
+            </option>
+          </select>
+        </div>
+        <div class="grid gap-4 sm:grid-cols-3">
+          <div class="rounded-md border border-gray-200 p-4">
+            <div class="text-xs uppercase text-gray-500">
+              Briefe
+            </div>
+            <div class="text-2xl font-bold">
+              {{ costStats.count }}
+            </div>
+          </div>
+          <div class="rounded-md border border-gray-200 p-4">
+            <div class="text-xs uppercase text-gray-500">
+              Kosten gesamt
+            </div>
+            <div class="text-2xl font-bold">
+              {{ fmtEur(costStats.cost_cents) }}
+            </div>
+          </div>
+          <div class="rounded-md border border-gray-200 p-4">
+            <div class="text-xs uppercase text-gray-500">
+              Pipelines
+            </div>
+            <div class="text-2xl font-bold">
+              {{ costStats.by_pipeline?.length || 0 }}
+            </div>
+          </div>
+        </div>
+
+        <div
+          v-if="costStats.by_pipeline?.length"
+          class="mt-4"
+        >
+          <div class="mb-2 text-sm font-medium text-gray-700">
+            Nach Pipeline
+          </div>
+          <table class="min-w-full text-sm">
+            <thead class="bg-gray-50 text-xs uppercase text-gray-500">
+              <tr>
+                <th class="px-3 py-2 text-left">
+                  Pipeline
+                </th>
+                <th class="px-3 py-2 text-right">
+                  Anzahl
+                </th>
+                <th class="px-3 py-2 text-right">
+                  Kosten
+                </th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              <tr
+                v-for="row in costStats.by_pipeline"
+                :key="row.pipeline_id ?? 'none'"
+              >
+                <td class="px-3 py-2">
+                  {{ row.pipeline_name || '— ohne Pipeline —' }}
+                </td>
+                <td class="px-3 py-2 text-right">
+                  {{ row.count }}
+                </td>
+                <td class="px-3 py-2 text-right">
+                  {{ fmtEur(row.cost_cents) }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 

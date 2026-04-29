@@ -1,22 +1,35 @@
 """Letter Module Router.
 
-API endpoints for letter templates, letters, and batches.
+API endpoints for letter templates, letters, batches, Letterxpress
+operations (balance, send, sync), and cost statistics.
 """
 
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.database import get_db
+from app.exceptions import AppError
+from app.letter.letterxpress_client import LetterxpressError
+from app.letter.models import Letter, LetterStatus
+from app.letter.pdf_renderer import PdfRendererError, render_letter_pdf
 from app.letter.schemas import (
     BatchCreate,
     BatchExportResponse,
     BatchList,
     BatchResponse,
+    LetterCostStats,
     LetterCreate,
     LetterList,
     LetterResponse,
+    LetterSendRequest,
+    LetterSendResponse,
     LetterStats,
     LetterUpdate,
+    LetterxpressBalanceResponse,
     RenderPreviewRequest,
     RenderPreviewResponse,
     TemplateCreate,
@@ -25,6 +38,14 @@ from app.letter.schemas import (
     TemplateUpdate,
 )
 from app.letter.service import LetterService
+from app.letter.settings_service import (
+    LETTER_PARAMS,
+    LetterSettingsError,
+    ensure_module_parameters,
+    get_letter_settings,
+    get_letterxpress_client,
+    set_letter_setting,
+)
 from app.utils.dependencies import get_current_tenant_id
 
 router = APIRouter(prefix="/letter", tags=["letter"])
@@ -721,3 +742,246 @@ async def get_stats(
     """Get letter statistics."""
     stats = await service.get_stats()
     return LetterStats(**stats)
+
+
+@router.get(
+    "/stats/costs",
+    response_model=LetterCostStats,
+    summary="Cost statistics",
+    description="Aggregated provider cost over time, by pipeline and by day.",
+)
+async def get_cost_stats(
+    period: str = Query("month", pattern="^(today|week|month|all)$"),
+    mode: str = Query("all", pattern="^(test|live|all)$"),
+    service: LetterService = Depends(get_service),
+) -> LetterCostStats:
+    """Aggregated letter costs."""
+    data = await service.get_cost_stats(period=period, mode=mode)
+    return LetterCostStats(**data)
+
+
+# ============== Letterxpress / Provider ==============
+
+
+@router.get(
+    "/letterxpress/balance",
+    response_model=LetterxpressBalanceResponse,
+    summary="Letterxpress balance",
+    description="Read current Letterxpress balance for this tenant.",
+)
+async def get_letterxpress_balance(
+    db: AsyncSession = Depends(get_db),
+    tenant_id: str = Depends(get_current_tenant_id),
+) -> LetterxpressBalanceResponse:
+    try:
+        client = await get_letterxpress_client(db, tenant_id)
+        info = await client.get_balance()
+        return LetterxpressBalanceResponse(
+            balance=float(info.balance),
+            currency=info.currency,
+            mode=client.mode,
+        )
+    except LetterSettingsError as e:
+        raise HTTPException(status_code=400, detail=e.message) from e
+    except LetterxpressError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+
+@router.post(
+    "/letters/{letter_id}/send",
+    response_model=LetterSendResponse,
+    summary="Submit a letter to Letterxpress",
+    description=(
+        "Renders the letter as PDF, submits it to Letterxpress in the "
+        "requested mode (test/live), and updates the Letter record."
+    ),
+)
+async def send_letter(
+    letter_id: int,
+    body: LetterSendRequest,
+    db: AsyncSession = Depends(get_db),
+    tenant_id: str = Depends(get_current_tenant_id),
+) -> LetterSendResponse:
+    """Manual single-send (UI button)."""
+    # Load letter + template
+    q = (
+        select(Letter)
+        .options(selectinload(Letter.template))
+        .where(Letter.id == letter_id, Letter.tenant_id == tenant_id)
+    )
+    letter = (await db.execute(q)).scalar_one_or_none()
+    if letter is None:
+        raise HTTPException(status_code=404, detail="Letter nicht gefunden")
+    if letter.status not in (
+        LetterStatus.DRAFT,
+        LetterStatus.APPROVED,
+        LetterStatus.QUEUED,
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Letter im Status {letter.status!r} kann nicht gesendet werden.",
+        )
+    if not letter.template:
+        raise HTTPException(status_code=400, detail="Letter hat kein Template.")
+
+    try:
+        pdf_bytes = render_letter_pdf(letter, letter.template, tenant_id=tenant_id)
+        client = await get_letterxpress_client(db, tenant_id, override_mode=body.mode)
+        result = await client.submit_letter(
+            pdf_bytes,
+            color="4",
+            c4=1,
+            filename_original=f"letter_{letter.id}.pdf",
+        )
+    except (LetterSettingsError, PdfRendererError) as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except LetterxpressError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+    letter.letterxpress_job_id = str(result.job_id)
+    letter.send_mode = body.mode
+    letter.provider_status = result.status
+    letter.provider_cost_cents = int(round(float(result.amount_net) * 100))
+    letter.provider_synced_at = datetime.now(UTC)
+    letter.status = LetterStatus.SENT
+    letter.sent_at = datetime.now(UTC)
+    letter.updated_at = datetime.now(UTC)
+    await db.commit()
+
+    return LetterSendResponse(
+        letter_id=letter.id,
+        letterxpress_job_id=letter.letterxpress_job_id,
+        provider_status=letter.provider_status or "",
+        provider_cost_cents=letter.provider_cost_cents or 0,
+        send_mode=letter.send_mode,
+    )
+
+
+@router.post(
+    "/letters/{letter_id}/sync-status",
+    response_model=LetterResponse,
+    summary="Sync letter status from Letterxpress",
+)
+async def sync_letter_status(
+    letter_id: int,
+    db: AsyncSession = Depends(get_db),
+    tenant_id: str = Depends(get_current_tenant_id),
+) -> LetterResponse:
+    q = (
+        select(Letter)
+        .options(selectinload(Letter.template))
+        .where(Letter.id == letter_id, Letter.tenant_id == tenant_id)
+    )
+    letter = (await db.execute(q)).scalar_one_or_none()
+    if letter is None:
+        raise HTTPException(status_code=404, detail="Letter nicht gefunden")
+    if not letter.letterxpress_job_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Letter ist noch nicht an Letterxpress übergeben.",
+        )
+
+    try:
+        client = await get_letterxpress_client(db, tenant_id)
+        info = await client.get_job(int(letter.letterxpress_job_id))
+    except LetterSettingsError as e:
+        raise HTTPException(status_code=400, detail=e.message) from e
+    except LetterxpressError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+    letter.provider_status = info.status
+    letter.provider_synced_at = datetime.now(UTC)
+    if info.status == "done":
+        letter.status = LetterStatus.DELIVERED
+        letter.delivered_at = letter.delivered_at or datetime.now(UTC)
+    elif info.status == "canceled":
+        letter.status = LetterStatus.RETURNED
+        letter.return_reason = letter.return_reason or "Provider canceled"
+    await db.commit()
+
+    return LetterResponse(
+        id=letter.id,
+        template_id=letter.template_id,
+        template_name=letter.template.name if letter.template else None,
+        contact_id=letter.contact_id,
+        pipeline_id=letter.pipeline_id,
+        batch_id=letter.batch_id,
+        recipient_name=letter.recipient_name,
+        recipient_company=letter.recipient_company,
+        recipient_street=letter.recipient_street,
+        recipient_zip=letter.recipient_zip,
+        recipient_city=letter.recipient_city,
+        recipient_country=letter.recipient_country,
+        content_html=letter.content_html,
+        pdf_path=letter.pdf_path,
+        status=letter.status,
+        queued_at=letter.queued_at,
+        sent_at=letter.sent_at,
+        delivered_at=letter.delivered_at,
+        returned_at=letter.returned_at,
+        return_reason=letter.return_reason,
+        letterxpress_job_id=letter.letterxpress_job_id,
+        send_mode=letter.send_mode,
+        provider_status=letter.provider_status,
+        provider_cost_cents=letter.provider_cost_cents,
+        provider_synced_at=letter.provider_synced_at,
+        created_at=letter.created_at,
+        updated_at=letter.updated_at,
+    )
+
+
+# ============== Settings (Letterxpress credentials, defaults) ==============
+
+
+@router.get(
+    "/settings",
+    summary="List Letter module settings",
+    description="Returns all module_parameters for the letter module. "
+    "Password values are masked.",
+)
+async def get_settings(
+    db: AsyncSession = Depends(get_db),
+    tenant_id: str = Depends(get_current_tenant_id),
+) -> dict:
+    """Read settings for the Settings tab. Apikey is returned masked."""
+    await ensure_module_parameters(db, tenant_id)
+    settings = await get_letter_settings(db, tenant_id)
+    return {
+        "username": settings.username,
+        "apikey_set": bool(settings.apikey),
+        "apikey_masked": ("•" * 8 + settings.apikey[-4:]) if settings.apikey else "",
+        "mode": settings.mode,
+        "color": settings.color,
+        "c4": settings.c4,
+        "shipping": settings.shipping,
+        "params_meta": [
+            {
+                "variable": p["variable"],
+                "description": p["description"],
+                "var_type": p["var_type"],
+                "required": p["required"],
+            }
+            for p in LETTER_PARAMS
+        ],
+    }
+
+
+@router.put(
+    "/settings/{variable}",
+    summary="Set a single Letter module setting",
+)
+async def update_setting(
+    variable: str,
+    value: dict,  # {"value": "..."}
+    db: AsyncSession = Depends(get_db),
+    tenant_id: str = Depends(get_current_tenant_id),
+) -> dict:
+    new_value = value.get("value")
+    if new_value is None:
+        raise HTTPException(status_code=400, detail="Feld 'value' fehlt im Body.")
+    try:
+        await set_letter_setting(db, tenant_id, variable, str(new_value))
+    except AppError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message) from e
+    await db.commit()
+    return {"ok": True, "variable": variable}

@@ -80,6 +80,60 @@ async function deleteLetter() {
   }
 }
 
+async function sendLetter(mode = 'test') {
+  if (!letter.value) return
+  const verb = mode === 'live' ? 'LIVE versenden' : 'an Letterxpress (Test) übergeben'
+  if (!confirm(`Brief #${letter.value.id} ${verb}?`)) return
+  try {
+    await store.sendLetter(letterId.value, mode)
+    await loadLetter()
+  } catch (err) {
+    error.value = err.response?.data?.detail || err.message
+  }
+}
+
+async function syncStatus() {
+  try {
+    await store.syncLetterStatus(letterId.value)
+    await loadLetter()
+  } catch (err) {
+    error.value = err.response?.data?.detail || err.message
+  }
+}
+
+function fmtEur(cents) {
+  if (cents == null) return '—'
+  return `${(cents / 100).toFixed(2).replace('.', ',')} €`
+}
+
+function copyJobId() {
+  if (!letter.value?.letterxpress_job_id) return
+  navigator.clipboard?.writeText(letter.value.letterxpress_job_id)
+}
+
+// DIN 5008 progress steps
+const progressSteps = [
+  { key: 'draft', label: 'Entwurf' },
+  { key: 'approved', label: 'Genehmigt' },
+  { key: 'queued', label: 'Warteschlange' },
+  { key: 'sent', label: 'Versendet' },
+  { key: 'delivered', label: 'Zugestellt' },
+]
+
+const stepperState = computed(() => {
+  if (!letter.value) return []
+  const order = progressSteps.map((s) => s.key)
+  const cur = letter.value.status
+  const curIdx = order.indexOf(cur)
+  return progressSteps.map((step, idx) => {
+    let state = 'pending'
+    if (cur === 'returned' && idx >= 3) state = 'failed'
+    else if (idx < curIdx) state = 'done'
+    else if (idx === curIdx) state = 'active'
+    return { ...step, state }
+  })
+})
+
 function formatDate(dateStr) {
   if (!dateStr) return '-'
   return new Date(dateStr).toLocaleDateString('de-DE', {
@@ -153,6 +207,27 @@ onMounted(() => {
             PDF ansehen
           </a>
           <button
+            v-if="['draft','approved','queued'].includes(letter.status)"
+            class="btn btn-secondary"
+            @click="sendLetter('test')"
+          >
+            Senden (Test)
+          </button>
+          <button
+            v-if="['draft','approved','queued'].includes(letter.status)"
+            class="btn btn-primary"
+            @click="sendLetter('live')"
+          >
+            Senden (Live)
+          </button>
+          <button
+            v-if="letter.letterxpress_job_id && letter.status === 'sent'"
+            class="btn btn-secondary"
+            @click="syncStatus"
+          >
+            Status synchronisieren
+          </button>
+          <button
             v-if="letter.status === 'draft'"
             class="btn btn-danger"
             @click="deleteLetter"
@@ -161,6 +236,100 @@ onMounted(() => {
           </button>
         </template>
       </PageHeader>
+
+      <!-- Progress Stepper -->
+      <div class="rounded-lg bg-white p-6 shadow-sm">
+        <h3 class="mb-4 font-medium text-gray-900">
+          Status
+        </h3>
+        <ol class="flex items-center justify-between gap-2">
+          <li
+            v-for="(step, idx) in stepperState"
+            :key="step.key"
+            class="flex flex-1 flex-col items-center"
+          >
+            <div
+              class="flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold"
+              :class="{
+                'bg-emerald-500 text-white': step.state === 'done',
+                'bg-blue-500 text-white ring-4 ring-blue-100': step.state === 'active',
+                'bg-red-500 text-white': step.state === 'failed',
+                'bg-gray-200 text-gray-500': step.state === 'pending',
+              }"
+            >
+              {{ idx + 1 }}
+            </div>
+            <div
+              class="mt-1 text-center text-xs"
+              :class="{
+                'font-medium text-emerald-700': step.state === 'done',
+                'font-bold text-blue-700': step.state === 'active',
+                'font-bold text-red-700': step.state === 'failed',
+                'text-gray-400': step.state === 'pending',
+              }"
+            >
+              {{ step.label }}
+            </div>
+          </li>
+        </ol>
+      </div>
+
+      <!-- Letterxpress Provider Box -->
+      <div
+        v-if="letter.letterxpress_job_id"
+        class="rounded-lg border border-blue-100 bg-blue-50/50 p-6"
+      >
+        <div class="mb-4 flex items-center justify-between">
+          <h3 class="font-medium text-gray-900">
+            Letterxpress
+          </h3>
+          <span
+            class="rounded px-2 py-0.5 text-xs font-medium uppercase"
+            :class="letter.send_mode === 'live' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'"
+          >
+            {{ letter.send_mode || '—' }}
+          </span>
+        </div>
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <div class="text-xs uppercase text-gray-500">
+              Job-ID
+            </div>
+            <button
+              class="mt-1 flex items-center gap-1 font-mono text-sm text-gray-900 hover:text-blue-600"
+              :title="`#${letter.letterxpress_job_id} kopieren`"
+              @click="copyJobId"
+            >
+              #{{ letter.letterxpress_job_id }}
+              <span class="text-[10px]">📋</span>
+            </button>
+          </div>
+          <div>
+            <div class="text-xs uppercase text-gray-500">
+              Provider-Status
+            </div>
+            <div class="mt-1 text-sm text-gray-900">
+              {{ letter.provider_status || '—' }}
+            </div>
+          </div>
+          <div>
+            <div class="text-xs uppercase text-gray-500">
+              Kosten
+            </div>
+            <div class="mt-1 text-sm font-medium text-gray-900">
+              {{ fmtEur(letter.provider_cost_cents) }}
+            </div>
+          </div>
+          <div>
+            <div class="text-xs uppercase text-gray-500">
+              Letzter Sync
+            </div>
+            <div class="mt-1 text-sm text-gray-500">
+              {{ formatDate(letter.provider_synced_at) }}
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div class="grid gap-6 lg:grid-cols-3">
         <!-- Main Content -->

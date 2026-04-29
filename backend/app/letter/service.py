@@ -45,9 +45,7 @@ class LetterService:
         offset: int = 0,
     ) -> tuple[list[LetterTemplate], int]:
         """List templates with pagination."""
-        query = select(LetterTemplate).where(
-            LetterTemplate.tenant_id == self.tenant_id
-        )
+        query = select(LetterTemplate).where(LetterTemplate.tenant_id == self.tenant_id)
 
         if active_only:
             query = query.where(LetterTemplate.is_active.is_(True))
@@ -509,9 +507,7 @@ class LetterService:
         batch.status = BatchStatus.READY
         await self.db.commit()
         await self.db.refresh(batch)
-        logger.info(
-            f"Created letter batch: {batch.id} with {len(letter_ids)} letters"
-        )
+        logger.info(f"Created letter batch: {batch.id} with {len(letter_ids)} letters")
         return batch
 
     async def export_batch(self, batch_id: int) -> str:
@@ -603,14 +599,18 @@ class LetterService:
                         activity_type="letter_sent",
                         direction=Direction.OUTBOUND,
                         subject=f"Brief versendet: {letter.recipient_name}",
-                        content=letter.content_html[:500] if letter.content_html else None,
+                        content=letter.content_html[:500]
+                        if letter.content_html
+                        else None,
                         source_module="letter",
                         pipeline_id=letter.pipeline_id,
                         metadata={"letter_id": letter.id, "batch_id": batch_id},
                         commit=False,
                     )
                 except Exception as e:
-                    logger.warning(f"Activity logging failed for letter {letter.id}: {e}")
+                    logger.warning(
+                        f"Activity logging failed for letter {letter.id}: {e}"
+                    )
 
         await self.db.commit()
         await self.db.refresh(batch)
@@ -669,4 +669,108 @@ class LetterService:
             "letters_by_status": letters_by_status,
             "total_batches": total_batches,
             "pending_batches": pending_batches,
+        }
+
+    # ============== Cost Stats ==============
+
+    async def get_cost_stats(
+        self,
+        *,
+        period: str = "month",
+        mode: str = "all",
+    ) -> dict:
+        """Aggregate Letter costs over a time period.
+
+        period: today | week | month | all
+        mode: test | live | all
+
+        Returns counts and provider_cost_cents totals, plus breakdowns
+        by pipeline and by day.
+        """
+        from datetime import datetime, timedelta
+
+        from app.engagement.models import EngagementPipeline
+
+        now = datetime.utcnow()
+        cutoff: datetime | None
+        if period == "today":
+            cutoff = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        elif period == "week":
+            cutoff = now - timedelta(days=7)
+        elif period == "month":
+            cutoff = now - timedelta(days=30)
+        else:
+            cutoff = None
+
+        base_filters = [Letter.tenant_id == self.tenant_id]
+        if mode in ("test", "live"):
+            base_filters.append(Letter.send_mode == mode)
+        if cutoff is not None:
+            # Use sent_at when available, fall back to created_at
+            base_filters.append(
+                func.coalesce(Letter.sent_at, Letter.created_at) >= cutoff
+            )
+
+        # Total count + cost
+        total_q = select(
+            func.count(Letter.id),
+            func.coalesce(func.sum(Letter.provider_cost_cents), 0),
+        ).where(*base_filters)
+        total_row = (await self.db.execute(total_q)).one()
+        total_count = int(total_row[0] or 0)
+        total_cost_cents = int(total_row[1] or 0)
+
+        # By pipeline
+        pipe_q = (
+            select(
+                Letter.pipeline_id,
+                EngagementPipeline.name,
+                func.count(Letter.id),
+                func.coalesce(func.sum(Letter.provider_cost_cents), 0),
+            )
+            .outerjoin(EngagementPipeline, Letter.pipeline_id == EngagementPipeline.id)
+            .where(*base_filters)
+            .group_by(Letter.pipeline_id, EngagementPipeline.name)
+            .order_by(func.count(Letter.id).desc())
+        )
+        pipe_rows = (await self.db.execute(pipe_q)).all()
+        by_pipeline = [
+            {
+                "pipeline_id": row[0],
+                "pipeline_name": row[1],
+                "count": int(row[2] or 0),
+                "cost_cents": int(row[3] or 0),
+            }
+            for row in pipe_rows
+        ]
+
+        # By day (using DATE() truncation — works for SQLite + Postgres)
+        day_expr = func.date(func.coalesce(Letter.sent_at, Letter.created_at))
+        day_q = (
+            select(
+                day_expr.label("day"),
+                func.count(Letter.id),
+                func.coalesce(func.sum(Letter.provider_cost_cents), 0),
+            )
+            .where(*base_filters)
+            .group_by(day_expr)
+            .order_by(day_expr.desc())
+        )
+        day_rows = (await self.db.execute(day_q)).all()
+        by_day = [
+            {
+                "day": str(row[0]) if row[0] is not None else "",
+                "count": int(row[1] or 0),
+                "cost_cents": int(row[2] or 0),
+            }
+            for row in day_rows
+        ]
+
+        return {
+            "period": period,
+            "mode": mode,
+            "count": total_count,
+            "cost_cents": total_cost_cents,
+            "by_pipeline": by_pipeline,
+            "by_day": by_day,
         }

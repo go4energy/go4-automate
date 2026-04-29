@@ -1,5 +1,5 @@
 /**
- * Post-Mail Store
+ * Letter Store
  *
  * Pinia store for managing letter state
  */
@@ -14,6 +14,10 @@ export const useLetterStore = defineStore('letter', () => {
   const letters = ref([])
   const batches = ref([])
   const stats = ref(null)
+
+  const balance = ref(null)
+  const costStats = ref(null)
+  const settings = ref(null)
 
   const loading = ref(false)
   const error = ref(null)
@@ -377,6 +381,89 @@ export const useLetterStore = defineStore('letter', () => {
     }
   }
 
+  async function fetchCostStats(params = { period: 'month', mode: 'all' }) {
+    try {
+      costStats.value = await letterApi.getCostStats(params)
+      return costStats.value
+    } catch (err) {
+      error.value = err.response?.data?.detail || err.message
+      throw err
+    }
+  }
+
+  // ============== Letterxpress / Provider ==============
+  async function fetchBalance() {
+    try {
+      balance.value = await letterApi.getLetterxpressBalance()
+      return balance.value
+    } catch (err) {
+      // Don't blow up the page just because the provider is unreachable
+      balance.value = null
+      error.value = err.response?.data?.detail || err.message
+      return null
+    }
+  }
+
+  async function sendLetter(id, mode = 'test') {
+    loading.value = true
+    error.value = null
+    try {
+      const result = await letterApi.sendLetter(id, mode)
+      // Patch the letter in our list (so the table re-renders)
+      const idx = letters.value.findIndex((l) => l.id === id)
+      if (idx >= 0) {
+        letters.value[idx] = {
+          ...letters.value[idx],
+          status: 'sent',
+          send_mode: result.send_mode,
+          letterxpress_job_id: result.letterxpress_job_id,
+          provider_status: result.provider_status,
+          provider_cost_cents: result.provider_cost_cents,
+        }
+      }
+      return result
+    } catch (err) {
+      error.value = err.response?.data?.detail || err.message
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function syncLetterStatus(id) {
+    try {
+      const updated = await letterApi.syncLetterStatus(id)
+      const idx = letters.value.findIndex((l) => l.id === id)
+      if (idx >= 0) letters.value[idx] = updated
+      if (currentLetter.value?.id === id) currentLetter.value = updated
+      return updated
+    } catch (err) {
+      error.value = err.response?.data?.detail || err.message
+      throw err
+    }
+  }
+
+  // ============== Settings ==============
+  async function fetchSettings() {
+    try {
+      settings.value = await letterApi.getLetterSettings()
+      return settings.value
+    } catch (err) {
+      error.value = err.response?.data?.detail || err.message
+      throw err
+    }
+  }
+
+  async function updateSetting(variable, value) {
+    try {
+      await letterApi.updateLetterSetting(variable, value)
+      await fetchSettings()
+    } catch (err) {
+      error.value = err.response?.data?.detail || err.message
+      throw err
+    }
+  }
+
   // ============== Reset ==============
   function $reset() {
     templates.value = []
@@ -432,6 +519,17 @@ export const useLetterStore = defineStore('letter', () => {
     markBatchSent,
     // Stats
     fetchStats,
+    fetchCostStats,
+    costStats,
+    // Provider
+    balance,
+    fetchBalance,
+    sendLetter,
+    syncLetterStatus,
+    // Settings
+    settings,
+    fetchSettings,
+    updateSetting,
     // Reset
     $reset,
   }

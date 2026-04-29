@@ -62,3 +62,6 @@ backend/xtts_models/
 
 # Installers
 *.deb
+
+# Secret seed scripts (contain credentials, never commit)
+backend/scripts/seed_letterxpress_creds.py

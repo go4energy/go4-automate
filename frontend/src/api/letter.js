@@ -205,6 +205,64 @@ export async function getStats() {
   return data
 }
 
+/**
+ * Cost statistics aggregated by pipeline + day.
+ * @param {Object} params - { period: 'today'|'week'|'month'|'all', mode: 'test'|'live'|'all' }
+ */
+export async function getCostStats(params = {}) {
+  const { data } = await api.get(`${BASE_URL}/stats/costs`, { params })
+  return data
+}
+
+// ============== Letterxpress / Provider ==============
+
+/**
+ * Read current Letterxpress balance.
+ */
+export async function getLetterxpressBalance() {
+  const { data } = await api.get(`${BASE_URL}/letterxpress/balance`)
+  return data
+}
+
+/**
+ * Submit a letter to Letterxpress.
+ * @param {number} id - Letter ID
+ * @param {string} mode - 'test' or 'live'
+ */
+export async function sendLetter(id, mode = 'test') {
+  const { data } = await api.post(`${BASE_URL}/letters/${id}/send`, { mode })
+  return data
+}
+
+/**
+ * Pull current job status from Letterxpress for a letter.
+ * @param {number} id - Letter ID
+ */
+export async function syncLetterStatus(id) {
+  const { data } = await api.post(`${BASE_URL}/letters/${id}/sync-status`)
+  return data
+}
+
+// ============== Settings ==============
+
+/**
+ * Read Letter module settings (Letterxpress credentials, defaults).
+ */
+export async function getLetterSettings() {
+  const { data } = await api.get(`${BASE_URL}/settings`)
+  return data
+}
+
+/**
+ * Update a single Letter module setting.
+ * @param {string} variable - e.g. 'letterxpress_username'
+ * @param {string} value
+ */
+export async function updateLetterSetting(variable, value) {
+  const { data } = await api.put(`${BASE_URL}/settings/${variable}`, { value })
+  return data
+}
+
 export default {
   // Templates
   getTemplates,
@@ -222,6 +280,8 @@ export default {
   deleteLetter,
   approveLetter,
   generateLetterPdf,
+  sendLetter,
+  syncLetterStatus,
   // Batches
   getBatches,
   getBatch,
@@ -231,4 +291,10 @@ export default {
   markBatchSent,
   // Stats
   getStats,
+  getCostStats,
+  // Provider
+  getLetterxpressBalance,
+  // Settings
+  getLetterSettings,
+  updateLetterSetting,
 }

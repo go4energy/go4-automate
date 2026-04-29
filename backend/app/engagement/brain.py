@@ -182,7 +182,9 @@ class EngagementBrain:
                     # Remove the JSON block from the displayed message
                     result["message"] = response.split("[PIPELINE_READY]")[0].strip()
             except json.JSONDecodeError as e:
-                logger.warning("Failed to parse pipeline config JSON: {err}", err=str(e))
+                logger.warning(
+                    "Failed to parse pipeline config JSON: {err}", err=str(e)
+                )
 
         return result
 
@@ -207,7 +209,9 @@ class EngagementBrain:
 
         return PrerequisiteReport(items=items)
 
-    async def _check_channel_prerequisites(self, channel: str) -> list[PrerequisiteItem]:
+    async def _check_channel_prerequisites(
+        self, channel: str
+    ) -> list[PrerequisiteItem]:
         """Check prerequisites for a specific channel."""
         items: list[PrerequisiteItem] = []
 
@@ -484,17 +488,126 @@ class EngagementBrain:
         return items
 
     async def _check_letter_prerequisites(self) -> list[PrerequisiteItem]:
-        """Check Letter prerequisites."""
-        # Letter is currently manual - always show as warning
-        return [
-            PrerequisiteItem(
-                channel="letter",
-                component="module",
-                status=PrerequisiteStatus.WARNING,
-                message="Brief-Versand erfolgt manuell",
-                action_required="Briefe werden als Aufgaben im CRM erstellt",
+        """Check Letter (Letterxpress) prerequisites for this tenant.
+
+        Looks at three things:
+        1. Letterxpress credentials configured in module_parameters
+        2. At least one active letter template exists
+        3. Letterxpress balance is above the warning threshold
+        """
+        from app.letter.letterxpress_client import LetterxpressError
+        from app.letter.models import LetterTemplate
+        from app.letter.settings_service import (
+            LetterSettingsError,
+            get_letter_settings,
+            get_letterxpress_client,
+        )
+
+        items: list[PrerequisiteItem] = []
+
+        # 1. Credentials
+        try:
+            settings = await get_letter_settings(self.db, self.tenant_id)
+        except Exception as exc:
+            return [
+                PrerequisiteItem(
+                    channel="letter",
+                    component="settings",
+                    status=PrerequisiteStatus.BLOCKER,
+                    message=f"Settings nicht lesbar: {exc}",
+                    action_required="Letter → Einstellungen aufrufen",
+                )
+            ]
+
+        if not settings.is_complete:
+            items.append(
+                PrerequisiteItem(
+                    channel="letter",
+                    component="credentials",
+                    status=PrerequisiteStatus.BLOCKER,
+                    message="Letterxpress-Zugangsdaten fehlen",
+                    action_required="Letter → Einstellungen → API-Key + Username eintragen",
+                )
             )
-        ]
+        else:
+            items.append(
+                PrerequisiteItem(
+                    channel="letter",
+                    component="credentials",
+                    status=PrerequisiteStatus.READY,
+                    message=f"Letterxpress konfiguriert ({settings.mode}-Mode)",
+                )
+            )
+
+        # 2. At least one active template
+        tpl_q = (
+            select(LetterTemplate)
+            .where(
+                LetterTemplate.tenant_id == self.tenant_id,
+                LetterTemplate.is_active.is_(True),
+            )
+            .limit(1)
+        )
+        has_template = (await self.db.execute(tpl_q)).scalar_one_or_none() is not None
+        if has_template:
+            items.append(
+                PrerequisiteItem(
+                    channel="letter",
+                    component="template",
+                    status=PrerequisiteStatus.READY,
+                    message="Mindestens ein aktives Brief-Template vorhanden",
+                )
+            )
+        else:
+            items.append(
+                PrerequisiteItem(
+                    channel="letter",
+                    component="template",
+                    status=PrerequisiteStatus.BLOCKER,
+                    message="Kein aktives Brief-Template",
+                    action_required="Letter → Templates → Neues Template anlegen",
+                )
+            )
+
+        # 3. Balance (best-effort — only when credentials are there and live)
+        if settings.is_complete:
+            try:
+                client = await get_letterxpress_client(self.db, self.tenant_id)
+                balance = await client.get_balance()
+                if balance.balance < 5:
+                    items.append(
+                        PrerequisiteItem(
+                            channel="letter",
+                            component="balance",
+                            status=PrerequisiteStatus.WARNING,
+                            message=(
+                                f"Letterxpress-Guthaben niedrig: "
+                                f"{balance.balance} {balance.currency}"
+                            ),
+                            action_required="Guthaben aufladen vor Live-Versand",
+                        )
+                    )
+                else:
+                    items.append(
+                        PrerequisiteItem(
+                            channel="letter",
+                            component="balance",
+                            status=PrerequisiteStatus.READY,
+                            message=(f"Guthaben: {balance.balance} {balance.currency}"),
+                        )
+                    )
+            except (LetterSettingsError, LetterxpressError) as exc:
+                items.append(
+                    PrerequisiteItem(
+                        channel="letter",
+                        component="balance",
+                        status=PrerequisiteStatus.WARNING,
+                        message=f"Balance-Abfrage fehlgeschlagen: {exc}",
+                        action_required="Verbindung in Letter → Einstellungen testen",
+                    )
+                )
+
+        return items
 
     # =========================================================================
     # SETUP LAYER - Playbook & Prompt Generation
@@ -660,8 +773,12 @@ class EngagementBrain:
             contact_company=contact.company_name or "unbekannt",
             current_stage=enrollment.stage,
             touch_count=enrollment.touch_count,
-            last_touch=enrollment.last_touch_at.isoformat() if enrollment.last_touch_at else "nie",
-            last_response=enrollment.last_response_at.isoformat() if enrollment.last_response_at else "nie",
+            last_touch=enrollment.last_touch_at.isoformat()
+            if enrollment.last_touch_at
+            else "nie",
+            last_response=enrollment.last_response_at.isoformat()
+            if enrollment.last_response_at
+            else "nie",
             activities=activities_text,
         )
 
@@ -734,8 +851,12 @@ class EngagementBrain:
             contact_company=contact.company_name or "unbekannt",
             current_stage=enrollment.stage,
             channel=incoming_activity.channel,
-            last_outbound=last_outbound.content if last_outbound else "Keine vorherige Nachricht",
-            incoming_message=incoming_activity.content or incoming_activity.subject or "Kein Inhalt",
+            last_outbound=last_outbound.content
+            if last_outbound
+            else "Keine vorherige Nachricht",
+            incoming_message=incoming_activity.content
+            or incoming_activity.subject
+            or "Kein Inhalt",
         )
 
         try:

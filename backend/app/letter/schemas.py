@@ -5,6 +5,7 @@ Pydantic schemas for API validation.
 
 from datetime import datetime
 from enum import Enum
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -153,6 +154,12 @@ class LetterResponse(BaseModel):
     delivered_at: datetime | None
     returned_at: datetime | None
     return_reason: str | None
+    # Letterxpress provider fields
+    letterxpress_job_id: str | None = None
+    send_mode: str = "test"
+    provider_status: str | None = None
+    provider_cost_cents: int | None = None
+    provider_synced_at: datetime | None = None
     created_at: datetime
     updated_at: datetime | None
 
@@ -245,3 +252,54 @@ class LetterStats(BaseModel):
     letters_by_status: dict[str, int]
     total_batches: int
     pending_batches: int
+
+
+# ============== Letterxpress / Provider ==============
+
+
+class LetterxpressBalanceResponse(BaseModel):
+    """Letterxpress account balance."""
+
+    balance: float
+    currency: str
+    mode: str  # test | live
+
+
+class CostByPipeline(BaseModel):
+    pipeline_id: int | None
+    pipeline_name: str | None
+    count: int
+    cost_cents: int
+
+
+class CostByDay(BaseModel):
+    day: str  # YYYY-MM-DD
+    count: int
+    cost_cents: int
+
+
+class LetterCostStats(BaseModel):
+    """Aggregated letter costs over a time period."""
+
+    period: str  # today | week | month | all
+    mode: str  # test | live | all
+    count: int
+    cost_cents: int
+    by_pipeline: list[CostByPipeline]
+    by_day: list[CostByDay]
+
+
+class LetterSendRequest(BaseModel):
+    """Body for the manual single-send endpoint."""
+
+    mode: Literal["test", "live"] = "test"
+
+
+class LetterSendResponse(BaseModel):
+    """Outcome of a manual single-send."""
+
+    letter_id: int
+    letterxpress_job_id: str
+    provider_status: str
+    provider_cost_cents: int
+    send_mode: str
