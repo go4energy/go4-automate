@@ -170,6 +170,13 @@ CONTACT_ANALYSIS_PROMPT = """Analysiere den Kontakt und empfehle den nächsten S
 - **Branche (Google)**: {google_categories}
 - **Red Flags**: {red_flags}
 
+## LinkedIn (optional, falls gescrapt):
+- **Headline**: {linkedin_headline}
+- **Position**: {linkedin_position}
+- **Location**: {linkedin_location}
+- **Company-Industry**: {linkedin_company_industry}
+- **Skills**: {linkedin_skills}
+
 ## Bisherige Aktivitäten:
 {activities}
 

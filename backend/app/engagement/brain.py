@@ -811,6 +811,12 @@ class EngagementBrain:
             target_match_score=ctx.get("target_match_score") or "—",
             google_categories=_join(ctx.get("google_categories")),
             red_flags=_join(ctx.get("red_flags")),
+            # LinkedIn-sourced fields (optional)
+            linkedin_headline=ctx.get("linkedin_headline") or "—",
+            linkedin_position=ctx.get("linkedin_position") or "—",
+            linkedin_location=ctx.get("linkedin_location") or "—",
+            linkedin_company_industry=ctx.get("linkedin_company_industry") or "—",
+            linkedin_skills=_join(ctx.get("linkedin_skills")),
         )
 
         try:

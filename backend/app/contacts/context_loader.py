@@ -47,15 +47,16 @@ async def get_contact_context(
     when the contact has no leadgen origin. Callers should treat all
     leadgen-sourced keys as optional.
     """
-    # Lazy import to avoid pulling leadgen models on import of contacts —
-    # contacts is allowed to know about leadgen as a module-extension,
-    # but we keep the dependency at runtime to prevent cycles.
+    # Lazy import to avoid pulling leadgen/linkedin models on import of contacts —
+    # contacts is allowed to know about extensions, but we keep the dependency
+    # at runtime to prevent cycles.
     from app.leadgen.models import (
         LeadgenContact,
         LeadgenImpressum,
         LeadgenLLMInsights,
         LeadgenPlace,
     )
+    from app.linkedin.models import LinkedInContact
 
     contact_row = await db.execute(
         select(Contact)
@@ -111,6 +112,20 @@ async def get_contact_context(
         "leadgen_handelsregister": None,
         "leadgen_linkedin_role": None,  # leadgen_contact.role
         "leadgen_gender": None,
+        "leadgen_linkedin_url": None,
+        # LinkedIn extension (filled in below if any linkedin_contacts row
+        # references this contact via central_contact_id)
+        "linkedin_origin": False,
+        "linkedin_headline": None,
+        "linkedin_summary": None,
+        "linkedin_position": None,
+        "linkedin_location": None,
+        "linkedin_company_size": None,
+        "linkedin_company_industry": None,
+        "linkedin_skills": [],
+        "linkedin_experience": [],
+        "linkedin_connection_count": None,
+        "linkedin_followers": None,
     }
 
     if contact.leadgen_place_id is None:
@@ -162,17 +177,51 @@ async def get_contact_context(
         out["leadgen_managing_directors"] = list(impressum.managing_directors or [])
         out["leadgen_handelsregister"] = impressum.handelsregister
 
-    # LinkedIn-side data lives on leadgen_contacts; pick the best matching one
+    # LinkedIn-side discovery data on leadgen_contacts; prefer the row that
+    # already points back to this contact (post-handoff), fall back to the
+    # first row attached to the place.
     lc_row = await db.execute(
         select(LeadgenContact)
         .where(LeadgenContact.place_id == place.id)
-        .order_by(LeadgenContact.id.asc())
+        .order_by(
+            LeadgenContact.contact_id.is_not(contact.id),  # match first
+            LeadgenContact.id.asc(),
+        )
         .limit(1)
     )
     leadgen_contact = lc_row.scalar_one_or_none()
     if leadgen_contact is not None:
         out["leadgen_linkedin_role"] = leadgen_contact.role
         out["leadgen_gender"] = leadgen_contact.gender
+        out["leadgen_linkedin_url"] = leadgen_contact.linkedin_url
+
+    # ============== LinkedIn-Module extension ==============
+    # LinkedIn scraper writes into linkedin_contacts.central_contact_id when
+    # importing into the central contacts table. We do a reverse-lookup so
+    # the brain has access to LinkedIn-rich data (headline, summary, skills)
+    # for personalisation without copying them onto contacts.
+    li_row = await db.execute(
+        select(LinkedInContact)
+        .where(LinkedInContact.central_contact_id == contact.id)
+        .order_by(LinkedInContact.id.desc())  # newest scrape first
+        .limit(1)
+    )
+    li = li_row.scalar_one_or_none()
+    if li is not None:
+        out["linkedin_origin"] = True
+        out["linkedin_headline"] = li.headline
+        out["linkedin_summary"] = li.summary
+        out["linkedin_position"] = li.position
+        out["linkedin_location"] = li.location
+        out["linkedin_company_size"] = li.company_size
+        out["linkedin_company_industry"] = li.company_industry
+        out["linkedin_skills"] = list(li.skills or [])
+        out["linkedin_experience"] = list(li.experience or [])
+        out["linkedin_connection_count"] = li.connection_count
+        out["linkedin_followers"] = li.follower_count
+        # Also fall back to LinkedIn URL if we don't have one yet
+        if not out["leadgen_linkedin_url"]:
+            out["leadgen_linkedin_url"] = li.linkedin_url
 
     return out
 
