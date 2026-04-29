@@ -279,7 +279,7 @@ onUnmounted(() => {
         </button>
       </div>
 
-      <div class="flex w-full max-w-3xl flex-1 flex-col items-center justify-center px-6 pb-[33vh]">
+      <div class="flex w-full max-w-3xl flex-1 flex-col items-center justify-center px-6 pb-[10vh] pt-[10vh]">
         <div
           v-if="moduleStore.loading"
           class="flex items-center justify-center py-12"
