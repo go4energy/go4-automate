@@ -105,7 +105,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="p-6">
+  <div>
     <PageHeader :title="isEdit ? 'Kampagne bearbeiten' : 'Neue Kampagne'" />
 
     <!-- Loading -->

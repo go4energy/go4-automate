@@ -86,7 +86,7 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-2xl">
+  <div>
     <PageHeader
       title="Eigenes Thema erstellen"
     />

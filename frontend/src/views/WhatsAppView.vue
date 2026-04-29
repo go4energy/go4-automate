@@ -178,7 +178,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="p-6">
+  <div>
     <PageHeader
       title="WhatsApp"
     >

@@ -91,7 +91,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="p-6">
+  <div>
     <!-- Loading -->
     <div
       v-if="loading"
@@ -220,7 +220,7 @@ onUnmounted(() => {
 
           <!-- Preview Result -->
           <div class="bg-gray-100 rounded-lg p-4">
-            <div class="max-w-xs mx-auto bg-green-500 rounded-lg p-4 text-white">
+            <div class="bg-green-500 rounded-lg p-4 text-white">
               <p class="whitespace-pre-wrap">
                 {{ previewResult?.rendered_text || getComponentText(template.components, 'BODY') }}
               </p>

@@ -57,7 +57,7 @@ function formatDuration(seconds) {
 </script>
 
 <template>
-  <div class="min-h-screen bg-go4-bg dark:bg-gray-900">
+  <div class="bg-go4-bg dark:bg-gray-900">
     <PageHeader
       :title="`Ergebnisse: ${survey?.title || 'Laden...'}`"
     >
@@ -71,7 +71,7 @@ function formatDuration(seconds) {
       </template>
     </PageHeader>
 
-    <div class="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+    <div class="sm: lg:">
       <!-- Tabs -->
       <div class="mb-6 border-b border-gray-200 dark:border-gray-700">
         <nav class="-mb-px flex gap-6">

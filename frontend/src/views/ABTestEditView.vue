@@ -159,12 +159,12 @@ function cancel() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-go4-bg dark:bg-gray-900">
+  <div class="bg-go4-bg dark:bg-gray-900">
     <PageHeader
       :title="isEdit ? 'A/B Test bearbeiten' : 'Neuer A/B Test'"
     />
 
-    <div class="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
+    <div class="sm: lg:">
       <div
         v-if="loading"
         class="flex items-center justify-center py-12"

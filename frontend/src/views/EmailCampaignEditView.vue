@@ -97,7 +97,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="p-6">
+  <div>
     <PageHeader
       :title="isNew ? 'Neue Kampagne' : 'Kampagne bearbeiten'"
     >

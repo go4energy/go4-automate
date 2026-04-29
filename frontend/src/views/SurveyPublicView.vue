@@ -154,7 +154,6 @@ async function submitSurvey() {
 
 <template>
   <div
-    class="min-h-screen"
     :style="{ backgroundColor: survey?.background_color || '#f9fafb' }"
   >
     <!-- Loading -->

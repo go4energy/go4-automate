@@ -155,7 +155,7 @@ async function confirmDelete() {
 </script>
 
 <template>
-  <div class="p-6 space-y-4">
+  <div class="space-y-4">
     <PageHeader
       title="Leadgen"
       subtitle="B2B-Lead-Discovery und Anreicherung"

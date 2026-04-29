@@ -97,7 +97,7 @@ async function save() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-3xl">
+  <div>
     <PageHeader :title="isEdit ? 'Kampagne bearbeiten' : 'Neue Kampagne konfigurieren'" />
 
     <div

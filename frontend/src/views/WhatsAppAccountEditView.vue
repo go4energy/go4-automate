@@ -102,7 +102,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="p-6">
+  <div>
     <PageHeader :title="isEdit ? 'Account bearbeiten' : 'Neuer Account'" />
 
     <!-- Loading -->

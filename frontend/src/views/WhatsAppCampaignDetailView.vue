@@ -111,7 +111,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="p-6">
+  <div>
     <!-- Loading -->
     <div
       v-if="loading"

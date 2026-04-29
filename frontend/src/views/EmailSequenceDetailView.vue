@@ -78,7 +78,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="p-6">
+  <div>
     <div
       v-if="loading"
       class="flex items-center justify-center py-12"

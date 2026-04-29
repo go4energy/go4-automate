@@ -61,7 +61,7 @@ async function deleteCompany() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-go4-bg dark:bg-gray-900">
+  <div class="bg-go4-bg dark:bg-gray-900">
     <PageHeader
       :title="company?.name || 'Laden...'"
     >
@@ -83,7 +83,7 @@ async function deleteCompany() {
       </template>
     </PageHeader>
 
-    <div class="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
+    <div class="sm: lg:">
       <!-- Loading -->
       <div
         v-if="store.loading"

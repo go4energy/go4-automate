@@ -319,7 +319,7 @@ function cancel() {
 </script>
 
 <template>
-  <div class="p-6 space-y-4 max-w-4xl">
+  <div class="space-y-4">
     <PageHeader :title="isEdit ? 'Kampagne bearbeiten' : 'Neue Kampagne'" />
 
     <!-- Mode toggle -->

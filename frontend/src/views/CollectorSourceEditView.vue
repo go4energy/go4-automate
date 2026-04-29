@@ -177,7 +177,7 @@ async function handleDelete() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-2xl">
+  <div>
     <PageHeader :title="isEdit ? 'Quelle bearbeiten' : 'Neue Quelle'">
       <template
         v-if="isEdit && store.sources.length > 1"

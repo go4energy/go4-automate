@@ -132,7 +132,7 @@ function openTwitter() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-go4-bg dark:bg-gray-900">
+  <div class="bg-go4-bg dark:bg-gray-900">
     <!-- Loading -->
     <div
       v-if="store.loading"
@@ -220,7 +220,7 @@ function openTwitter() {
         </div>
       </div>
 
-      <div class="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
+      <div class="sm: lg:">
         <div class="grid gap-6 lg:grid-cols-3">
           <!-- Left Column: Main Info -->
           <div class="space-y-6 lg:col-span-2">

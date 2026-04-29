@@ -787,7 +787,7 @@ function goBack() {
 </script>
 
 <template>
-  <div class="p-6 space-y-4">
+  <div class="space-y-4">
     <div v-if="campaign">
       <PageHeader
         :title="campaign.name"

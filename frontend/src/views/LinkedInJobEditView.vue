@@ -193,7 +193,7 @@ function cancel() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-go4-bg dark:bg-gray-900">
+  <div class="bg-go4-bg dark:bg-gray-900">
     <PageHeader
       :title="isEdit ? 'Job bearbeiten' : 'Neuer Scraper Job'"
     >
@@ -214,7 +214,7 @@ function cancel() {
       </template>
     </PageHeader>
 
-    <div class="mx-auto max-w-3xl px-4 py-6 sm:px-6 lg:px-8">
+    <div class="sm: lg:">
       <!-- Loading -->
       <div
         v-if="loading"
