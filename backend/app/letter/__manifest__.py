@@ -106,6 +106,16 @@ manifest = {
                 },
             },
             {
+                "path": "settings",
+                "name": "letter-settings",
+                "view": "LetterView",
+                "meta": {
+                    "title": "Einstellungen",
+                    "breadcrumb": {"label": "Einstellungen", "parent": "letter"},
+                    "tab": "settings",
+                },
+            },
+            {
                 "path": "letters/:id",
                 "name": "letter-detail",
                 "view": "LetterDetailView",

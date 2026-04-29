@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useEngagementStore } from '@/stores/engagement'
 import { getContacts } from '@/api/contacts'
@@ -20,7 +20,10 @@ const pipelineId = computed(() => props.id || route.params.id)
 
 const loading = ref(false)
 const error = ref(null)
-const activeTab = ref('overview')
+
+// Active tab from route.meta — Leadgen-style master/detail.
+// Falls back to 'uebersicht' for /pipelines/:id (no sub-path).
+const activeTab = computed(() => route.meta?.tab || 'uebersicht')
 const showDeleteDialog = ref(false)
 
 // Enrollment modal state
@@ -33,11 +36,16 @@ const selectedContacts = ref([])
 const enrolling = ref(false)
 const enrollSuccess = ref(null)
 
-const tabs = [
-  { id: 'overview', label: 'Uebersicht' },
-  { id: 'enrollments', label: 'Enrollments' },
-  { id: 'funnel', label: 'Funnel' }
-]
+const tabs = computed(() => {
+  const id = pipelineId.value
+  return [
+    { key: 'uebersicht', label: 'Übersicht', route: `/engagement/pipelines/${id}/uebersicht` },
+    { key: 'enrollments', label: 'Enrollments', route: `/engagement/pipelines/${id}/enrollments` },
+    { key: 'actions', label: 'Aktionen', route: `/engagement/pipelines/${id}/actions` },
+    { key: 'activities', label: 'Aktivitäten', route: `/engagement/pipelines/${id}/activities` },
+    { key: 'ab-tests', label: 'A/B Tests', route: `/engagement/pipelines/${id}/ab-tests` },
+  ]
+})
 
 const stageColors = {
   lead: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
@@ -92,7 +100,7 @@ const enrolledContactIds = computed(() =>
   new Set(pipelineEnrollments.value.map((e) => e.contact_id))
 )
 
-onMounted(async () => {
+async function loadCore() {
   loading.value = true
   try {
     await Promise.all([
@@ -106,6 +114,28 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+}
+
+async function loadTabData() {
+  // Lazy-load tab-specific datasets so each sub-view only fetches what it needs.
+  try {
+    if (activeTab.value === 'actions' && store.fetchActions) {
+      await store.fetchActions({ pipeline_id: pipelineId.value })
+    } else if (activeTab.value === 'activities' && store.fetchActivities) {
+      await store.fetchActivities({ pipeline_id: pipelineId.value })
+    }
+  } catch (err) {
+    console.error('Failed to load tab data:', err)
+  }
+}
+
+onMounted(async () => {
+  await loadCore()
+  await loadTabData()
+})
+
+watch(activeTab, () => {
+  loadTabData()
 })
 
 function goBack() {
@@ -296,22 +326,22 @@ async function enrollSelected() {
 
     <Breadcrumb class="mx-4 mb-2" />
 
-    <!-- Tabs -->
+    <!-- Tabs (router-link, Leadgen-style master/detail) -->
     <div class="border-b border-gray-200 px-4 dark:border-gray-700">
       <nav class="-mb-px flex gap-6">
-        <button
+        <router-link
           v-for="tab in tabs"
-          :key="tab.id"
+          :key="tab.key"
+          :to="tab.route"
           class="border-b-2 pb-3 text-sm font-medium transition-colors"
           :class="
-            activeTab === tab.id
+            activeTab === tab.key
               ? 'border-go4-primary text-go4-primary'
               : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
           "
-          @click="activeTab = tab.id"
         >
           {{ tab.label }}
-        </button>
+        </router-link>
       </nav>
     </div>
 
@@ -352,7 +382,7 @@ async function enrollSelected() {
       </div>
 
       <!-- Overview Tab -->
-      <template v-else-if="activeTab === 'overview' && pipeline">
+      <template v-else-if="activeTab === 'uebersicht' && pipeline">
         <div class="space-y-6">
           <!-- Stats Cards -->
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -639,7 +669,108 @@ async function enrollSelected() {
       </template>
 
       <!-- Funnel Tab -->
-      <template v-else-if="activeTab === 'funnel'">
+      <template v-else-if="activeTab === 'activities' && pipeline">
+        <!-- Activities tab (Brain + Worker activity log filtered by pipeline) -->
+        <div class="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+          <h3 class="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
+            Aktivitäten
+          </h3>
+          <div
+            v-if="store.activities?.length"
+            class="space-y-2"
+          >
+            <div
+              v-for="act in store.activities"
+              :key="act.id"
+              class="flex items-start gap-3 rounded border border-gray-200 p-3 text-sm dark:border-gray-700"
+            >
+              <span
+                class="rounded px-2 py-0.5 text-xs font-medium uppercase"
+                :class="{
+                  'bg-blue-100 text-blue-700': act.channel === 'linkedin',
+                  'bg-green-100 text-green-700': act.channel === 'email',
+                  'bg-emerald-100 text-emerald-700': act.channel === 'letter',
+                  'bg-amber-100 text-amber-700': act.channel === 'phone',
+                  'bg-gray-100 text-gray-700': !['linkedin','email','letter','phone'].includes(act.channel),
+                }"
+              >
+                {{ act.channel }}
+              </span>
+              <div class="min-w-0 flex-1">
+                <div class="font-medium text-gray-900 dark:text-gray-100">
+                  {{ act.subject || act.activity_type }}
+                </div>
+                <div class="text-xs text-gray-500">
+                  {{ act.contact_name || `Contact #${act.contact_id}` }} · {{ act.activity_type }} · {{ formatDate(act.created_at) }}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div
+            v-else
+            class="py-12 text-center text-sm text-gray-500"
+          >
+            Keine Aktivitäten für diese Pipeline.
+          </div>
+        </div>
+      </template>
+
+      <template v-else-if="activeTab === 'actions' && pipeline">
+        <!-- PendingActions tab (approval queue filtered by pipeline) -->
+        <div class="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+          <h3 class="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
+            Aktionen / Approval-Queue
+          </h3>
+          <div
+            v-if="store.pendingActions?.length"
+            class="space-y-2"
+          >
+            <div
+              v-for="action in store.pendingActions"
+              :key="action.id"
+              class="rounded border border-gray-200 p-3 text-sm dark:border-gray-700"
+            >
+              <div class="flex items-center justify-between">
+                <div>
+                  <span class="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium uppercase">
+                    {{ action.module }} · {{ action.action_type }}
+                  </span>
+                  <span class="ml-2 text-xs text-gray-500">{{ action.status }}</span>
+                </div>
+                <div class="text-xs text-gray-400">
+                  {{ formatDate(action.created_at) }}
+                </div>
+              </div>
+              <div
+                v-if="action.suggested_content"
+                class="mt-2 line-clamp-2 text-gray-600 dark:text-gray-300"
+              >
+                {{ action.suggested_content.replace(/<[^>]+>/g, '').slice(0, 200) }}
+              </div>
+            </div>
+          </div>
+          <div
+            v-else
+            class="py-12 text-center text-sm text-gray-500"
+          >
+            Keine offenen Aktionen für diese Pipeline.
+          </div>
+        </div>
+      </template>
+
+      <template v-else-if="activeTab === 'ab-tests' && pipeline">
+        <!-- A/B Tests tab -->
+        <div class="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
+          <h3 class="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
+            A/B Tests
+          </h3>
+          <div class="py-12 text-center text-sm text-gray-500">
+            A/B Tests pro Pipeline — kommt bald.
+          </div>
+        </div>
+      </template>
+
+      <template v-else-if="activeTab === 'funnel-legacy'">
         <div
           v-if="funnel?.stages?.length"
           class="mx-auto max-w-2xl space-y-4"
@@ -750,7 +881,7 @@ async function enrollSelected() {
               placeholder="Kontakt suchen (Name oder Email)..."
               class="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-10 pr-4 text-sm focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               @input="onSearchInput"
-            />
+            >
           </div>
 
           <!-- Selected count -->

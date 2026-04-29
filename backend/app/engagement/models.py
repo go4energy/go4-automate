@@ -37,6 +37,8 @@ class EngagementPipeline(TimestampMixin, Base):
     tone_of_voice: Mapped[str] = mapped_column(String(50), default="professionell")
     min_days_between_touches: Mapped[int] = mapped_column(default=3)
     auto_actions: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
+    # Tracking: auto_create_tracking_hash + utm_* + custom_params
+    tracking_config: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
 
     # Status
     is_active: Mapped[bool] = mapped_column(default=True)

@@ -58,8 +58,33 @@ const formData = ref({
   tone_of_voice: 'professionell',
   min_days_between_touches: 3,
   is_active: true,
-  playbook: ''
+  playbook: '',
+  tracking_config: {
+    auto_create_tracking_hash: false,
+    utm_source: '',
+    utm_medium: '',
+    utm_campaign: '',
+    utm_term: '',
+    utm_content: '',
+    custom_params: {}
+  }
 })
+
+// Custom-param row management — convert object to array of {key, value} for UI
+const customParamRows = ref([])
+function addCustomParam() {
+  customParamRows.value.push({ key: '', value: '' })
+}
+function removeCustomParam(idx) {
+  customParamRows.value.splice(idx, 1)
+}
+function syncCustomParamsToForm() {
+  const obj = {}
+  for (const row of customParamRows.value) {
+    if (row.key) obj[row.key] = row.value
+  }
+  formData.value.tracking_config.custom_params = obj
+}
 
 const availableChannels = [
   { value: 'linkedin', label: 'LinkedIn' },
@@ -112,6 +137,7 @@ onMounted(async () => {
     loading.value = true
     try {
       const pipeline = await store.fetchPipeline(pipelineId.value)
+      const tc = pipeline.tracking_config || {}
       formData.value = {
         name: pipeline.name || '',
         slug: pipeline.slug || '',
@@ -123,8 +149,20 @@ onMounted(async () => {
         tone_of_voice: pipeline.tone_of_voice || 'professionell',
         min_days_between_touches: pipeline.min_days_between_touches || 3,
         is_active: pipeline.is_active ?? true,
-        playbook: pipeline.playbook || ''
+        playbook: pipeline.playbook || '',
+        tracking_config: {
+          auto_create_tracking_hash: tc.auto_create_tracking_hash ?? false,
+          utm_source: tc.utm_source || '',
+          utm_medium: tc.utm_medium || '',
+          utm_campaign: tc.utm_campaign || '',
+          utm_term: tc.utm_term || '',
+          utm_content: tc.utm_content || '',
+          custom_params: tc.custom_params || {}
+        }
       }
+      customParamRows.value = Object.entries(tc.custom_params || {}).map(
+        ([key, value]) => ({ key, value })
+      )
     } catch (err) {
       error.value = err.message
     } finally {
@@ -151,6 +189,7 @@ async function save() {
   error.value = null
 
   try {
+    syncCustomParamsToForm()
     const data = {
       name: formData.value.name,
       slug: formData.value.slug,
@@ -162,7 +201,8 @@ async function save() {
       tone_of_voice: formData.value.tone_of_voice,
       min_days_between_touches: formData.value.min_days_between_touches,
       is_active: formData.value.is_active,
-      playbook: formData.value.playbook || null
+      playbook: formData.value.playbook || null,
+      tracking_config: { ...formData.value.tracking_config }
     }
 
     if (isEdit.value) {
@@ -448,6 +488,124 @@ function cancel() {
 - Bei positiver Antwort sofort Termin vorschlagen
 ..."
           />
+        </div>
+
+        <!-- Tracking & Attribution -->
+        <div class="rounded-lg bg-white p-6 shadow dark:bg-gray-800">
+          <h3 class="mb-1 text-lg font-semibold text-gray-900 dark:text-white">
+            Tracking & Attribution
+          </h3>
+          <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">
+            Beim Enrollment wird optional ein Tracking-Hash pro Kontakt erzeugt.
+            UTM-Parameter werden in alle ausgehenden URLs (Briefe, Emails) der
+            Pipeline injiziert.
+          </p>
+
+          <label class="mb-4 flex cursor-pointer items-center gap-3">
+            <input
+              v-model="formData.tracking_config.auto_create_tracking_hash"
+              type="checkbox"
+              class="h-5 w-5 rounded border-gray-300 text-go4-primary focus:ring-go4-primary"
+            >
+            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Hash pro Kontakt automatisch erstellen (beim Enrollment)
+            </span>
+          </label>
+
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">utm_source</label>
+              <input
+                v-model="formData.tracking_config.utm_source"
+                type="text"
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                placeholder="z.B. newsletter, brief, linkedin"
+              >
+            </div>
+            <div>
+              <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">utm_medium</label>
+              <input
+                v-model="formData.tracking_config.utm_medium"
+                type="text"
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                placeholder="z.B. email, mail, social"
+              >
+            </div>
+            <div>
+              <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">utm_campaign</label>
+              <input
+                v-model="formData.tracking_config.utm_campaign"
+                type="text"
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                placeholder="z.B. q2-2026"
+              >
+            </div>
+            <div>
+              <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">utm_term</label>
+              <input
+                v-model="formData.tracking_config.utm_term"
+                type="text"
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              >
+            </div>
+            <div class="md:col-span-2">
+              <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">utm_content</label>
+              <input
+                v-model="formData.tracking_config.utm_content"
+                type="text"
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              >
+            </div>
+          </div>
+
+          <!-- Custom params -->
+          <div class="mt-6">
+            <div class="mb-2 flex items-center justify-between">
+              <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Eigene Parameter
+              </label>
+              <button
+                type="button"
+                class="text-sm text-go4-primary hover:underline"
+                @click="addCustomParam"
+              >
+                + Hinzufügen
+              </button>
+            </div>
+            <div class="space-y-2">
+              <div
+                v-for="(row, idx) in customParamRows"
+                :key="idx"
+                class="grid grid-cols-[1fr_1fr_auto] gap-2"
+              >
+                <input
+                  v-model="row.key"
+                  type="text"
+                  placeholder="key"
+                  class="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                >
+                <input
+                  v-model="row.value"
+                  type="text"
+                  placeholder="value"
+                  class="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                >
+                <button
+                  type="button"
+                  class="px-2 text-red-500 hover:text-red-700"
+                  @click="removeCustomParam(idx)"
+                >
+                  ×
+                </button>
+              </div>
+              <p
+                v-if="customParamRows.length === 0"
+                class="text-xs text-gray-400"
+              >
+                Keine eigenen Parameter — UTM oben reicht für die meisten Fälle.
+              </p>
+            </div>
+          </div>
         </div>
 
         <!-- Actions -->

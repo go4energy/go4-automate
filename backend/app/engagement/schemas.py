@@ -7,6 +7,22 @@ from pydantic import BaseModel, ConfigDict, Field
 # ============== Pipeline Schemas ==============
 
 
+class TrackingConfig(BaseModel):
+    """Per-pipeline tracking config (auto-hash + UTM defaults).
+
+    Stored in ``engagement_pipelines.tracking_config`` JSONB.
+    All fields optional — empty values mean "don't inject this UTM".
+    """
+
+    auto_create_tracking_hash: bool = False
+    utm_source: str | None = None
+    utm_medium: str | None = None
+    utm_campaign: str | None = None
+    utm_term: str | None = None
+    utm_content: str | None = None
+    custom_params: dict[str, str] = Field(default_factory=dict)
+
+
 class PipelineCreate(BaseModel):
     """Schema for creating an engagement pipeline."""
 
@@ -21,6 +37,7 @@ class PipelineCreate(BaseModel):
     tone_of_voice: str = "professionell"
     min_days_between_touches: int = Field(default=3, ge=1, le=30)
     auto_actions: dict = Field(default_factory=dict)
+    tracking_config: TrackingConfig = Field(default_factory=TrackingConfig)
     is_active: bool = True
 
 
@@ -37,6 +54,7 @@ class PipelineUpdate(BaseModel):
     tone_of_voice: str | None = None
     min_days_between_touches: int | None = Field(None, ge=1, le=30)
     auto_actions: dict | None = None
+    tracking_config: TrackingConfig | None = None
     is_active: bool | None = None
 
 
@@ -56,6 +74,7 @@ class PipelineResponse(BaseModel):
     tone_of_voice: str
     min_days_between_touches: int
     auto_actions: dict
+    tracking_config: dict = Field(default_factory=dict)
     is_active: bool
     created_at: datetime
     updated_at: datetime

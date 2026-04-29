@@ -19,7 +19,10 @@ manifest = {
     "frontend": {
         "base_route": "/engagement",
         "routes": [
-            # Dashboard (default)
+            # Master/Detail pattern (Leadgen-style):
+            #   /engagement                       → Pipelines-Liste
+            #   /engagement/pipelines             → Pipelines-Liste (alias)
+            #   /engagement/pipelines/:id/...     → Pipeline-Detail mit Sub-Tabs
             {
                 "path": "",
                 "name": "engagement",
@@ -27,17 +30,7 @@ manifest = {
                 "meta": {
                     "title": "Engagement",
                     "breadcrumb": {"label": "Engagement"},
-                    "tab": "dashboard",
-                },
-            },
-            {
-                "path": "dashboard",
-                "name": "engagement-dashboard",
-                "view": "EngagementView",
-                "meta": {
-                    "title": "Dashboard",
-                    "breadcrumb": {"label": "Dashboard", "parent": "engagement"},
-                    "tab": "dashboard",
+                    "tab": "pipelines",
                 },
             },
             # Pipelines
@@ -60,6 +53,7 @@ manifest = {
                     "breadcrumb": {"label": "Neu", "parent": "engagement-pipelines"},
                 },
             },
+            # Pipeline detail with sub-tabs (Leadgen-style master/detail).
             {
                 "path": "pipelines/:id",
                 "name": "engagement-pipeline-detail",
@@ -68,6 +62,62 @@ manifest = {
                 "meta": {
                     "title": "Pipeline",
                     "breadcrumb": {"label": "Details", "parent": "engagement-pipelines"},
+                    "tab": "uebersicht",
+                },
+            },
+            {
+                "path": "pipelines/:id/uebersicht",
+                "name": "engagement-pipeline-uebersicht",
+                "view": "PipelineDetailView",
+                "props": True,
+                "meta": {
+                    "title": "Übersicht",
+                    "breadcrumb": {"label": "Übersicht", "parent": "engagement-pipelines"},
+                    "tab": "uebersicht",
+                },
+            },
+            {
+                "path": "pipelines/:id/enrollments",
+                "name": "engagement-pipeline-enrollments",
+                "view": "PipelineDetailView",
+                "props": True,
+                "meta": {
+                    "title": "Enrollments",
+                    "breadcrumb": {"label": "Enrollments", "parent": "engagement-pipelines"},
+                    "tab": "enrollments",
+                },
+            },
+            {
+                "path": "pipelines/:id/actions",
+                "name": "engagement-pipeline-actions",
+                "view": "PipelineDetailView",
+                "props": True,
+                "meta": {
+                    "title": "Aktionen",
+                    "breadcrumb": {"label": "Aktionen", "parent": "engagement-pipelines"},
+                    "tab": "actions",
+                },
+            },
+            {
+                "path": "pipelines/:id/activities",
+                "name": "engagement-pipeline-activities",
+                "view": "PipelineDetailView",
+                "props": True,
+                "meta": {
+                    "title": "Aktivitäten",
+                    "breadcrumb": {"label": "Aktivitäten", "parent": "engagement-pipelines"},
+                    "tab": "activities",
+                },
+            },
+            {
+                "path": "pipelines/:id/ab-tests",
+                "name": "engagement-pipeline-ab-tests",
+                "view": "PipelineDetailView",
+                "props": True,
+                "meta": {
+                    "title": "A/B Tests",
+                    "breadcrumb": {"label": "A/B Tests", "parent": "engagement-pipelines"},
+                    "tab": "ab-tests",
                 },
             },
             {
@@ -80,67 +130,14 @@ manifest = {
                     "breadcrumb": {"label": "Bearbeiten", "parent": "engagement-pipelines"},
                 },
             },
-            # Enrollments
-            {
-                "path": "enrollments",
-                "name": "engagement-enrollments",
-                "view": "EngagementView",
-                "meta": {
-                    "title": "Enrollments",
-                    "breadcrumb": {"label": "Enrollments", "parent": "engagement"},
-                    "tab": "enrollments",
-                },
-            },
-            # Actions / Approval Queue
-            {
-                "path": "actions",
-                "name": "engagement-actions",
-                "view": "EngagementView",
-                "meta": {
-                    "title": "Aktionen",
-                    "breadcrumb": {"label": "Aktionen", "parent": "engagement"},
-                    "tab": "actions",
-                },
-            },
-            {
-                "path": "approval",
-                "name": "engagement-approval",
-                "view": "EngagementView",
-                "meta": {
-                    "title": "Freigabe-Queue",
-                    "breadcrumb": {"label": "Freigabe", "parent": "engagement"},
-                    "tab": "approval",
-                },
-            },
-            # Activities
-            {
-                "path": "activities",
-                "name": "engagement-activities",
-                "view": "EngagementView",
-                "meta": {
-                    "title": "Aktivitäten",
-                    "breadcrumb": {"label": "Aktivitäten", "parent": "engagement"},
-                    "tab": "activities",
-                },
-            },
-            # A/B Tests
-            {
-                "path": "ab-tests",
-                "name": "engagement-ab-tests",
-                "view": "EngagementView",
-                "meta": {
-                    "title": "A/B Tests",
-                    "breadcrumb": {"label": "A/B Tests", "parent": "engagement"},
-                    "tab": "ab-tests",
-                },
-            },
+            # A/B Test edit views — kept (functional pages, not navigated by tab).
             {
                 "path": "ab-tests/new",
                 "name": "engagement-ab-test-new",
                 "view": "ABTestEditView",
                 "meta": {
                     "title": "Neuer A/B Test",
-                    "breadcrumb": {"label": "Neu", "parent": "engagement-ab-tests"},
+                    "breadcrumb": {"label": "Neu", "parent": "engagement-pipelines"},
                 },
             },
             {
@@ -150,51 +147,7 @@ manifest = {
                 "props": True,
                 "meta": {
                     "title": "A/B Test bearbeiten",
-                    "breadcrumb": {"label": "Bearbeiten", "parent": "engagement-ab-tests"},
-                },
-            },
-            # Tracking
-            {
-                "path": "tracking",
-                "name": "engagement-tracking",
-                "view": "EngagementView",
-                "meta": {
-                    "title": "Tracking",
-                    "breadcrumb": {"label": "Tracking", "parent": "engagement"},
-                    "tab": "tracking",
-                },
-            },
-            # Meta Conversions API
-            {
-                "path": "meta",
-                "name": "engagement-meta",
-                "view": "EngagementView",
-                "meta": {
-                    "title": "Meta CAPI",
-                    "breadcrumb": {"label": "Meta", "parent": "engagement"},
-                    "tab": "meta",
-                },
-            },
-            # Custom Audiences
-            {
-                "path": "audiences",
-                "name": "engagement-audiences",
-                "view": "EngagementView",
-                "meta": {
-                    "title": "Audiences",
-                    "breadcrumb": {"label": "Audiences", "parent": "engagement"},
-                    "tab": "audiences",
-                },
-            },
-            # Optimization
-            {
-                "path": "optimization",
-                "name": "engagement-optimization",
-                "view": "EngagementView",
-                "meta": {
-                    "title": "Optimierung",
-                    "breadcrumb": {"label": "Optimierung", "parent": "engagement"},
-                    "tab": "optimization",
+                    "breadcrumb": {"label": "Bearbeiten", "parent": "engagement-pipelines"},
                 },
             },
         ],

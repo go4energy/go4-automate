@@ -3,7 +3,6 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useEngagementStore } from '@/stores/engagement'
 import PageHeader from '@/components/ui/PageHeader.vue'
-import Breadcrumb from '@/components/ui/Breadcrumb.vue'
 import SearchInput from '@/components/ui/SearchInput.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
@@ -15,8 +14,10 @@ const router = useRouter()
 const route = useRoute()
 const store = useEngagementStore()
 
-// Tab state from route
-const activeTab = computed(() => route.meta?.tab || 'dashboard')
+// Master/Detail pattern (Leadgen-style): the engagement entry is the
+// pipeline list. Per-pipeline data (enrollments, actions, activities,
+// AB-tests) lives inside PipelineDetailView. No top-level tabs anymore.
+const activeTab = computed(() => 'pipelines')
 
 const searchQuery = ref('')
 const statusFilter = ref('')
@@ -26,19 +27,9 @@ const showDeleteABTestConfirm = ref(false)
 const abTestToDelete = ref(null)
 const showPixelCodeModal = ref(false)
 
-const tabs = [
-  { key: 'dashboard', label: 'Dashboard', route: '/engagement/dashboard' },
-  { key: 'pipelines', label: 'Pipelines', route: '/engagement/pipelines' },
-  { key: 'enrollments', label: 'Enrollments', route: '/engagement/enrollments' },
-  { key: 'actions', label: 'Aktionen', route: '/engagement/actions' },
-  { key: 'approval', label: 'Freigabe', route: '/engagement/approval' },
-  { key: 'activities', label: 'Aktivitaeten', route: '/engagement/activities' },
-  { key: 'ab-tests', label: 'A/B Tests', route: '/engagement/ab-tests' },
-  { key: 'tracking', label: 'Tracking', route: '/engagement/tracking' },
-  { key: 'meta', label: 'Meta', route: '/engagement/meta' },
-  { key: 'audiences', label: 'Audiences', route: '/engagement/audiences' },
-  { key: 'optimization', label: 'Optimierung', route: '/engagement/optimization' }
-]
+// Empty tabs array — no top-level navigation. Kept for legacy template
+// references; Phase 3 deletes the related blocks entirely.
+const tabs = []
 
 const stageLabels = {
   lead: 'Lead',
@@ -109,7 +100,7 @@ const channelIcons = {
   email: 'M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z',
   phone: 'M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z',
   whatsapp: 'M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z',
-  postmail: 'M20 8l-8 5-8-5V6l8 5 8-5m0-2H4c-1.11 0-2 .89-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2z',
+  letter: 'M20 8l-8 5-8-5V6l8 5 8-5m0-2H4c-1.11 0-2 .89-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2z',
   meeting: 'M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM9 10H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm-8 4H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2z'
 }
 
@@ -347,7 +338,7 @@ function formatChannel(channel) {
     email: 'Email',
     phone: 'Telefon',
     whatsapp: 'WhatsApp',
-    postmail: 'Brief',
+    letter: 'Brief',
     meeting: 'Meeting'
   }
   return labels[channel] || channel
@@ -362,10 +353,11 @@ function formatChannel(channel) {
     />
 
     <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-      <Breadcrumb class="mb-4" />
-
-      <!-- Tabs -->
-      <nav class="-mb-px flex gap-6 border-b border-gray-200 dark:border-gray-700">
+      <!-- Tabs (empty in master/detail mode — sub-tabs live in PipelineDetailView) -->
+      <nav
+        v-if="tabs.length > 0"
+        class="-mb-px flex gap-6 border-b border-gray-200 dark:border-gray-700"
+      >
         <router-link
           v-for="tab in tabs"
           :key="tab.key"

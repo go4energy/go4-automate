@@ -62,6 +62,9 @@ class PipelineService:
         if existing.scalar_one_or_none():
             raise DuplicateError("Pipeline", "slug")
 
+        tracking_cfg = data.tracking_config
+        if hasattr(tracking_cfg, "model_dump"):
+            tracking_cfg = tracking_cfg.model_dump()
         pipeline = EngagementPipeline(
             tenant_id=tenant_id,
             name=data.name,
@@ -75,6 +78,7 @@ class PipelineService:
             tone_of_voice=data.tone_of_voice,
             min_days_between_touches=data.min_days_between_touches,
             auto_actions=data.auto_actions,
+            tracking_config=tracking_cfg or {},
             is_active=data.is_active,
         )
         self.db.add(pipeline)
@@ -252,7 +256,15 @@ class EnrollmentService:
         self.db = db
 
     async def enroll(self, tenant_id: str, data: EnrollmentCreate) -> PipelineEnrollment:
-        """Enroll a contact in a pipeline."""
+        """Enroll a contact in a pipeline.
+
+        Side effect: if the pipeline's tracking_config has
+        ``auto_create_tracking_hash=True`` and the contact has no
+        tracking_hash yet, one is generated here so outgoing letters,
+        emails and links can include a stable identifier.
+        """
+        from app.contacts.utils import generate_tracking_hash
+
         # Check for duplicate enrollment
         existing = await self.db.execute(
             select(PipelineEnrollment).where(
@@ -270,7 +282,8 @@ class EnrollmentService:
                 Contact.tenant_id == tenant_id,
             )
         )
-        if not contact_result.scalar_one_or_none():
+        contact = contact_result.scalar_one_or_none()
+        if not contact:
             raise NotFoundError("Contact", data.contact_id)
 
         # Validate pipeline exists
@@ -280,8 +293,19 @@ class EnrollmentService:
                 EngagementPipeline.tenant_id == tenant_id,
             )
         )
-        if not pipeline_result.scalar_one_or_none():
+        pipeline = pipeline_result.scalar_one_or_none()
+        if not pipeline:
             raise NotFoundError("Pipeline", data.pipeline_id)
+
+        # Auto-create tracking hash if pipeline configured + contact lacks one
+        tracking_cfg = pipeline.tracking_config or {}
+        if tracking_cfg.get("auto_create_tracking_hash") and not contact.tracking_hash:
+            contact.tracking_hash = generate_tracking_hash()
+            logger.info(
+                "Auto-created tracking_hash for contact {cid} via pipeline {pid}",
+                cid=contact.id,
+                pid=pipeline.id,
+            )
 
         enrollment = PipelineEnrollment(
             tenant_id=tenant_id,
