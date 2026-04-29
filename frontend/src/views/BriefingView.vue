@@ -336,7 +336,6 @@ const filteredFindings = () => {
   <div>
     <PageHeader
       title="Briefing"
-      subtitle="Internes Briefing fuer Ihre Zielgruppen"
     >
       <template #actions>
         <router-link
@@ -830,7 +829,6 @@ const filteredFindings = () => {
       <EmptyState
         v-else-if="store.sources.length === 0"
         title="Noch keine Quellen"
-        description="Erstellen Sie eine Briefing-Quelle (RSS, Website, Kalender, etc.)."
       />
 
       <template v-else>
@@ -1105,7 +1103,6 @@ const filteredFindings = () => {
       <EmptyState
         v-else-if="filteredFindings().length === 0"
         title="Keine Findings"
-        description="Erstellen Sie Quellen und fetchen Sie diese, um Findings zu erhalten."
       />
 
       <div
@@ -1203,7 +1200,6 @@ const filteredFindings = () => {
       <EmptyState
         v-else-if="store.channels.length === 0"
         title="Noch keine Channels"
-        description="Erstellen Sie einen Briefing-Channel fuer Ihre erste Zielgruppe."
       />
 
       <template v-else>
@@ -1458,7 +1454,6 @@ const filteredFindings = () => {
         <EmptyState
           v-if="store.speakers.length === 0"
           title="Noch keine Sprecher"
-          description="Laden Sie eine WAV-Datei (6-30s) hoch, um XTTS Voice Cloning zu nutzen."
         />
         <div
           v-else

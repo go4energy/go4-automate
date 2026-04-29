@@ -3,7 +3,6 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useWhatsAppStore } from '@/stores/whatsapp'
 import PageHeader from '@/components/ui/PageHeader.vue'
-import Breadcrumb from '@/components/ui/Breadcrumb.vue'
 
 const props = defineProps({
   id: { type: [String, Number], default: null }
@@ -104,8 +103,6 @@ onUnmounted(() => {
 
 <template>
   <div class="p-6">
-    <Breadcrumb class="mb-4" />
-
     <PageHeader :title="isEdit ? 'Account bearbeiten' : 'Neuer Account'" />
 
     <!-- Loading -->

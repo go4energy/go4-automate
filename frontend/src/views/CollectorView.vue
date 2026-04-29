@@ -368,7 +368,6 @@ function formatDate(dateStr) {
   <div>
     <PageHeader
       title="Collector"
-      subtitle="Quellen scannen, Findings sammeln, Topics generieren"
     >
       <template #actions>
         <button
@@ -569,7 +568,6 @@ function formatDate(dateStr) {
       <EmptyState
         v-if="store.topics.length === 0"
         title="Noch keine Themen vorhanden"
-        description="Starte eine Recherche oder erstelle ein eigenes Thema."
       />
       <template v-else>
         <!-- Toolbar: bulk actions + filter -->
@@ -610,7 +608,6 @@ function formatDate(dateStr) {
         <EmptyState
           v-if="filteredTopics.length === 0"
           title="Keine aktiven Themen"
-          description="Alle Themen wurden abgelehnt. Aktiviere 'Alle anzeigen' um sie zu sehen."
         />
 
         <div
@@ -787,7 +784,6 @@ function formatDate(dateStr) {
               (store.activeGroup?.analysis_prompt_slugs || []).length === 0
           "
           title="Keine Analyse-Prompts"
-          description="Fuege einen Prompt hinzu, um Findings automatisch analysieren zu lassen."
         />
 
         <!-- Prompt cards -->
@@ -884,7 +880,6 @@ function formatDate(dateStr) {
       <EmptyState
         v-if="store.findings.length === 0"
         title="Noch keine Findings vorhanden"
-        description="Starte eine Recherche."
       />
       <template v-else>
         <!-- Toolbar: bulk actions + filter -->
@@ -925,7 +920,6 @@ function formatDate(dateStr) {
         <EmptyState
           v-if="filteredFindings.length === 0"
           title="Keine aktiven Findings"
-          description="Alle Findings wurden verworfen. Aktiviere 'Alle anzeigen' um sie zu sehen."
         />
 
         <div

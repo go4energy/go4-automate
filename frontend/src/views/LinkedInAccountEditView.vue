@@ -148,7 +148,6 @@ function cancel() {
   <div class="min-h-screen bg-go4-bg dark:bg-gray-900">
     <PageHeader
       :title="isEdit ? 'Account bearbeiten' : 'Neuer Account'"
-      subtitle="LinkedIn Sales Navigator Account"
     >
       <template #actions>
         <button
@@ -361,7 +360,13 @@ function cancel() {
               >
                 <div class="rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
                   <ol class="list-decimal list-inside space-y-1 text-xs text-blue-800 dark:text-blue-200">
-                    <li>Oeffne <a href="https://www.linkedin.com" target="_blank" class="underline font-medium">linkedin.com</a> und logge dich ein</li>
+                    <li>
+                      Oeffne <a
+                        href="https://www.linkedin.com"
+                        target="_blank"
+                        class="underline font-medium"
+                      >linkedin.com</a> und logge dich ein
+                    </li>
                     <li>Druecke <kbd class="px-1 py-0.5 rounded bg-blue-100 dark:bg-blue-800 font-mono text-xs">F12</kbd> → Tab <strong>Application</strong> → <strong>Cookies</strong> → linkedin.com</li>
                     <li>Kopiere den Wert von <code class="px-1 py-0.5 rounded bg-blue-100 dark:bg-blue-800 font-mono text-xs">li_at</code></li>
                   </ol>

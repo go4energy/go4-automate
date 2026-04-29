@@ -308,7 +308,6 @@ const logStatusLabels = {
   <div class="min-h-screen bg-go4-bg dark:bg-gray-900">
     <PageHeader
       :title="job?.name || 'Job laden...'"
-      :subtitle="job?.account_name"
     >
       <template #actions>
         <button

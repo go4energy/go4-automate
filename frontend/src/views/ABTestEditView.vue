@@ -3,7 +3,6 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useEngagementStore } from '@/stores/engagement'
 import PageHeader from '@/components/ui/PageHeader.vue'
-import Breadcrumb from '@/components/ui/Breadcrumb.vue'
 
 const props = defineProps({
   id: { type: [String, Number], default: null }
@@ -163,12 +162,9 @@ function cancel() {
   <div class="min-h-screen bg-go4-bg dark:bg-gray-900">
     <PageHeader
       :title="isEdit ? 'A/B Test bearbeiten' : 'Neuer A/B Test'"
-      subtitle="Teste verschiedene Varianten um die beste Performance zu finden"
     />
 
     <div class="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
-      <Breadcrumb class="mb-6" />
-
       <div
         v-if="loading"
         class="flex items-center justify-center py-12"

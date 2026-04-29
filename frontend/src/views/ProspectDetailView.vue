@@ -257,7 +257,6 @@ function formatDate(dateStr) {
     <template v-else-if="prospect">
       <PageHeader
         :title="prospect.name"
-        :subtitle="prospect.position || 'Prospect'"
       >
         <template #actions>
           <button

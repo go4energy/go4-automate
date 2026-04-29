@@ -145,7 +145,6 @@ onMounted(() => {
   <div class="p-6">
     <PageHeader
       :title="isNew ? 'Neue Sequenz' : 'Sequenz bearbeiten'"
-      description="E-Mail-Sequenz konfigurieren"
     >
       <template #actions>
         <button

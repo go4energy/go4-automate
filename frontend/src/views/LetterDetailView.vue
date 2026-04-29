@@ -178,7 +178,6 @@ onMounted(() => {
     <template v-else-if="letter">
       <PageHeader
         :title="letter.recipient_name"
-        :description="letter.recipient_company || 'Brief-Details'"
       >
         <template #actions>
           <button

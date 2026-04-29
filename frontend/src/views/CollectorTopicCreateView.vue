@@ -89,7 +89,6 @@ async function handleSubmit() {
   <div class="mx-auto max-w-2xl">
     <PageHeader
       title="Eigenes Thema erstellen"
-      subtitle="Beschreibe ein Thema und generiere sofort Content daraus."
     />
 
     <div

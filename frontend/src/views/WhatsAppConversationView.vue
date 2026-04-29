@@ -3,7 +3,6 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useWhatsAppStore } from '@/stores/whatsapp'
 import PageHeader from '@/components/ui/PageHeader.vue'
-import Breadcrumb from '@/components/ui/Breadcrumb.vue'
 
 const props = defineProps({
   id: { type: [String, Number], required: true }
@@ -139,8 +138,6 @@ onUnmounted(() => {
 
 <template>
   <div class="h-full flex flex-col">
-    <Breadcrumb class="px-6 pt-4" />
-
     <!-- Loading -->
     <div
       v-if="loading"

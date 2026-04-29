@@ -349,7 +349,6 @@ function formatChannel(channel) {
   <div class="min-h-screen bg-go4-bg dark:bg-gray-900">
     <PageHeader
       title="Engagement"
-      subtitle="Multi-Channel KI-gesteuertes Engagement"
     />
 
     <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
@@ -612,7 +611,6 @@ function formatChannel(channel) {
         <EmptyState
           v-if="filteredPipelines.length === 0"
           title="Keine Pipelines"
-          description="Erstelle deine erste Engagement-Pipeline."
         >
           <button
             class="mt-4 rounded-lg bg-go4-primary px-4 py-2 text-sm text-white hover:bg-go4-primary-dark"
@@ -778,7 +776,6 @@ function formatChannel(channel) {
         <EmptyState
           v-if="filteredEnrollments.length === 0"
           title="Keine Enrollments"
-          description="Noch keine Kontakte in Pipelines eingeschrieben."
         />
 
         <div
@@ -884,7 +881,6 @@ function formatChannel(channel) {
         <EmptyState
           v-if="filteredActions.length === 0"
           title="Keine Aktionen"
-          description="Keine ausstehenden Aktionen vorhanden."
         />
 
         <div
@@ -956,7 +952,6 @@ function formatChannel(channel) {
         <EmptyState
           v-if="store.approvalQueue.length === 0"
           title="Keine Freigaben"
-          description="Keine Aktionen warten auf Freigabe."
         />
 
         <div
@@ -1019,7 +1014,6 @@ function formatChannel(channel) {
         <EmptyState
           v-if="store.recentActivities.length === 0"
           title="Keine Aktivitaeten"
-          description="Noch keine Aktivitaeten aufgezeichnet."
         />
 
         <div
@@ -1135,7 +1129,6 @@ function formatChannel(channel) {
         <EmptyState
           v-if="filteredABTests.length === 0"
           title="Keine A/B Tests"
-          description="Erstelle deinen ersten A/B Test um verschiedene Varianten zu vergleichen."
         >
           <button
             class="mt-4 rounded-lg bg-go4-primary px-4 py-2 text-sm text-white hover:bg-go4-primary-dark"

@@ -33,7 +33,6 @@ onMounted(() => {
   <div>
     <PageHeader
       title="Dashboard"
-      subtitle="Marketing Automation Platform"
     />
 
     <!-- Stats Row -->

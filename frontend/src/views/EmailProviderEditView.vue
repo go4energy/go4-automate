@@ -103,7 +103,6 @@ onMounted(() => {
   <div class="p-6">
     <PageHeader
       :title="isNew ? 'Neuer Provider' : 'Provider bearbeiten'"
-      description="E-Mail-Provider konfigurieren"
     >
       <template #actions>
         <button

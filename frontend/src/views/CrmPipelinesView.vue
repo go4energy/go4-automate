@@ -93,7 +93,6 @@ async function toggleExpand(pipeline) {
   <div>
     <PageHeader
       title="Pipelines"
-      subtitle="Sales Pipelines und Stages verwalten"
     >
       <template #actions>
         <button

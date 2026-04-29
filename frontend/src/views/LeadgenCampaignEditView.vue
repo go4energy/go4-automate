@@ -358,7 +358,7 @@ function cancel() {
             maxlength="200"
             class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700"
             @blur="autoSlug"
-          />
+          >
         </div>
         <div>
           <label class="block text-sm font-medium mb-1">Slug</label>
@@ -370,7 +370,7 @@ function cancel() {
             pattern="^[a-z0-9-]+$"
             :disabled="isEdit"
             class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-mono disabled:opacity-60 dark:border-gray-600 dark:bg-gray-700"
-          />
+          >
         </div>
       </div>
       <div>
@@ -392,7 +392,9 @@ function cancel() {
       <div class="rounded-lg bg-blue-50 dark:bg-blue-900/30 p-4 space-y-3">
         <div class="flex items-start justify-between gap-4">
           <div class="text-sm text-gray-700 dark:text-gray-200">
-            <div class="font-medium">🤖 Wizard mit KI befüllen</div>
+            <div class="font-medium">
+              🤖 Wizard mit KI befüllen
+            </div>
             <div class="text-xs text-gray-600 dark:text-gray-400">
               Claude Haiku schlägt Name, Suchparameter, Geografie, Pipeline-Modus und Ziel-Profil aus deiner Beschreibung vor.
             </div>
@@ -406,10 +408,16 @@ function cancel() {
             {{ intake.loading ? 'KI denkt…' : '🤖 Vorschlag erzeugen' }}
           </button>
         </div>
-        <div v-if="intake.error" class="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/40 dark:text-red-200">
+        <div
+          v-if="intake.error"
+          class="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/40 dark:text-red-200"
+        >
           {{ intake.error }}
         </div>
-        <div v-if="intake.result" class="rounded-lg bg-white dark:bg-gray-800 p-3 text-xs space-y-1 border border-blue-200 dark:border-blue-800">
+        <div
+          v-if="intake.result"
+          class="rounded-lg bg-white dark:bg-gray-800 p-3 text-xs space-y-1 border border-blue-200 dark:border-blue-800"
+        >
           <div><strong>Begründung:</strong> {{ intake.result.reasoning }}</div>
           <div>
             <strong>Schätzung:</strong>
@@ -463,8 +471,13 @@ function cancel() {
       </div>
 
       <!-- Step 1: Datenquelle -->
-      <div v-if="wizardStep === 1" class="space-y-3">
-        <h3 class="text-lg font-semibold">Datenquelle</h3>
+      <div
+        v-if="wizardStep === 1"
+        class="space-y-3"
+      >
+        <h3 class="text-lg font-semibold">
+          Datenquelle
+        </h3>
         <p class="text-sm text-gray-600 dark:text-gray-400">
           Wähle die Quelle für die Firmensuche.
         </p>
@@ -474,7 +487,7 @@ function cancel() {
             type="radio"
             value="google_places"
             class="mt-1"
-          />
+          >
           <div>
             <div class="font-medium">Google Places (Maps)</div>
             <div class="text-sm text-gray-600 dark:text-gray-400">
@@ -486,8 +499,13 @@ function cancel() {
       </div>
 
       <!-- Step 2: Suchmethode -->
-      <div v-if="wizardStep === 2" class="space-y-3">
-        <h3 class="text-lg font-semibold">Suchmethode</h3>
+      <div
+        v-if="wizardStep === 2"
+        class="space-y-3"
+      >
+        <h3 class="text-lg font-semibold">
+          Suchmethode
+        </h3>
         <p class="text-sm text-gray-600 dark:text-gray-400">
           Wie soll gesucht werden? Mindestens eine Methode auswählen.
         </p>
@@ -496,7 +514,7 @@ function cancel() {
             v-model="form.source_config.search_modes.nearby"
             type="checkbox"
             class="mt-1"
-          />
+          >
           <div>
             <div class="font-medium">Kategorie-Suche (Google Place Types)</div>
             <div class="text-sm text-gray-600 dark:text-gray-400">
@@ -509,7 +527,7 @@ function cancel() {
             v-model="form.source_config.search_modes.text"
             type="checkbox"
             class="mt-1"
-          />
+          >
           <div>
             <div class="font-medium">Freitext-Suche (Synonyme)</div>
             <div class="text-sm text-gray-600 dark:text-gray-400">
@@ -520,14 +538,22 @@ function cancel() {
       </div>
 
       <!-- Step 3: Suchparameter prüfen -->
-      <div v-if="wizardStep === 3" class="space-y-3">
-        <h3 class="text-lg font-semibold">Suchparameter prüfen</h3>
+      <div
+        v-if="wizardStep === 3"
+        class="space-y-3"
+      >
+        <h3 class="text-lg font-semibold">
+          Suchparameter prüfen
+        </h3>
         <p class="text-sm text-gray-600 dark:text-gray-400">
           Wenn du den KI-Vorschlag oben genutzt hast, sind Typen und Synonyme schon gefüllt.
           Du kannst hier noch ergänzen, entfernen oder austauschen.
         </p>
 
-        <div v-if="intake.result" class="rounded-lg bg-blue-50 dark:bg-blue-900/30 p-3 text-xs space-y-1">
+        <div
+          v-if="intake.result"
+          class="rounded-lg bg-blue-50 dark:bg-blue-900/30 p-3 text-xs space-y-1"
+        >
           <div><strong>KI-Begründung:</strong> {{ intake.result.reasoning }}</div>
           <div>
             <strong>Erwartet:</strong>
@@ -553,14 +579,25 @@ function cancel() {
                 @click="removeType(t)"
               >×</button>
             </span>
-            <span v-if="!form.source_config.nearby_types.length" class="text-xs text-gray-500">keine gewählt</span>
+            <span
+              v-if="!form.source_config.nearby_types.length"
+              class="text-xs text-gray-500"
+            >keine gewählt</span>
           </div>
           <select
             class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700"
             @change="(e) => { addType(e.target.value); e.target.value = '' }"
           >
-            <option value="">+ Type hinzufügen</option>
-            <option v-for="t in supportedTypes" :key="t" :value="t">{{ t }}</option>
+            <option value="">
+              + Type hinzufügen
+            </option>
+            <option
+              v-for="t in supportedTypes"
+              :key="t"
+              :value="t"
+            >
+              {{ t }}
+            </option>
           </select>
         </div>
 
@@ -580,7 +617,10 @@ function cancel() {
                 @click="removeSynonym(s)"
               >×</button>
             </span>
-            <span v-if="!form.source_config.text_synonyms.length" class="text-xs text-gray-500">keine gewählt</span>
+            <span
+              v-if="!form.source_config.text_synonyms.length"
+              class="text-xs text-gray-500"
+            >keine gewählt</span>
           </div>
           <div class="flex gap-2">
             <input
@@ -589,28 +629,43 @@ function cancel() {
               placeholder="z.B. Elektroinstallation"
               class="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700"
               @keyup.enter="addSynonym"
-            />
+            >
             <button
               type="button"
               class="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700"
               @click="addSynonym"
-            >+</button>
+            >
+              +
+            </button>
           </div>
         </div>
       </div>
 
       <!-- Step 4: Geografie -->
-      <div v-if="wizardStep === 4" class="space-y-3">
-        <h3 class="text-lg font-semibold">Geografischer Bereich</h3>
+      <div
+        v-if="wizardStep === 4"
+        class="space-y-3"
+      >
+        <h3 class="text-lg font-semibold">
+          Geografischer Bereich
+        </h3>
         <label class="flex gap-3 rounded-lg border border-gray-300 p-3 cursor-pointer dark:border-gray-600">
-          <input v-model="form.source_config.geographic.mode" type="radio" value="germany" />
+          <input
+            v-model="form.source_config.geographic.mode"
+            type="radio"
+            value="germany"
+          >
           <div>
             <div class="font-medium">Deutschland komplett</div>
             <div class="text-sm text-gray-600 dark:text-gray-400">Adaptive Kacheln — 800-1500 Calls.</div>
           </div>
         </label>
         <label class="flex gap-3 rounded-lg border border-gray-300 p-3 cursor-pointer dark:border-gray-600">
-          <input v-model="form.source_config.geographic.mode" type="radio" value="bundesland" />
+          <input
+            v-model="form.source_config.geographic.mode"
+            type="radio"
+            value="bundesland"
+          >
           <div class="flex-1">
             <div class="font-medium">Ein Bundesland</div>
             <select
@@ -619,29 +674,40 @@ function cancel() {
               class="mt-2 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700"
             >
               <option :value="null">— wählen —</option>
-              <option v-for="[key, label] in bundeslaender" :key="key" :value="key">{{ label }}</option>
+              <option
+                v-for="[key, label] in bundeslaender"
+                :key="key"
+                :value="key"
+              >{{ label }}</option>
             </select>
           </div>
         </label>
         <label class="flex gap-3 rounded-lg border border-gray-300 p-3 cursor-pointer dark:border-gray-600">
-          <input v-model="form.source_config.geographic.mode" type="radio" value="circle" />
+          <input
+            v-model="form.source_config.geographic.mode"
+            type="radio"
+            value="circle"
+          >
           <div class="flex-1">
             <div class="font-medium">Umkreis um Koordinaten</div>
-            <div v-if="form.source_config.geographic.mode === 'circle'" class="mt-2 grid grid-cols-3 gap-2">
+            <div
+              v-if="form.source_config.geographic.mode === 'circle'"
+              class="mt-2 grid grid-cols-3 gap-2"
+            >
               <input
                 v-model.number="form.source_config.geographic.center_lat"
                 type="number"
                 step="0.0001"
                 placeholder="Breitengrad"
                 class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700"
-              />
+              >
               <input
                 v-model.number="form.source_config.geographic.center_lng"
                 type="number"
                 step="0.0001"
                 placeholder="Längengrad"
                 class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700"
-              />
+              >
               <input
                 v-model.number="form.source_config.geographic.radius_km"
                 type="number"
@@ -649,15 +715,20 @@ function cancel() {
                 max="500"
                 placeholder="Radius km"
                 class="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700"
-              />
+              >
             </div>
           </div>
         </label>
       </div>
 
       <!-- Step 5: Budget + Pipeline -->
-      <div v-if="wizardStep === 5" class="space-y-4">
-        <h3 class="text-lg font-semibold">Budget und Engagement-Pipeline</h3>
+      <div
+        v-if="wizardStep === 5"
+        class="space-y-4"
+      >
+        <h3 class="text-lg font-semibold">
+          Budget und Engagement-Pipeline
+        </h3>
         <div>
           <label class="block text-sm font-medium mb-1">
             Max. API-Calls (Hard-Limit)
@@ -668,7 +739,7 @@ function cancel() {
             min="1"
             max="100000"
             class="w-40 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700"
-          />
+          >
           <p class="mt-1 text-xs text-gray-500">
             Bei Überschreitung wird der Run pausiert.
           </p>
@@ -683,13 +754,15 @@ function cancel() {
             min="1"
             max="100"
             class="w-full"
-          />
+          >
           <p class="mt-1 text-xs text-gray-500">
             Klein = gründlicher, teurer. Groß = günstiger, verliert Detail in Ballungsräumen.
           </p>
         </div>
         <div class="rounded-lg bg-gray-50 dark:bg-gray-900/50 p-4 text-sm">
-          <div class="font-medium">Kosten-Obergrenze</div>
+          <div class="font-medium">
+            Kosten-Obergrenze
+          </div>
           <div class="mt-1 text-gray-600 dark:text-gray-400">
             Max. {{ costPreview.calls }} Calls × $0.032 ≈ <strong>${{ costPreview.usd }}</strong>
           </div>
@@ -700,8 +773,14 @@ function cancel() {
             v-model="form.target_engagement_pipeline_id"
             class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700"
           >
-            <option :value="null">— keine —</option>
-            <option v-for="p in engagement.pipelines" :key="p.id" :value="p.id">
+            <option :value="null">
+              — keine —
+            </option>
+            <option
+              v-for="p in engagement.pipelines"
+              :key="p.id"
+              :value="p.id"
+            >
               {{ p.name }} ({{ p.slug }})
             </option>
           </select>
@@ -709,21 +788,34 @@ function cancel() {
             v-if="!isEdit && !form.target_engagement_pipeline_id"
             class="mt-2 flex items-center gap-2 text-sm"
           >
-            <input v-model="form.create_new_pipeline" type="checkbox" />
-            Neue Engagement-Pipeline automatisch anlegen (channels=postmail,email)
+            <input
+              v-model="form.create_new_pipeline"
+              type="checkbox"
+            >
+            Neue Engagement-Pipeline automatisch anlegen (channels=letter,email)
           </label>
         </div>
       </div>
 
       <!-- Step 6: LLM-Analyse / Zielprofil -->
-      <div v-if="wizardStep === 6" class="space-y-4">
-        <h3 class="text-lg font-semibold">Anreicherungs-Pipeline</h3>
+      <div
+        v-if="wizardStep === 6"
+        class="space-y-4"
+      >
+        <h3 class="text-lg font-semibold">
+          Anreicherungs-Pipeline
+        </h3>
 
         <div class="space-y-2">
           <label class="block text-sm font-medium">Pipeline-Modus</label>
           <div class="space-y-2">
             <label class="flex items-start gap-2 rounded-lg border border-gray-200 p-3 cursor-pointer dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-              <input v-model="form.source_config.pipeline_mode" type="radio" value="smart" class="mt-1" />
+              <input
+                v-model="form.source_config.pipeline_mode"
+                type="radio"
+                value="smart"
+                class="mt-1"
+              >
               <span>
                 <span class="font-medium">Smart (empfohlen)</span>
                 <span class="block text-xs text-gray-500">
@@ -733,7 +825,12 @@ function cancel() {
               </span>
             </label>
             <label class="flex items-start gap-2 rounded-lg border border-gray-200 p-3 cursor-pointer dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-              <input v-model="form.source_config.pipeline_mode" type="radio" value="cheap" class="mt-1" />
+              <input
+                v-model="form.source_config.pipeline_mode"
+                type="radio"
+                value="cheap"
+                class="mt-1"
+              >
               <span>
                 <span class="font-medium">Spar-Modus</span>
                 <span class="block text-xs text-gray-500">
@@ -743,7 +840,12 @@ function cancel() {
               </span>
             </label>
             <label class="flex items-start gap-2 rounded-lg border border-gray-200 p-3 cursor-pointer dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-              <input v-model="form.source_config.pipeline_mode" type="radio" value="legacy" class="mt-1" />
+              <input
+                v-model="form.source_config.pipeline_mode"
+                type="radio"
+                value="legacy"
+                class="mt-1"
+              >
               <span>
                 <span class="font-medium">Doppelt</span>
                 <span class="block text-xs text-gray-500">
@@ -755,9 +857,11 @@ function cancel() {
           </div>
         </div>
 
-        <hr class="border-gray-200 dark:border-gray-700" />
+        <hr class="border-gray-200 dark:border-gray-700">
 
-        <h4 class="text-md font-semibold">LLM-Konfiguration</h4>
+        <h4 class="text-md font-semibold">
+          LLM-Konfiguration
+        </h4>
         <p class="text-xs text-gray-500">
           Nur relevant wenn der Modus LLM einbezieht (Smart oder Doppelt).
           Beschreibe dein Beuteschema und was im Output stehen soll.
@@ -798,8 +902,12 @@ function cancel() {
             v-model="form.source_config.llm.model"
             class="w-64 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700"
           >
-            <option value="claude-haiku-4-5">Claude Haiku 4.5 (Cloud, ~3¢/Place)</option>
-            <option value="qwen3:32b">Qwen 3 32B (lokal, kostenfrei)</option>
+            <option value="claude-haiku-4-5">
+              Claude Haiku 4.5 (Cloud, ~3¢/Place)
+            </option>
+            <option value="qwen3:32b">
+              Qwen 3 32B (lokal, kostenfrei)
+            </option>
           </select>
           <p class="mt-1 text-xs text-gray-500">
             Haiku ist schneller, Qwen 3 läuft lokal auf der DGX und kostet nichts.
@@ -816,7 +924,7 @@ function cancel() {
               min="1"
               max="100000"
               class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700"
-            />
+            >
           </div>
           <div>
             <label class="block text-sm font-medium mb-1">
@@ -828,7 +936,7 @@ function cancel() {
               min="1"
               max="20"
               class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700"
-            />
+            >
           </div>
         </div>
         <details class="rounded-lg border border-gray-200 dark:border-gray-600 p-3">
@@ -846,7 +954,9 @@ function cancel() {
           </p>
         </details>
         <div class="rounded-lg bg-gray-50 dark:bg-gray-900/50 p-4 text-sm">
-          <div class="font-medium">Kosten-Schätzung</div>
+          <div class="font-medium">
+            Kosten-Schätzung
+          </div>
           <div class="mt-1 text-gray-600 dark:text-gray-400">
             Haiku: ca. $0.003/Place × {{ form.source_config.llm.max_places_per_run }} =
             <strong>~${{ (form.source_config.llm.max_places_per_run * 0.003).toFixed(2) }}</strong>
@@ -861,21 +971,27 @@ function cancel() {
           :disabled="wizardStep === 1"
           class="rounded-lg border border-gray-300 px-4 py-2 text-sm disabled:opacity-40 hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700"
           @click="goPrev"
-        >← Zurück</button>
+        >
+          ← Zurück
+        </button>
         <span class="text-sm text-gray-500">Schritt {{ wizardStep }} von 6</span>
         <button
           v-if="wizardStep < 6"
           type="button"
           class="rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white"
           @click="goNext"
-        >Weiter →</button>
+        >
+          Weiter →
+        </button>
         <button
           v-else
           type="button"
           :disabled="saving || !canStartRun"
           class="rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
           @click="save"
-        >{{ saving ? 'Speichere…' : isEdit ? 'Speichern' : 'Anlegen' }}</button>
+        >
+          {{ saving ? 'Speichere…' : isEdit ? 'Speichern' : 'Anlegen' }}
+        </button>
       </div>
     </section>
 
@@ -890,11 +1006,17 @@ function cancel() {
       </h3>
       <div class="grid grid-cols-2 gap-4">
         <label class="flex items-center gap-2 text-sm">
-          <input v-model="form.source_config.search_modes.nearby" type="checkbox" />
+          <input
+            v-model="form.source_config.search_modes.nearby"
+            type="checkbox"
+          >
           Kategorie-Suche aktivieren
         </label>
         <label class="flex items-center gap-2 text-sm">
-          <input v-model="form.source_config.search_modes.text" type="checkbox" />
+          <input
+            v-model="form.source_config.search_modes.text"
+            type="checkbox"
+          >
           Freitext-Suche aktivieren
         </label>
       </div>
@@ -902,21 +1024,21 @@ function cancel() {
         <label class="block text-sm font-medium mb-1">Google Place Types (kommasepariert)</label>
         <input
           :value="form.source_config.nearby_types.join(', ')"
-          @change="(e) => form.source_config.nearby_types = e.target.value.split(',').map(s => s.trim()).filter(Boolean)"
           type="text"
           placeholder="electrician, plumber"
           class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-mono dark:border-gray-600 dark:bg-gray-700"
-        />
+          @change="(e) => form.source_config.nearby_types = e.target.value.split(',').map(s => s.trim()).filter(Boolean)"
+        >
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">Freitext-Synonyme (kommasepariert)</label>
         <input
           :value="form.source_config.text_synonyms.join(', ')"
-          @change="(e) => form.source_config.text_synonyms = e.target.value.split(',').map(s => s.trim()).filter(Boolean)"
           type="text"
           placeholder="Elektroinstallation, Elektrotechnik"
           class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-mono dark:border-gray-600 dark:bg-gray-700"
-        />
+          @change="(e) => form.source_config.text_synonyms = e.target.value.split(',').map(s => s.trim()).filter(Boolean)"
+        >
       </div>
       <div class="grid grid-cols-4 gap-3">
         <div>
@@ -925,11 +1047,21 @@ function cancel() {
             v-model="form.source_config.geographic.mode"
             class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700"
           >
-            <option value="germany">Deutschland</option>
-            <option value="bundesland">Bundesland</option>
-            <option value="circle">Umkreis</option>
-            <option value="austria">Österreich</option>
-            <option value="switzerland">Schweiz</option>
+            <option value="germany">
+              Deutschland
+            </option>
+            <option value="bundesland">
+              Bundesland
+            </option>
+            <option value="circle">
+              Umkreis
+            </option>
+            <option value="austria">
+              Österreich
+            </option>
+            <option value="switzerland">
+              Schweiz
+            </option>
           </select>
         </div>
         <div>
@@ -939,7 +1071,7 @@ function cancel() {
             type="number"
             min="1"
             class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700"
-          />
+          >
         </div>
         <div>
           <label class="block text-sm font-medium mb-1">Min. Tile km</label>
@@ -949,7 +1081,7 @@ function cancel() {
             min="1"
             max="200"
             class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700"
-          />
+          >
         </div>
         <div>
           <label class="block text-sm font-medium mb-1">Match-Schwelle</label>
@@ -959,7 +1091,7 @@ function cancel() {
             min="0"
             max="10"
             class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700"
-          />
+          >
         </div>
       </div>
 
@@ -972,9 +1104,15 @@ function cancel() {
           v-model="form.source_config.pipeline_mode"
           class="w-64 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700"
         >
-          <option value="smart">Smart (Places → LLM, empfohlen)</option>
-          <option value="cheap">Spar-Modus (Places → Regex-Impressum)</option>
-          <option value="legacy">Doppelt (Places → Regex → LLM)</option>
+          <option value="smart">
+            Smart (Places → LLM, empfohlen)
+          </option>
+          <option value="cheap">
+            Spar-Modus (Places → Regex-Impressum)
+          </option>
+          <option value="legacy">
+            Doppelt (Places → Regex → LLM)
+          </option>
         </select>
       </div>
       <div>
@@ -1012,8 +1150,12 @@ function cancel() {
             v-model="form.source_config.llm.model"
             class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700"
           >
-            <option value="claude-haiku-4-5">Haiku 4.5 (Cloud)</option>
-            <option value="qwen3:32b">Qwen 3 32B (lokal)</option>
+            <option value="claude-haiku-4-5">
+              Haiku 4.5 (Cloud)
+            </option>
+            <option value="qwen3:32b">
+              Qwen 3 32B (lokal)
+            </option>
           </select>
         </div>
         <div>
@@ -1024,7 +1166,7 @@ function cancel() {
             min="1"
             max="100000"
             class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700"
-          />
+          >
         </div>
         <div>
           <label class="block text-sm font-medium mb-1">Parallele Requests</label>
@@ -1034,7 +1176,7 @@ function cancel() {
             min="1"
             max="20"
             class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700"
-          />
+          >
         </div>
       </div>
       <details class="rounded-lg border border-gray-200 dark:border-gray-600 p-3">
@@ -1062,8 +1204,14 @@ function cancel() {
           v-model="form.target_engagement_pipeline_id"
           class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700"
         >
-          <option :value="null">— keine —</option>
-          <option v-for="p in engagement.pipelines" :key="p.id" :value="p.id">
+          <option :value="null">
+            — keine —
+          </option>
+          <option
+            v-for="p in engagement.pipelines"
+            :key="p.id"
+            :value="p.id"
+          >
             {{ p.name }} ({{ p.slug }})
           </option>
         </select>
@@ -1071,12 +1219,18 @@ function cancel() {
           v-if="!isEdit && !form.target_engagement_pipeline_id"
           class="mt-2 flex items-center gap-2 text-sm"
         >
-          <input v-model="form.create_new_pipeline" type="checkbox" />
+          <input
+            v-model="form.create_new_pipeline"
+            type="checkbox"
+          >
           Neue Engagement-Pipeline automatisch anlegen
         </label>
       </div>
 
-      <div v-if="localError" class="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+      <div
+        v-if="localError"
+        class="rounded-lg bg-red-50 p-3 text-sm text-red-700"
+      >
         {{ localError }}
       </div>
 
@@ -1099,11 +1253,17 @@ function cancel() {
     </form>
 
     <!-- Error banner for wizard -->
-    <div v-if="localError && mode === 'wizard'" class="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+    <div
+      v-if="localError && mode === 'wizard'"
+      class="rounded-lg bg-red-50 p-3 text-sm text-red-700"
+    >
       {{ localError }}
     </div>
 
-    <div v-if="mode === 'wizard'" class="flex justify-end">
+    <div
+      v-if="mode === 'wizard'"
+      class="flex justify-end"
+    >
       <button
         type="button"
         class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700"

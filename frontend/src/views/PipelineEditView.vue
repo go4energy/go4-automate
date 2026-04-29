@@ -227,7 +227,6 @@ function cancel() {
   <div class="flex flex-1 flex-col overflow-hidden">
     <PageHeader
       :title="isEdit ? 'Pipeline bearbeiten' : 'Neue Pipeline'"
-      :subtitle="isEdit ? formData.name : 'Engagement-Pipeline erstellen'"
     >
       <template #actions>
         <button

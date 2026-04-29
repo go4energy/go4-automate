@@ -44,7 +44,6 @@ onMounted(() => {
   <div>
     <PageHeader
       title="CRM"
-      :subtitle="`${store.totalContacts} Kontakte gesamt`"
     />
 
     <!-- Filter -->

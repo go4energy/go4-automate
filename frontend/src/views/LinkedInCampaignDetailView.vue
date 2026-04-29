@@ -3,7 +3,6 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useLinkedInStore } from '@/stores/linkedin'
 import PageHeader from '@/components/ui/PageHeader.vue'
-import Breadcrumb from '@/components/ui/Breadcrumb.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import SearchInput from '@/components/ui/SearchInput.vue'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
@@ -174,7 +173,6 @@ function openContact(lead) {
   <div class="min-h-screen bg-go4-bg dark:bg-gray-900">
     <PageHeader
       :title="campaign?.name || 'Kampagne'"
-      :subtitle="campaign?.description || 'Kampagnen-Details'"
     >
       <template #actions>
         <button
@@ -236,8 +234,6 @@ function openContact(lead) {
     </PageHeader>
 
     <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-      <Breadcrumb class="mb-6" />
-
       <div
         v-if="store.loading"
         class="py-12 text-center text-go4-muted"
@@ -438,7 +434,6 @@ function openContact(lead) {
           <EmptyState
             v-if="filteredLeads.length === 0"
             title="Keine Leads"
-            description="Fuege Kontakte zu dieser Kampagne hinzu."
             class="py-8"
           >
             <button
@@ -578,7 +573,6 @@ function openContact(lead) {
           <EmptyState
             v-if="availableContacts.length === 0"
             title="Keine verfuegbaren Kontakte"
-            description="Alle Kontakte sind bereits in dieser Kampagne."
           />
 
           <div

@@ -175,7 +175,6 @@ onMounted(() => {
   <div class="p-6">
     <PageHeader
       title="E-Mail Marketing"
-      description="Kampagnen, Sequenzen und Vorlagen verwalten"
     >
       <template #actions>
         <button
@@ -307,7 +306,6 @@ onMounted(() => {
       <EmptyState
         v-if="store.campaigns.length === 0"
         title="Keine Kampagnen"
-        description="Erstellen Sie Ihre erste E-Mail-Kampagne."
         action-text="Kampagne erstellen"
         @action="createCampaign"
       />
@@ -427,7 +425,6 @@ onMounted(() => {
       <EmptyState
         v-if="store.templates.length === 0"
         title="Keine Vorlagen"
-        description="Erstellen Sie wiederverwendbare E-Mail-Vorlagen."
         action-text="Vorlage erstellen"
         @action="createTemplate"
       />
@@ -490,7 +487,6 @@ onMounted(() => {
       <EmptyState
         v-if="store.sequences.length === 0"
         title="Keine Sequenzen"
-        description="Erstellen Sie automatisierte E-Mail-Sequenzen."
         action-text="Sequenz erstellen"
         @action="createSequence"
       />
@@ -604,7 +600,6 @@ onMounted(() => {
       <EmptyState
         v-if="store.providers.length === 0"
         title="Keine Provider"
-        description="Fügen Sie einen E-Mail-Provider hinzu (SendGrid, Mailgun, Office 365)."
         action-text="Provider hinzufügen"
         @action="createProvider"
       />
@@ -754,7 +749,6 @@ onMounted(() => {
       <EmptyState
         v-else-if="store.engagementActions.length === 0"
         title="Keine Aktionen"
-        description="Es gibt keine ausstehenden E-Mail-Aktionen vom Engagement Brain."
         icon="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
       />
 

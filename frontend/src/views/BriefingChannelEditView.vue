@@ -96,7 +96,6 @@ async function handleSubmit() {
   <div>
     <PageHeader
       :title="isEdit ? 'Channel bearbeiten' : 'Neuer Channel'"
-      :subtitle="isEdit ? form.name : 'Briefing-Channel erstellen'"
     />
 
     <!-- Error -->

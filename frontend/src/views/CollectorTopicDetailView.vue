@@ -181,7 +181,6 @@ async function handleReanalyze() {
       <!-- 1. Header -->
       <PageHeader
         :title="topic.title"
-        subtitle="Thema-Detail"
       >
         <template #actions>
           <button

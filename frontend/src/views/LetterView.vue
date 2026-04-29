@@ -3,7 +3,6 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useLetterStore } from '@/stores/letter'
 import PageHeader from '@/components/ui/PageHeader.vue'
-import Breadcrumb from '@/components/ui/Breadcrumb.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import PipelineCampaignsList from '@/components/engagement/PipelineCampaignsList.vue'
 
@@ -434,11 +433,8 @@ watch(activeTab, () => {
 
 <template>
   <div class="space-y-6">
-    <Breadcrumb class="mb-4" />
-
     <PageHeader
       title="Post-Mail"
-      description="Physische Briefe als Engagement-Kanal"
     >
       <template #actions>
         <button
@@ -619,7 +615,6 @@ watch(activeTab, () => {
       >
         <EmptyState
           title="Keine Briefe"
-          description="Erstellen Sie Ihren ersten Brief."
           action-label="Brief erstellen"
           @action="showCreateLetterModal = true"
         />
@@ -889,7 +884,6 @@ watch(activeTab, () => {
       >
         <EmptyState
           title="Keine Templates"
-          description="Erstellen Sie Ihr erstes Brief-Template."
           action-label="Template erstellen"
           @action="showCreateTemplateModal = true"
         />
@@ -972,7 +966,6 @@ watch(activeTab, () => {
       >
         <EmptyState
           title="Keine Batches"
-          description="Wählen Sie genehmigte Briefe aus und erstellen Sie einen Batch."
         />
       </div>
       <div

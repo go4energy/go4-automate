@@ -1,7 +1,8 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useLeadgenStore } from '@/stores/leadgen'
+import { getPlaceNeighbors } from '@/api/leadgen'
 import PageHeader from '@/components/ui/PageHeader.vue'
 
 const props = defineProps({
@@ -13,16 +14,96 @@ const router = useRouter()
 const store = useLeadgenStore()
 
 const placeId = computed(() => props.id || route.params.id)
+
+// Reject UX: lives in the overflow menu so it's reachable but not prominent.
 const showRejectForm = ref(false)
 const rejectReason = ref('')
 const working = ref(false)
 const localError = ref(null)
 
+// Overflow (3-dot) menu for low-frequency actions like Ablehnen.
+const overflowOpen = ref(false)
+function toggleOverflow() {
+  overflowOpen.value = !overflowOpen.value
+}
+function closeOverflow() {
+  overflowOpen.value = false
+}
+function openRejectFromOverflow() {
+  closeOverflow()
+  showRejectForm.value = true
+}
+
+// Forward / backward navigation. The arrows respect the same sort+filter the
+// operator used in the campaign-list view (passed through query string).
+const neighbors = ref({ prev_id: null, next_id: null })
+const navParams = computed(() => ({
+  order_by: route.query.order_by || 'match',
+  order_dir: route.query.order_dir || 'desc',
+  status: route.query.status || undefined
+}))
+
+async function loadNeighbors() {
+  try {
+    const { data } = await getPlaceNeighbors(placeId.value, navParams.value)
+    neighbors.value = data
+  } catch {
+    neighbors.value = { prev_id: null, next_id: null }
+  }
+}
+
+function navigateTo(id) {
+  if (!id) return
+  router.push({ name: route.name, params: { id }, query: route.query })
+}
+
+function onKeydown(e) {
+  // Pfeiltasten: nur wenn Fokus nicht in einem Input/Textarea liegt.
+  if (e.target?.tagName === 'INPUT' || e.target?.tagName === 'TEXTAREA') return
+  if (e.key === 'ArrowLeft' && neighbors.value.prev_id) navigateTo(neighbors.value.prev_id)
+  if (e.key === 'ArrowRight' && neighbors.value.next_id) navigateTo(neighbors.value.next_id)
+}
+
 onMounted(async () => {
   await store.fetchPlace(placeId.value)
+  await loadNeighbors()
+  window.addEventListener('keydown', onKeydown)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeydown)
+})
+
+// Re-fetch when the operator clicks a neighbor — the route param changes.
+watch(placeId, async (id) => {
+  if (!id) return
+  await store.fetchPlace(id)
+  await loadNeighbors()
 })
 
 const place = computed(() => store.currentPlace)
+
+const matchScoreClass = computed(() => {
+  const s = place.value?.llm_insights?.target_match_score
+  if (s == null) return 'bg-gray-100 text-gray-700'
+  if (s >= 7) return 'bg-green-100 text-green-800'
+  if (s >= 4) return 'bg-yellow-100 text-yellow-800'
+  return 'bg-red-100 text-red-800'
+})
+
+function genderBadge(gender, confidence) {
+  if (!gender || (confidence != null && confidence < 0.6)) return null
+  return gender === 'male' ? 'Herr' : gender === 'female' ? 'Frau' : null
+}
+
+function matchMethodLabel(method) {
+  const map = {
+    impressum_link: '📋 Impressum',
+    serper: '🔍 Serper',
+    manual: '✍️ Manuell'
+  }
+  return map[method] || method || ''
+}
 
 async function confirmReject() {
   if (!rejectReason.value.trim()) return
@@ -44,33 +125,114 @@ async function confirmReject() {
 <template>
   <div class="p-6 space-y-4 max-w-4xl">
     <div v-if="place">
-      <PageHeader :title="place.name" :subtitle="place.formatted_address || ''" />
+      <PageHeader
+        :title="place.name"
+        :subtitle="place.formatted_address || ''"
+      />
 
-      <div class="flex items-center gap-3 mt-3">
+      <!-- Status row + navigation + overflow -->
+      <div class="flex flex-wrap items-center gap-3 mt-3">
         <span class="inline-flex px-2 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-700">
           Status: {{ place.status }}
         </span>
-        <span v-if="place.rejected_reason" class="text-sm text-red-600">
+        <span
+          v-if="place.llm_insights?.target_match_score != null"
+          class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+          :class="matchScoreClass"
+        >
+          Match {{ place.llm_insights.target_match_score }}/10
+        </span>
+        <a
+          v-if="place.linkedin_company_url"
+          :href="place.linkedin_company_url"
+          target="_blank"
+          rel="noopener"
+          class="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
+        >
+          🔗 LinkedIn
+          <span class="text-blue-400">·</span>
+          <span class="font-normal text-blue-500">{{ matchMethodLabel(place.linkedin_company_match_method) }}</span>
+        </a>
+        <span
+          v-if="place.rejected_reason"
+          class="text-sm text-red-600"
+        >
           Abgelehnt: {{ place.rejected_reason }}
         </span>
-        <button
-          v-if="place.status !== 'rejected'"
-          class="ml-auto rounded-lg border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
-          @click="showRejectForm = true"
-        >
-          Ablehnen
-        </button>
-        <button class="text-sm text-gray-500 hover:underline" @click="router.back()">Zurück</button>
+
+        <!-- Spacer + nav arrows + overflow + back -->
+        <div class="ml-auto flex items-center gap-1">
+          <button
+            :disabled="!neighbors.prev_id"
+            class="rounded-lg border border-gray-300 px-2 py-1 text-sm hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed dark:border-gray-600 dark:hover:bg-gray-700"
+            title="Vorheriger Prospect (Pfeil ←)"
+            @click="navigateTo(neighbors.prev_id)"
+          >
+            ←
+          </button>
+          <button
+            :disabled="!neighbors.next_id"
+            class="rounded-lg border border-gray-300 px-2 py-1 text-sm hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed dark:border-gray-600 dark:hover:bg-gray-700"
+            title="Nächster Prospect (Pfeil →)"
+            @click="navigateTo(neighbors.next_id)"
+          >
+            →
+          </button>
+
+          <!-- Overflow (3-dot) menu -->
+          <div class="relative">
+            <button
+              class="rounded-lg border border-gray-300 px-2 py-1 text-sm hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700"
+              title="Weitere Aktionen"
+              @click="toggleOverflow"
+            >
+              ⋯
+            </button>
+            <div
+              v-if="overflowOpen"
+              class="absolute right-0 top-full z-10 mt-1 w-44 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-600 dark:bg-gray-800"
+            >
+              <button
+                v-if="place.status !== 'rejected'"
+                class="block w-full px-3 py-1.5 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/40"
+                @click="openRejectFromOverflow"
+              >
+                Ablehnen…
+              </button>
+              <span
+                v-else
+                class="block px-3 py-1.5 text-sm text-gray-400"
+              >
+                Bereits abgelehnt
+              </span>
+            </div>
+          </div>
+
+          <button
+            class="ml-1 text-sm text-gray-500 hover:underline"
+            @click="router.back()"
+          >
+            Zurück
+          </button>
+        </div>
       </div>
 
-      <div v-if="showRejectForm" class="mt-3 rounded-lg border border-red-200 bg-red-50 p-3">
+      <p class="mt-1 text-xs text-gray-500">
+        Tipp: Mit den Pfeiltasten ← / → schaltest du zum vorherigen / nächsten Prospect.
+      </p>
+
+      <!-- Reject form (opened from overflow) -->
+      <div
+        v-if="showRejectForm"
+        class="mt-3 rounded-lg border border-red-200 bg-red-50 p-3"
+      >
         <label class="block text-sm font-medium mb-1">Ablehnungsgrund</label>
         <input
           v-model="rejectReason"
           type="text"
           placeholder="z.B. Kein PV-Bezug"
           class="w-full rounded border border-red-300 bg-white px-3 py-1.5 text-sm"
-        />
+        >
         <div class="mt-2 flex gap-2">
           <button
             :disabled="working || !rejectReason.trim()"
@@ -79,29 +241,48 @@ async function confirmReject() {
           >
             Bestätigen
           </button>
-          <button class="text-sm text-gray-500 hover:underline" @click="showRejectForm = false">
+          <button
+            class="text-sm text-gray-500 hover:underline"
+            @click="showRejectForm = false"
+          >
             Abbrechen
           </button>
         </div>
-        <p v-if="localError" class="mt-2 text-sm text-red-700">
+        <p
+          v-if="localError"
+          class="mt-2 text-sm text-red-700"
+        >
           {{ localError }}
         </p>
       </div>
 
+      <!-- Address / contact block -->
       <div
         class="mt-6 rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800"
       >
-        <h3 class="text-sm font-semibold mb-3">Kontakt & Adresse</h3>
+        <h3 class="text-sm font-semibold mb-3">
+          Kontakt &amp; Adresse
+        </h3>
         <dl class="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
-          <dt class="text-gray-500">Name</dt>
+          <dt class="text-gray-500">
+            Name
+          </dt>
           <dd>{{ place.name }}</dd>
-          <dt class="text-gray-500">Strasse</dt>
+          <dt class="text-gray-500">
+            Strasse
+          </dt>
           <dd>{{ place.address_street || '-' }}</dd>
-          <dt class="text-gray-500">PLZ</dt>
+          <dt class="text-gray-500">
+            PLZ
+          </dt>
           <dd>{{ place.address_zip || '-' }}</dd>
-          <dt class="text-gray-500">Stadt</dt>
+          <dt class="text-gray-500">
+            Stadt
+          </dt>
           <dd>{{ place.address_city || '-' }}</dd>
-          <dt class="text-gray-500">Website</dt>
+          <dt class="text-gray-500">
+            Website
+          </dt>
           <dd>
             <a
               v-if="place.website"
@@ -109,23 +290,92 @@ async function confirmReject() {
               target="_blank"
               rel="noopener"
               class="text-go4-primary hover:underline"
-              >{{ place.website }}</a
-            >
+            >{{ place.website }}</a>
             <span v-else>-</span>
           </dd>
-          <dt class="text-gray-500">Telefon</dt>
+          <dt class="text-gray-500">
+            Telefon
+          </dt>
           <dd>{{ place.phone || '-' }}</dd>
-          <dt class="text-gray-500">Bewertung</dt>
+          <dt class="text-gray-500">
+            Bewertung
+          </dt>
           <dd>{{ place.rating || '-' }} ({{ place.user_ratings_total || 0 }})</dd>
-          <dt class="text-gray-500">Business Status</dt>
+          <dt class="text-gray-500">
+            Business Status
+          </dt>
           <dd>{{ place.business_status || '-' }}</dd>
-          <dt class="text-gray-500">Google-ID</dt>
+          <dt class="text-gray-500">
+            Google-ID
+          </dt>
           <dd class="font-mono text-xs">
             {{ place.google_place_id }}
           </dd>
         </dl>
       </div>
 
+      <!-- Persons & LinkedIn block — fed from leadgen_contacts -->
+      <div
+        v-if="place.contacts?.length"
+        class="mt-4 rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800"
+      >
+        <h3 class="text-sm font-semibold mb-3">
+          Personen &amp; LinkedIn
+          <span class="ml-2 text-xs font-normal text-gray-500">({{ place.contacts.length }})</span>
+        </h3>
+        <ul class="divide-y divide-gray-100 dark:divide-gray-700">
+          <li
+            v-for="c in place.contacts"
+            :key="c.id"
+            class="py-2 text-sm"
+          >
+            <div class="flex flex-wrap items-baseline gap-2">
+              <span
+                v-if="genderBadge(c.gender, c.gender_confidence)"
+                class="inline-flex rounded-full bg-gray-100 px-1.5 py-0.5 text-xs text-gray-700 dark:bg-gray-700 dark:text-gray-200"
+              >
+                {{ genderBadge(c.gender, c.gender_confidence) }}
+              </span>
+              <span class="font-medium">{{ c.full_name }}</span>
+              <span
+                v-if="c.role"
+                class="text-xs text-gray-500"
+              >· {{ c.role }}</span>
+              <a
+                v-if="c.linkedin_url"
+                :href="c.linkedin_url"
+                target="_blank"
+                rel="noopener"
+                class="ml-2 inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
+              >
+                🔗 LinkedIn
+                <span class="text-blue-400">·</span>
+                <span class="font-normal text-blue-500">{{ matchMethodLabel(c.linkedin_match_method) }}</span>
+              </a>
+              <span
+                v-else
+                class="ml-2 text-xs text-gray-400"
+              >
+                LinkedIn unbekannt
+              </span>
+            </div>
+            <div
+              v-if="c.email || c.phone"
+              class="mt-0.5 text-xs text-gray-500"
+            >
+              <a
+                v-if="c.email"
+                :href="`mailto:${c.email}`"
+                class="hover:underline"
+              >{{ c.email }}</a>
+              <span v-if="c.email && c.phone"> · </span>
+              <span v-if="c.phone">{{ c.phone }}</span>
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Empty-state when nothing is enriched yet -->
       <div
         v-if="!place.impressum && !place.llm_insights"
         class="mt-4 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-sm dark:border-gray-600 dark:bg-gray-900/40"
@@ -147,37 +397,71 @@ async function confirmReject() {
         </router-link>
       </div>
 
+      <!-- Impressum block -->
       <div
         v-if="place.impressum"
         class="mt-4 rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800"
       >
-        <h3 class="text-sm font-semibold mb-3">Impressum-Daten (Stage 2)</h3>
-        <dl v-if="!place.impressum.extraction_error" class="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
-          <dt class="text-gray-500">Email</dt>
+        <h3 class="text-sm font-semibold mb-3">
+          Impressum-Daten (Stage 2)
+        </h3>
+        <dl
+          v-if="!place.impressum.extraction_error"
+          class="grid grid-cols-3 gap-x-4 gap-y-2 text-sm"
+        >
+          <dt class="text-gray-500">
+            Email
+          </dt>
           <dd class="col-span-2">
             <a
               v-if="place.impressum.email"
               :href="`mailto:${place.impressum.email}`"
               class="text-go4-primary hover:underline"
             >{{ place.impressum.email }}</a>
-            <span v-else class="text-gray-400">-</span>
+            <span
+              v-else
+              class="text-gray-400"
+            >-</span>
           </dd>
-          <dt class="text-gray-500">Telefon</dt>
-          <dd class="col-span-2">{{ place.impressum.phone || '-' }}</dd>
-          <dt class="text-gray-500">Geschäftsführung</dt>
+          <dt class="text-gray-500">
+            Telefon
+          </dt>
+          <dd class="col-span-2">
+            {{ place.impressum.phone || '-' }}
+          </dd>
+          <dt class="text-gray-500">
+            Geschäftsführung
+          </dt>
           <dd class="col-span-2">
             <span v-if="place.impressum.managing_directors?.length">
               {{ place.impressum.managing_directors.join(', ') }}
             </span>
-            <span v-else class="text-gray-400">-</span>
+            <span
+              v-else
+              class="text-gray-400"
+            >-</span>
           </dd>
-          <dt class="text-gray-500">Postanschrift</dt>
-          <dd class="col-span-2">{{ place.impressum.postal_address || '-' }}</dd>
-          <dt class="text-gray-500">Handelsregister</dt>
-          <dd class="col-span-2">{{ place.impressum.handelsregister || '-' }}</dd>
-          <dt class="text-gray-500">USt-IdNr.</dt>
-          <dd class="col-span-2">{{ place.impressum.ust_id || '-' }}</dd>
-          <dt class="text-gray-500">Quelle</dt>
+          <dt class="text-gray-500">
+            Postanschrift
+          </dt>
+          <dd class="col-span-2">
+            {{ place.impressum.postal_address || '-' }}
+          </dd>
+          <dt class="text-gray-500">
+            Handelsregister
+          </dt>
+          <dd class="col-span-2">
+            {{ place.impressum.handelsregister || '-' }}
+          </dd>
+          <dt class="text-gray-500">
+            USt-IdNr.
+          </dt>
+          <dd class="col-span-2">
+            {{ place.impressum.ust_id || '-' }}
+          </dd>
+          <dt class="text-gray-500">
+            Quelle
+          </dt>
           <dd class="col-span-2">
             <a
               v-if="place.impressum.source_url"
@@ -186,67 +470,64 @@ async function confirmReject() {
               rel="noopener"
               class="text-go4-primary hover:underline break-all"
             >{{ place.impressum.source_url }}</a>
-            <span v-else class="text-gray-400">-</span>
+            <span
+              v-else
+              class="text-gray-400"
+            >-</span>
           </dd>
-          <dt class="text-gray-500">Extrahiert am</dt>
+          <dt class="text-gray-500">
+            Extrahiert am
+          </dt>
           <dd class="col-span-2 text-gray-500">
             {{ place.impressum.extracted_at ? new Date(place.impressum.extracted_at).toLocaleString('de-DE') : '-' }}
           </dd>
         </dl>
-        <p v-else class="rounded-lg bg-red-50 p-2 text-sm text-red-700">
+        <p
+          v-else
+          class="rounded-lg bg-red-50 p-2 text-sm text-red-700"
+        >
           Scraping fehlgeschlagen: {{ place.impressum.extraction_error }}
         </p>
       </div>
 
+      <!-- LLM-Analyse block -->
       <div
         v-if="place.llm_insights"
         class="mt-4 rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800"
       >
         <h3 class="text-sm font-semibold mb-3">
-          LLM-Analyse (Stage 3) ·
-          <span v-if="place.llm_insights.target_match_score != null"
-            class="inline-flex items-center rounded-full px-2 py-0.5 text-xs"
-            :class="place.llm_insights.target_match_score >= 7 ? 'bg-green-100 text-green-800' : place.llm_insights.target_match_score >= 4 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'"
-          >
-            Match {{ place.llm_insights.target_match_score }}/10
-          </span>
+          LLM-Analyse (Stage 3)
         </h3>
         <div
-          v-if="place.llm_insights.primary_contact && (place.llm_insights.primary_contact.first_name || place.llm_insights.primary_contact.last_name)"
-          class="mb-3 rounded-lg bg-blue-50 dark:bg-blue-900/30 p-3 text-sm"
+          v-if="place.llm_insights.extraction_error"
+          class="rounded-lg bg-red-50 p-2 text-sm text-red-700"
         >
-          <div class="text-xs font-medium uppercase text-blue-900 dark:text-blue-200">
-            Primärer Kontakt
-          </div>
-          <div class="mt-1 text-gray-800 dark:text-gray-100">
-            <span v-if="place.llm_insights.primary_contact.salutation">{{ place.llm_insights.primary_contact.salutation }} </span>
-            <span class="font-medium">
-              {{ place.llm_insights.primary_contact.first_name }}
-              {{ place.llm_insights.primary_contact.last_name }}
-            </span>
-            <span
-              v-if="place.llm_insights.primary_contact.role"
-              class="text-gray-600 dark:text-gray-400"
-            > · {{ place.llm_insights.primary_contact.role }}</span>
-          </div>
-          <div class="mt-0.5 text-xs text-gray-500">
-            <span v-if="place.llm_insights.primary_contact.gender">Geschlecht: {{ place.llm_insights.primary_contact.gender }}</span>
-            <span v-if="place.llm_insights.primary_contact.source"> · Quelle: {{ place.llm_insights.primary_contact.source }}</span>
-          </div>
-        </div>
-        <div v-if="place.llm_insights.extraction_error" class="rounded-lg bg-red-50 p-2 text-sm text-red-700">
           Analyse fehlgeschlagen: {{ place.llm_insights.extraction_error }}
         </div>
-        <dl v-else class="grid grid-cols-3 gap-x-4 gap-y-2 text-sm">
-          <dt class="text-gray-500">Pre-Pitch-Intel</dt>
+        <dl
+          v-else
+          class="grid grid-cols-3 gap-x-4 gap-y-2 text-sm"
+        >
+          <dt class="text-gray-500">
+            Pre-Pitch-Intel
+          </dt>
           <dd class="col-span-2 whitespace-pre-line text-gray-700 dark:text-gray-300">
             {{ place.llm_insights.personalization_hook || '-' }}
           </dd>
-          <dt class="text-gray-500">Firmengröße</dt>
-          <dd class="col-span-2">{{ place.llm_insights.company_size_indicator || '-' }}</dd>
-          <dt class="text-gray-500">Dienstleistungen</dt>
+          <dt class="text-gray-500">
+            Firmengröße
+          </dt>
           <dd class="col-span-2">
-            <span v-if="place.llm_insights.services?.length" class="flex flex-wrap gap-1">
+            {{ place.llm_insights.company_size_indicator || '-' }}
+          </dd>
+          <dt class="text-gray-500">
+            Dienstleistungen
+          </dt>
+          <dd class="col-span-2">
+            <span
+              v-if="place.llm_insights.services?.length"
+              class="flex flex-wrap gap-1"
+            >
               <span
                 v-for="(s, i) in place.llm_insights.services"
                 :key="i"
@@ -255,54 +536,86 @@ async function confirmReject() {
             </span>
             <span v-else>-</span>
           </dd>
-          <dt class="text-gray-500">Hersteller/Marken</dt>
+          <dt class="text-gray-500">
+            Hersteller/Marken
+          </dt>
           <dd class="col-span-2">
             <span v-if="place.llm_insights.brands?.length">{{ place.llm_insights.brands.join(', ') }}</span>
             <span v-else>-</span>
           </dd>
-          <dt class="text-gray-500">Zielsegmente</dt>
+          <dt class="text-gray-500">
+            Zielsegmente
+          </dt>
           <dd class="col-span-2">
             <span v-if="place.llm_insights.customer_segments?.length">{{ place.llm_insights.customer_segments.join(', ') }}</span>
             <span v-else>-</span>
           </dd>
-          <dt class="text-gray-500">Rote Flaggen</dt>
+          <dt class="text-gray-500">
+            Rote Flaggen
+          </dt>
           <dd class="col-span-2">
-            <span v-if="place.llm_insights.red_flags?.length" class="flex flex-wrap gap-1">
+            <span
+              v-if="place.llm_insights.red_flags?.length"
+              class="flex flex-wrap gap-1"
+            >
               <span
                 v-for="(f, i) in place.llm_insights.red_flags"
                 :key="i"
                 class="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-800"
               >{{ f }}</span>
             </span>
-            <span v-else class="text-gray-400">keine</span>
+            <span
+              v-else
+              class="text-gray-400"
+            >keine</span>
           </dd>
-          <dt class="text-gray-500">Analysiert</dt>
+          <dt class="text-gray-500">
+            Analysiert
+          </dt>
           <dd class="col-span-2 text-gray-500">
             {{ place.llm_insights.pages_analyzed?.length || 0 }} Seiten ·
             {{ place.llm_insights.input_tokens || 0 }} in / {{ place.llm_insights.output_tokens || 0 }} out Tokens ·
             {{ place.llm_insights.model_used }} ·
             {{ place.llm_insights.cost_cents ? (place.llm_insights.cost_cents / 100).toFixed(3) + ' €' : '-' }}
           </dd>
-          <dt class="text-gray-500">Seiten</dt>
+          <dt class="text-gray-500">
+            Seiten
+          </dt>
           <dd class="col-span-2 space-y-0.5 text-xs">
-            <div v-for="p in place.llm_insights.pages_analyzed" :key="p">
-              <a :href="p" target="_blank" rel="noopener" class="text-go4-primary hover:underline break-all">{{ p }}</a>
+            <div
+              v-for="p in place.llm_insights.pages_analyzed"
+              :key="p"
+            >
+              <a
+                :href="p"
+                target="_blank"
+                rel="noopener"
+                class="text-go4-primary hover:underline break-all"
+              >{{ p }}</a>
             </div>
           </dd>
-          <dt class="text-gray-500">Extrahiert am</dt>
+          <dt class="text-gray-500">
+            Extrahiert am
+          </dt>
           <dd class="col-span-2 text-gray-500">
             {{ place.llm_insights.extracted_at ? new Date(place.llm_insights.extracted_at).toLocaleString('de-DE') : '-' }}
           </dd>
         </dl>
       </div>
 
+      <!-- Handoff block -->
       <div
         class="mt-4 rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800"
       >
-        <h3 class="text-sm font-semibold mb-3">Handoff</h3>
+        <h3 class="text-sm font-semibold mb-3">
+          Handoff
+        </h3>
         <p class="text-sm">
-          Kontakt: <span v-if="place.contact_id">#{{ place.contact_id }}</span
-          ><span v-else class="text-gray-500">noch nicht angelegt</span>
+          Kontakt: <span v-if="place.contact_id">#{{ place.contact_id }}</span>
+          <span
+            v-else
+            class="text-gray-500"
+          >noch nicht angelegt</span>
         </p>
       </div>
     </div>

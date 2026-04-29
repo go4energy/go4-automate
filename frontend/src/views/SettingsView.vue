@@ -316,7 +316,6 @@ function goToNewPrompt() {
   <div class="space-y-6">
     <PageHeader
       title="Einstellungen"
-      subtitle="Plattform- und Modul-Konfiguration verwalten"
     />
 
     <!-- Success Toast -->

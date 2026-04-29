@@ -59,7 +59,6 @@ onMounted(() => {
   <div>
     <PageHeader
       title="Prompt Registry"
-      subtitle="KI-Prompts verwalten und testen"
     >
       <template #actions>
         <button

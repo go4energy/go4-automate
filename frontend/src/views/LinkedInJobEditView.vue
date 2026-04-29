@@ -196,7 +196,6 @@ function cancel() {
   <div class="min-h-screen bg-go4-bg dark:bg-gray-900">
     <PageHeader
       :title="isEdit ? 'Job bearbeiten' : 'Neuer Scraper Job'"
-      subtitle="LinkedIn Sales Navigator Scraping"
     >
       <template #actions>
         <button
@@ -334,7 +333,6 @@ function cancel() {
                 </p>
               </div>
             </div>
-
           </div>
         </div>
 
@@ -586,7 +584,6 @@ https://www.linkedin.com/in/erika-musterfrau/
                 >
               </div>
             </div>
-
           </div>
 
           <p

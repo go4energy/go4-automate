@@ -177,7 +177,6 @@ async function moveQuestion(index, direction) {
   <div class="min-h-screen bg-go4-bg dark:bg-gray-900">
     <PageHeader
       :title="`${survey?.title || 'Laden...'} bearbeiten`"
-      subtitle="Fragen und Einstellungen verwalten"
     >
       <template #actions>
         <button

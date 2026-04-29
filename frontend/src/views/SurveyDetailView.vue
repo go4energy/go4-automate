@@ -64,7 +64,6 @@ async function setStatus(status) {
   <div class="min-h-screen bg-go4-bg dark:bg-gray-900">
     <PageHeader
       :title="survey?.title || 'Laden...'"
-      :subtitle="survey?.description"
     >
       <template #actions>
         <div class="flex items-center gap-2">

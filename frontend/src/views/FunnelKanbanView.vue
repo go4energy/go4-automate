@@ -89,7 +89,6 @@ function getStageTotal(stage) {
     <!-- Header -->
     <PageHeader
       :title="funnel?.name || 'Kanban'"
-      subtitle="Drag & Drop zum Verschieben"
     >
       <template #actions>
         <button

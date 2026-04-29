@@ -791,7 +791,6 @@ function goBack() {
     <div v-if="campaign">
       <PageHeader
         :title="campaign.name"
-        :subtitle="campaign.slug"
       />
 
       <div class="flex items-center gap-3 mt-3">

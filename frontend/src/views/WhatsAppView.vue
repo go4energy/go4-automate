@@ -181,7 +181,6 @@ onMounted(() => {
   <div class="p-6">
     <PageHeader
       title="WhatsApp"
-      description="WhatsApp Business Messaging"
     >
       <template #actions>
         <button
@@ -298,7 +297,6 @@ onMounted(() => {
       <EmptyState
         v-if="store.conversations.length === 0"
         title="Keine Conversations"
-        description="Starten Sie eine neue Conversation oder warten Sie auf eingehende Nachrichten."
       />
       <div
         v-else
@@ -363,7 +361,6 @@ onMounted(() => {
       <EmptyState
         v-if="store.campaigns.length === 0"
         title="Keine Kampagnen"
-        description="Erstellen Sie Ihre erste WhatsApp-Kampagne."
         action-text="Kampagne erstellen"
         @action="createCampaign"
       />
@@ -503,7 +500,6 @@ onMounted(() => {
       <EmptyState
         v-if="store.templates.length === 0"
         title="Keine Templates"
-        description="Synchronisieren Sie Templates von Meta oder erstellen Sie neue im Meta Business Manager."
       />
       <div
         v-else
@@ -545,7 +541,6 @@ onMounted(() => {
       <EmptyState
         v-if="store.accounts.length === 0"
         title="Keine Accounts"
-        description="Fügen Sie Ihren WhatsApp Business Account hinzu."
         action-text="Account hinzufügen"
         @action="createAccount"
       />
@@ -701,7 +696,6 @@ onMounted(() => {
       <EmptyState
         v-else-if="store.engagementActions.length === 0"
         title="Keine Aktionen"
-        description="Es gibt keine ausstehenden WhatsApp-Aktionen vom Engagement Brain."
         icon="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
       />
 

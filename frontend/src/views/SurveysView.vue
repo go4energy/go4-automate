@@ -155,7 +155,6 @@ async function toggleStatus(survey) {
   <div class="min-h-screen bg-go4-bg dark:bg-gray-900">
     <PageHeader
       title="Umfragen"
-      subtitle="Feedback, NPS und Kundenbefragungen"
     >
       <template #actions>
         <button
@@ -251,7 +250,6 @@ async function toggleStatus(survey) {
       <EmptyState
         v-else-if="filteredSurveys.length === 0"
         title="Keine Umfragen"
-        description="Erstelle deine erste Umfrage fuer Kundenfeedback."
       >
         <button
           class="mt-4 rounded-lg bg-go4-primary px-4 py-2 text-sm text-white hover:bg-go4-primary-dark"

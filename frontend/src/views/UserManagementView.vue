@@ -148,7 +148,6 @@ onMounted(async () => {
   <div>
     <PageHeader
       title="Benutzerverwaltung"
-      subtitle="Benutzer, Gruppen und Berechtigungen verwalten"
     >
       <template #actions>
         <button

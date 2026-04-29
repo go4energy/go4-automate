@@ -111,7 +111,6 @@ function selectCall(call) {
   <div>
     <PageHeader
       title="Anruf-Queue"
-      :subtitle="`${stats.total_pending || 0} ausstehend · ${stats.due_today || 0} heute fällig`"
     />
 
     <!-- Stats Cards -->

@@ -260,7 +260,6 @@ async function enrollSelected() {
   <div class="flex flex-1 flex-col overflow-hidden">
     <PageHeader
       :title="pipeline?.name || 'Pipeline'"
-      :subtitle="pipeline?.product_name"
     >
       <template #actions>
         <button
@@ -652,7 +651,6 @@ async function enrollSelected() {
         <EmptyState
           v-else
           title="Keine Enrollments"
-          description="Es sind noch keine Kontakte in dieser Pipeline eingeschrieben."
         >
           <template #action>
             <button
@@ -808,7 +806,6 @@ async function enrollSelected() {
         <EmptyState
           v-else
           title="Keine Funnel-Daten"
-          description="Es sind noch keine Enrollments vorhanden, um den Funnel darzustellen."
         />
       </template>
     </div>

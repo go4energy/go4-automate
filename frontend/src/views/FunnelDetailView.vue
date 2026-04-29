@@ -324,7 +324,6 @@ function getStatusColor(status) {
     <template v-else-if="funnel">
       <PageHeader
         :title="funnel.name"
-        :subtitle="funnel.description || 'Funnel'"
       >
         <template #actions>
           <button
@@ -520,7 +519,6 @@ function getStatusColor(status) {
           <EmptyState
             v-if="filteredCompanies.length === 0"
             title="Keine Firmen"
-            description="Fuege deine erste Firma hinzu."
           >
             <button
               class="mt-4 rounded-lg bg-go4-primary px-4 py-2 text-sm text-white hover:bg-go4-primary-dark"
@@ -625,7 +623,6 @@ function getStatusColor(status) {
           <EmptyState
             v-if="filteredProspects.length === 0"
             title="Keine Prospects"
-            description="Fuege deinen ersten Prospect hinzu."
           >
             <button
               class="mt-4 rounded-lg bg-go4-primary px-4 py-2 text-sm text-white hover:bg-go4-primary-dark"

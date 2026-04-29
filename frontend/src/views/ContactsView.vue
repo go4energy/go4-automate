@@ -284,7 +284,6 @@ function formatDate(dateString) {
   <div>
     <PageHeader
       title="Kontakte"
-      :subtitle="`${store.totalContacts} Kontakte, ${store.totalCompanies} Firmen`"
     >
       <template #actions>
         <button
@@ -397,7 +396,6 @@ function formatDate(dateString) {
           <EmptyState
             v-if="store.contacts.length === 0"
             title="Keine Kontakte"
-            description="Erstellen Sie Ihren ersten Kontakt."
           >
             <template #action>
               <button
@@ -474,7 +472,6 @@ function formatDate(dateString) {
           <EmptyState
             v-if="store.companies.length === 0"
             title="Keine Firmen"
-            description="Firmen werden automatisch erstellt oder können manuell hinzugefügt werden."
           />
 
           <!-- Cards View -->

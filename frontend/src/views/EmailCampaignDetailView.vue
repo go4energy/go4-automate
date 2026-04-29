@@ -95,7 +95,6 @@ onMounted(() => {
     <template v-else-if="campaign">
       <PageHeader
         :title="campaign.name"
-        :description="campaign.subject"
       >
         <template #actions>
           <span

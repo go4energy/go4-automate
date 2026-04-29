@@ -100,7 +100,6 @@ onMounted(() => {
   <div class="p-6">
     <PageHeader
       :title="isNew ? 'Neue Kampagne' : 'Kampagne bearbeiten'"
-      description="E-Mail-Kampagne konfigurieren"
     >
       <template #actions>
         <button

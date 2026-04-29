@@ -167,7 +167,6 @@ async function handleSubmit() {
   <div>
     <PageHeader
       :title="isEdit ? 'Quelle bearbeiten' : 'Neue Quelle'"
-      :subtitle="isEdit ? form.name : 'Briefing-Quelle erstellen'"
     />
 
     <!-- Error -->

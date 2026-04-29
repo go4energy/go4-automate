@@ -1178,7 +1178,6 @@ Im Dashboard siehst du fuer jeden Account:
   <div class="min-h-screen bg-go4-bg dark:bg-gray-900">
     <PageHeader
       title="LinkedIn"
-      subtitle="Sales Navigator Scraping"
     />
 
     <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
@@ -1398,7 +1397,6 @@ Im Dashboard siehst du fuer jeden Account:
         <EmptyState
           v-else-if="filteredAccounts.length === 0"
           title="Keine Accounts"
-          description="Fuege einen LinkedIn Account hinzu um loszulegen."
         >
           <button
             class="mt-4 rounded-lg bg-go4-primary px-4 py-2 text-sm text-white hover:bg-go4-primary-dark"
@@ -1640,7 +1638,6 @@ Im Dashboard siehst du fuer jeden Account:
         <EmptyState
           v-else-if="filteredJobs.length === 0"
           title="Keine Jobs"
-          description="Erstelle deinen ersten Scraper Job."
         >
           <button
             class="mt-4 rounded-lg bg-go4-primary px-4 py-2 text-sm text-white hover:bg-go4-primary-dark"
@@ -1876,7 +1873,6 @@ Im Dashboard siehst du fuer jeden Account:
         <EmptyState
           v-else-if="filteredContacts.length === 0"
           title="Keine Kontakte"
-          description="Starte einen Scraper Job um Kontakte zu sammeln."
         />
 
         <div
@@ -2087,7 +2083,6 @@ Im Dashboard siehst du fuer jeden Account:
         <EmptyState
           v-else-if="filteredTemplates.length === 0"
           title="Keine Vorlagen"
-          description="Erstelle deine erste Nachrichtenvorlage."
         />
 
         <div
@@ -2234,7 +2229,6 @@ Im Dashboard siehst du fuer jeden Account:
         <EmptyState
           v-else-if="filteredCampaigns.length === 0"
           title="Keine Kampagnen"
-          description="Erstelle deine erste Outreach-Kampagne mit dem + Button oben."
         />
 
         <div
@@ -2384,7 +2378,6 @@ Im Dashboard siehst du fuer jeden Account:
         <EmptyState
           v-else-if="filteredInbox.length === 0"
           title="Keine Nachrichten"
-          description="Dein Posteingang ist leer."
         />
 
         <div
@@ -2472,7 +2465,6 @@ Im Dashboard siehst du fuer jeden Account:
         <EmptyState
           v-else-if="store.engagementActions.length === 0"
           title="Keine Aktionen"
-          description="Es gibt keine ausstehenden Aktionen vom Engagement Brain."
           icon="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
         />
 

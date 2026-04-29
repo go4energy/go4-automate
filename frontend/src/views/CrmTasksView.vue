@@ -129,7 +129,6 @@ function goToDeal(dealId) {
   <div>
     <PageHeader
       title="Aufgaben"
-      :subtitle="`${openCount} offen · ${overdueCount} überfällig`"
     />
 
     <!-- Filters -->

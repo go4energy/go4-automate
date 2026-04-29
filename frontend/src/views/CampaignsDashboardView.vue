@@ -31,7 +31,6 @@ async function runOptimizer() {
   <div>
     <PageHeader
       title="Campaigns"
-      subtitle="Kampagnen verteilen und optimieren"
     >
       <template #actions>
         <button
@@ -64,24 +63,20 @@ async function runOptimizer() {
         <KpiCard
           title="Ausgaben heute"
           :value="`${store.totalSpendToday} EUR`"
-          :subtitle="`${store.dashboard?.this_week?.spend || '0.00'} EUR diese Woche`"
           :trend="store.dashboard?.trend || 'stable'"
         />
         <KpiCard
           title="Leads heute"
           :value="store.totalLeadsToday"
-          :subtitle="`${store.dashboard?.this_week?.leads || 0} diese Woche`"
         />
         <KpiCard
           title="CPL heute"
           :value="`${Number(store.dashboard?.today?.cpl || 0).toFixed(2)} EUR`"
-          :subtitle="`Ziel: ${Number(store.dashboard?.this_month?.cpl || 0).toFixed(2)} EUR (Monat)`"
           :trend="store.dashboard?.trend || 'stable'"
         />
         <KpiCard
           title="Impressions"
           :value="(store.dashboard?.today?.impressions || 0).toLocaleString()"
-          :subtitle="`${(store.dashboard?.this_month?.impressions || 0).toLocaleString()} diesen Monat`"
         />
       </div>
 

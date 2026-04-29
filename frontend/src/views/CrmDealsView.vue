@@ -187,7 +187,6 @@ const priorityLabels = {
   <div>
     <PageHeader
       title="Deals"
-      :subtitle="`${dealCount} Deals · ${formattedTotalValue}`"
     >
       <template #actions>
         <button
@@ -245,7 +244,6 @@ const priorityLabels = {
       <EmptyState
         v-else-if="!selectedPipelineId"
         title="Keine Pipeline ausgewählt"
-        description="Wählen Sie eine Pipeline aus, um Deals zu sehen."
       />
 
       <!-- Kanban View -->
@@ -253,7 +251,6 @@ const priorityLabels = {
         <EmptyState
           v-if="store.kanbanBoard.stages.length === 0"
           title="Keine Stages"
-          description="Diese Pipeline hat noch keine Stages."
         />
 
         <KanbanBoard
@@ -270,7 +267,6 @@ const priorityLabels = {
         <EmptyState
           v-if="store.deals.length === 0"
           title="Keine Deals"
-          description="Erstellen Sie Ihren ersten Deal."
         >
           <template #action>
             <button

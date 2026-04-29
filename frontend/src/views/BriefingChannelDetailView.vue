@@ -97,7 +97,6 @@ function feedUrl() {
   <div>
     <PageHeader
       :title="store.currentChannel?.name || 'Channel'"
-      :subtitle="store.currentChannel?.target_audience || ''"
     >
       <template #actions>
         <button
@@ -246,7 +245,6 @@ function feedUrl() {
       <EmptyState
         v-if="store.episodes.length === 0"
         title="Noch keine Episoden"
-        description="Generieren Sie die erste Episode fuer diesen Channel."
       />
       <div
         v-else
@@ -368,7 +366,6 @@ function feedUrl() {
       <EmptyState
         v-if="store.channelSources.length === 0"
         title="Keine Quellen verlinkt"
-        description="Verlinken Sie Briefing-Quellen mit diesem Channel."
       />
       <div
         v-else

@@ -101,7 +101,6 @@ onMounted(() => {
   <div class="p-6">
     <PageHeader
       :title="isNew ? 'Neue Vorlage' : 'Vorlage bearbeiten'"
-      description="E-Mail-Vorlage konfigurieren"
     >
       <template #actions>
         <button

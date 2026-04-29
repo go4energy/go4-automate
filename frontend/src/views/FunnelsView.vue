@@ -113,7 +113,6 @@ async function deleteFunnel() {
   <div class="min-h-screen bg-go4-bg dark:bg-gray-900">
     <PageHeader
       title="Funnels"
-      subtitle="Prospecting & Lead-Generierung"
     >
       <template #actions>
         <button
@@ -190,7 +189,6 @@ async function deleteFunnel() {
       <EmptyState
         v-else-if="filteredFunnels.length === 0"
         title="Keine Funnels"
-        description="Erstelle deinen ersten Funnel fuer Prospecting."
       >
         <button
           class="mt-4 rounded-lg bg-go4-primary px-4 py-2 text-sm text-white hover:bg-go4-primary-dark"

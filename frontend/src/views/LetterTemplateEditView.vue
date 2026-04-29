@@ -3,7 +3,6 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useLetterStore } from '@/stores/letter'
 import PageHeader from '@/components/ui/PageHeader.vue'
-import Breadcrumb from '@/components/ui/Breadcrumb.vue'
 
 const props = defineProps({
   id: {
@@ -137,11 +136,8 @@ onMounted(() => {
 
 <template>
   <div class="space-y-6">
-    <Breadcrumb class="mb-4" />
-
     <PageHeader
       :title="isNew ? 'Neues Template' : 'Template bearbeiten'"
-      :description="isNew ? 'Erstellen Sie ein neues Brief-Template' : form.name"
     >
       <template #actions>
         <button

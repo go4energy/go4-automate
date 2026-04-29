@@ -88,7 +88,6 @@ onMounted(() => {
   <div>
     <PageHeader
       title="Creator"
-      subtitle="Content erstellen und verwalten"
     >
       <template #actions>
         <button

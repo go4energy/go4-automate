@@ -160,7 +160,6 @@ function openTwitter() {
     <template v-else-if="contact">
       <PageHeader
         :title="contact.name"
-        :subtitle="contact.headline || contact.position"
       >
         <template #actions>
           <button

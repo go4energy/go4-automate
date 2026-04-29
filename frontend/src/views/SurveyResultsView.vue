@@ -60,7 +60,6 @@ function formatDuration(seconds) {
   <div class="min-h-screen bg-go4-bg dark:bg-gray-900">
     <PageHeader
       :title="`Ergebnisse: ${survey?.title || 'Laden...'}`"
-      subtitle="Auswertung und Statistiken"
     >
       <template #actions>
         <button

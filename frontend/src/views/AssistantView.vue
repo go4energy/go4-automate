@@ -3,7 +3,6 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAssistantStore } from '@/stores/assistant'
 import PageHeader from '@/components/ui/PageHeader.vue'
-import Breadcrumb from '@/components/ui/Breadcrumb.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import VoiceChatPanel from '@/components/assistant/VoiceChatPanel.vue'
 import RealtimeVoiceChat from '@/components/assistant/RealtimeVoiceChat.vue'
@@ -457,10 +456,8 @@ function reviewStatusClass(status) {
 
 <template>
   <div>
-    <Breadcrumb class="mb-4" />
     <PageHeader
       title="Assistant"
-      subtitle="Persoenlicher KI-Assistent fuer Mail, Kalender und Voice"
       info-module="assistant"
     />
 
@@ -743,7 +740,6 @@ function reviewStatusClass(status) {
       <EmptyState
         v-if="store.sources.length === 0"
         title="Keine Quellen verbunden"
-        description="Verbinde ein Mail- oder Kalenderkonto, um den Assistant zu nutzen."
       />
       <div
         v-else
@@ -1130,7 +1126,6 @@ function reviewStatusClass(status) {
       <EmptyState
         v-if="store.rules.length === 0 && !showRuleForm"
         title="Keine Regeln"
-        description="Erstelle Regeln fuer automatische Mail-Triage."
       />
       <div
         v-else
@@ -1594,7 +1589,6 @@ function reviewStatusClass(status) {
       <EmptyState
         v-else-if="store.items.length === 0"
         title="Keine Aktivitaet"
-        description="Sobald Quellen verbunden sind, erscheinen hier Mail- und Kalender-Items."
       />
       <div
         v-else
@@ -1665,7 +1659,6 @@ function reviewStatusClass(status) {
       <EmptyState
         v-if="store.pendingActions.length === 0"
         title="Keine offenen Freigaben"
-        description="Aktionen, die eine Bestaetigung erfordern, erscheinen hier."
       />
       <div
         v-else

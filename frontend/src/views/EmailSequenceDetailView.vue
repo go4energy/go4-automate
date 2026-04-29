@@ -89,7 +89,6 @@ onMounted(() => {
     <template v-else-if="sequence">
       <PageHeader
         :title="sequence.name"
-        :description="sequence.description || 'Keine Beschreibung'"
       >
         <template #actions>
           <span
