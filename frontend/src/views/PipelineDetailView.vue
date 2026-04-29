@@ -168,7 +168,7 @@ function formatDate(dateStr) {
 }
 
 function goToContact(enrollment) {
-  router.push(`/contacts/${enrollment.contact_id}`)
+  router.push(`/contacts/people/${enrollment.contact_id}`)
 }
 
 // ============== Enrollment Modal ==============

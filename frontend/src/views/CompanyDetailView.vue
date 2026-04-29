@@ -28,7 +28,7 @@ function editCompany() {
 }
 
 function viewContact(contact) {
-  router.push(`/contacts/${contact.id}`)
+  router.push(`/contacts/people/${contact.id}`)
 }
 
 async function deleteCompany() {
