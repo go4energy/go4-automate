@@ -4,7 +4,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { useEngagementStore } from '@/stores/engagement'
 import { getContacts } from '@/api/contacts'
 import PageHeader from '@/components/ui/PageHeader.vue'
-import Breadcrumb from '@/components/ui/Breadcrumb.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 
@@ -323,8 +322,6 @@ async function enrollSelected() {
         </button>
       </template>
     </PageHeader>
-
-    <Breadcrumb class="mx-4 mb-2" />
 
     <!-- Tabs (router-link, Leadgen-style master/detail) -->
     <div class="border-b border-gray-200 px-4 dark:border-gray-700">

@@ -3,7 +3,6 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useLetterStore } from '@/stores/letter'
 import PageHeader from '@/components/ui/PageHeader.vue'
-import Breadcrumb from '@/components/ui/Breadcrumb.vue'
 
 const props = defineProps({
   id: {
@@ -156,8 +155,6 @@ onMounted(() => {
 
 <template>
   <div class="space-y-6">
-    <Breadcrumb class="mb-4" />
-
     <div
       v-if="loading"
       class="py-8 text-center text-gray-500"

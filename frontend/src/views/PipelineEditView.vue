@@ -3,7 +3,6 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useEngagementStore } from '@/stores/engagement'
 import PageHeader from '@/components/ui/PageHeader.vue'
-import Breadcrumb from '@/components/ui/Breadcrumb.vue'
 import PipelineSetupWizard from '@/components/engagement/PipelineSetupWizard.vue'
 
 const props = defineProps({
@@ -253,8 +252,6 @@ function cancel() {
         </button>
       </template>
     </PageHeader>
-
-    <Breadcrumb class="mx-4 mb-2" />
 
     <div class="flex-1 overflow-auto p-4">
       <!-- Loading -->
