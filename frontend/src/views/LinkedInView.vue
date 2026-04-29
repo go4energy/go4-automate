@@ -29,6 +29,7 @@ import { useFunnelsStore } from '@/stores/funnels'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import SearchInput from '@/components/ui/SearchInput.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import PipelineCampaignsList from '@/components/engagement/PipelineCampaignsList.vue'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 import ModuleSetupTab from '@/components/ai/ModuleSetupTab.vue'
 import SafetyLimitsModal from '@/components/linkedin/SafetyLimitsModal.vue'
@@ -1616,8 +1617,14 @@ Im Dashboard siehst du fuer jeden Account:
                 >
                   {{ statusLabels[sj.job_status] }}
                 </span>
-                <span v-if="sj.ran_today" class="text-xs text-green-600 dark:text-green-400">Lief heute</span>
-                <span v-else-if="sj.in_schedule_window" class="text-xs text-blue-600 dark:text-blue-400">Wartet auf Queue</span>
+                <span
+                  v-if="sj.ran_today"
+                  class="text-xs text-green-600 dark:text-green-400"
+                >Lief heute</span>
+                <span
+                  v-else-if="sj.in_schedule_window"
+                  class="text-xs text-blue-600 dark:text-blue-400"
+                >Wartet auf Queue</span>
               </div>
             </div>
           </div>
@@ -2157,6 +2164,21 @@ Im Dashboard siehst du fuer jeden Account:
 
       <!-- Campaigns Tab -->
       <div v-else-if="activeTab === 'campaigns'">
+        <!-- Central engagement pipelines (channel=linkedin) — same list every module shows -->
+        <PipelineCampaignsList
+          channel-filter="linkedin"
+          class="mb-8"
+        />
+
+        <div class="mb-4 mt-8 border-t border-gray-200 pt-6 dark:border-gray-700">
+          <h3 class="mb-3 text-base font-semibold text-gray-700 dark:text-gray-300">
+            LinkedIn-eigene Sequenzen
+          </h3>
+          <p class="mb-3 text-xs text-gray-500 dark:text-gray-400">
+            Veraltete LinkedIn-spezifische Campaigns (vor der zentralen Pipeline-Architektur).
+            Werden langfristig in zentrale Engagement-Pipelines migriert.
+          </p>
+        </div>
         <div class="mb-4 flex items-center gap-4">
           <SearchInput
             v-model="searchQuery"
@@ -2732,11 +2754,14 @@ Im Dashboard siehst du fuer jeden Account:
 
       <!-- Debug Tab -->
       <div v-else-if="activeTab === 'debug'">
-
         <!-- === Profile Scraper Test === -->
         <div class="mb-6 rounded-lg border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
-          <h3 class="mb-3 text-lg font-semibold text-gray-900 dark:text-white">Profil-Scraper Test</h3>
-          <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">LinkedIn-Profil-URL eingeben, um den Extractor zu testen.</p>
+          <h3 class="mb-3 text-lg font-semibold text-gray-900 dark:text-white">
+            Profil-Scraper Test
+          </h3>
+          <p class="mb-4 text-sm text-gray-500 dark:text-gray-400">
+            LinkedIn-Profil-URL eingeben, um den Extractor zu testen.
+          </p>
 
           <div class="flex gap-3">
             <input
@@ -2746,16 +2771,34 @@ Im Dashboard siehst du fuer jeden Account:
               class="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               :disabled="scrapeLoading"
               @keydown.enter="startScrapeTest"
-            />
+            >
             <button
               class="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
               :disabled="scrapeLoading || !scrapeUrl.trim()"
               @click="startScrapeTest"
             >
-              <span v-if="scrapeLoading" class="flex items-center gap-2">
-                <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              <span
+                v-if="scrapeLoading"
+                class="flex items-center gap-2"
+              >
+                <svg
+                  class="h-4 w-4 animate-spin"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    class="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    stroke-width="4"
+                  />
+                  <path
+                    class="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                  />
                 </svg>
                 Scraping...
               </span>
@@ -2764,21 +2807,37 @@ Im Dashboard siehst du fuer jeden Account:
           </div>
 
           <!-- Error -->
-          <div v-if="scrapeError" class="mt-4 rounded-lg border border-red-300 bg-red-50 p-4 dark:border-red-700 dark:bg-red-900/20">
-            <p class="font-medium text-red-700 dark:text-red-300">Fehler</p>
+          <div
+            v-if="scrapeError"
+            class="mt-4 rounded-lg border border-red-300 bg-red-50 p-4 dark:border-red-700 dark:bg-red-900/20"
+          >
+            <p class="font-medium text-red-700 dark:text-red-300">
+              Fehler
+            </p>
             <pre class="mt-2 whitespace-pre-wrap text-sm text-red-600 dark:text-red-400">{{ scrapeError }}</pre>
           </div>
 
           <!-- Result -->
-          <div v-if="scrapeResult" class="mt-4 space-y-4">
+          <div
+            v-if="scrapeResult"
+            class="mt-4 space-y-4"
+          >
             <!-- Steps Log -->
-            <div v-if="scrapeResult.steps?.length" class="rounded-lg border border-gray-200 bg-gray-900 p-3 dark:border-gray-700">
-              <div v-for="(s, i) in scrapeResult.steps" :key="i" class="font-mono text-xs leading-relaxed" :class="{
-                'text-green-400': s.status === 'ok',
-                'text-yellow-400': s.status === 'warn',
-                'text-red-400': s.status === 'fail',
-                'text-gray-400': s.status === 'start',
-              }">
+            <div
+              v-if="scrapeResult.steps?.length"
+              class="rounded-lg border border-gray-200 bg-gray-900 p-3 dark:border-gray-700"
+            >
+              <div
+                v-for="(s, i) in scrapeResult.steps"
+                :key="i"
+                class="font-mono text-xs leading-relaxed"
+                :class="{
+                  'text-green-400': s.status === 'ok',
+                  'text-yellow-400': s.status === 'warn',
+                  'text-red-400': s.status === 'fail',
+                  'text-gray-400': s.status === 'start',
+                }"
+              >
                 [{{ s.status.toUpperCase().padEnd(5) }}] {{ s.step }}: {{ s.detail }}
               </div>
             </div>
@@ -2796,7 +2855,7 @@ Im Dashboard siehst du fuer jeden Account:
           </div>
         </div>
 
-        <hr class="mb-6 border-gray-200 dark:border-gray-700" />
+        <hr class="mb-6 border-gray-200 dark:border-gray-700">
 
         <!-- Debug Toggle -->
         <div class="mb-4 flex items-center gap-4">
@@ -2809,46 +2868,83 @@ Im Dashboard siehst du fuer jeden Account:
           >
             {{ debugActive ? 'Debug deaktivieren' : 'Debug aktivieren' }}
           </button>
-          <span v-if="debugActive" class="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+          <span
+            v-if="debugActive"
+            class="flex items-center gap-2 text-sm text-green-600 dark:text-green-400"
+          >
             <span class="inline-block h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse" />
             Aktiv — starte einen Job im Jobs-Tab
           </span>
         </div>
 
         <!-- Aktueller Schritt -->
-        <div v-if="debugActive" class="mb-4 rounded-lg border-2 border-blue-300 bg-blue-50 p-4 dark:border-blue-700 dark:bg-blue-900/20">
+        <div
+          v-if="debugActive"
+          class="mb-4 rounded-lg border-2 border-blue-300 bg-blue-50 p-4 dark:border-blue-700 dark:bg-blue-900/20"
+        >
           <div class="mb-2 text-xs font-medium uppercase tracking-wide text-blue-600 dark:text-blue-400">
             Aktueller Schritt
           </div>
-          <div v-if="debugCurrentStep" class="flex items-center justify-between">
+          <div
+            v-if="debugCurrentStep"
+            class="flex items-center justify-between"
+          >
             <div>
-              <p class="text-lg font-semibold text-gray-900 dark:text-white">{{ debugCurrentStep.description }}</p>
-              <p v-if="debugCurrentStep.details" class="mt-1 text-sm text-gray-600 dark:text-gray-400">{{ debugCurrentStep.details }}</p>
+              <p class="text-lg font-semibold text-gray-900 dark:text-white">
+                {{ debugCurrentStep.description }}
+              </p>
+              <p
+                v-if="debugCurrentStep.details"
+                class="mt-1 text-sm text-gray-600 dark:text-gray-400"
+              >
+                {{ debugCurrentStep.details }}
+              </p>
             </div>
             <button
               class="ml-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-600 text-white shadow-lg hover:bg-green-700"
               title="Freigeben"
               @click="approveStep"
             >
-              <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+              <svg
+                class="h-6 w-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                />
               </svg>
             </button>
           </div>
-          <div v-else class="text-sm text-gray-500 dark:text-gray-400">Warte auf nächsten Schritt...</div>
+          <div
+            v-else
+            class="text-sm text-gray-500 dark:text-gray-400"
+          >
+            Warte auf nächsten Schritt...
+          </div>
         </div>
 
         <!-- Autostart -->
-        <div v-if="debugActive" class="mb-4 flex items-center gap-4 rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
+        <div
+          v-if="debugActive"
+          class="mb-4 flex items-center gap-4 rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800"
+        >
           <label class="flex items-center gap-2 text-sm">
             <input
               v-model="debugAutostart"
               type="checkbox"
               class="h-4 w-4 rounded border-gray-300 text-blue-600"
-            />
+            >
             Autostart
           </label>
-          <div v-if="debugAutostart" class="flex items-center gap-2">
+          <div
+            v-if="debugAutostart"
+            class="flex items-center gap-2"
+          >
             <input
               v-model.number="debugAutoDelay"
               type="number"
@@ -2856,21 +2952,39 @@ Im Dashboard siehst du fuer jeden Account:
               max="30000"
               step="100"
               class="w-24 rounded border border-gray-300 px-2 py-1 text-sm dark:border-gray-600 dark:bg-gray-700"
-            />
+            >
             <span class="text-sm text-gray-500">ms</span>
           </div>
-          <div v-if="debugAutostart && debugAutoCountdown > 0" class="text-sm text-blue-600 dark:text-blue-400">
+          <div
+            v-if="debugAutostart && debugAutoCountdown > 0"
+            class="text-sm text-blue-600 dark:text-blue-400"
+          >
             Auto-Freigabe in {{ debugAutoCountdown }}ms...
           </div>
         </div>
 
         <!-- Finished banner -->
-        <div v-if="debugFinished" class="mb-4 rounded-lg border p-4" :class="debugFinished.status === 'completed' ? 'border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-900/20' : 'border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-900/20'">
-          <p class="font-semibold" :class="debugFinished.status === 'completed' ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'">
+        <div
+          v-if="debugFinished"
+          class="mb-4 rounded-lg border p-4"
+          :class="debugFinished.status === 'completed' ? 'border-green-300 bg-green-50 dark:border-green-700 dark:bg-green-900/20' : 'border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-900/20'"
+        >
+          <p
+            class="font-semibold"
+            :class="debugFinished.status === 'completed' ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'"
+          >
             {{ debugFinished.status === 'completed' ? 'Abgeschlossen' : debugFinished.status === 'cancelled' ? 'Abgebrochen' : 'Fehler' }}
           </p>
-          <p v-if="debugFinished.message" class="mt-1 text-sm">{{ debugFinished.message }}</p>
-          <p v-if="debugFinished.profiles_scraped !== undefined" class="mt-1 text-sm">
+          <p
+            v-if="debugFinished.message"
+            class="mt-1 text-sm"
+          >
+            {{ debugFinished.message }}
+          </p>
+          <p
+            v-if="debugFinished.profiles_scraped !== undefined"
+            class="mt-1 text-sm"
+          >
             {{ debugFinished.profiles_found || 0 }} gefunden, {{ debugFinished.profiles_scraped }} gespeichert
           </p>
         </div>
@@ -2879,20 +2993,38 @@ Im Dashboard siehst du fuer jeden Account:
         <div class="rounded-lg border border-gray-200 bg-gray-900 dark:border-gray-700">
           <div class="flex items-center justify-between border-b border-gray-700 px-4 py-2">
             <span class="text-sm font-medium text-gray-300">Log</span>
-            <button class="text-xs text-gray-500 hover:text-gray-300" @click="debugLogs = []">Löschen</button>
+            <button
+              class="text-xs text-gray-500 hover:text-gray-300"
+              @click="debugLogs = []"
+            >
+              Löschen
+            </button>
           </div>
-          <div ref="debugLogContainer" class="h-96 overflow-y-auto p-4 font-mono text-xs leading-relaxed">
-            <div v-for="(log, idx) in debugLogs" :key="idx" class="whitespace-pre-wrap" :class="{
-              'text-gray-400': log.level === 'info',
-              'text-green-400': log.level === 'ok',
-              'text-yellow-400': log.level === 'warning',
-              'text-red-400': log.level === 'error',
-              'text-blue-400': log.level === 'debug',
-              'text-cyan-400': log.level === 'step',
-            }">
+          <div
+            ref="debugLogContainer"
+            class="h-96 overflow-y-auto p-4 font-mono text-xs leading-relaxed"
+          >
+            <div
+              v-for="(log, idx) in debugLogs"
+              :key="idx"
+              class="whitespace-pre-wrap"
+              :class="{
+                'text-gray-400': log.level === 'info',
+                'text-green-400': log.level === 'ok',
+                'text-yellow-400': log.level === 'warning',
+                'text-red-400': log.level === 'error',
+                'text-blue-400': log.level === 'debug',
+                'text-cyan-400': log.level === 'step',
+              }"
+            >
               <span class="text-gray-600">{{ log.time }}</span> <span class="font-bold">{{ log.levelTag }}</span> {{ log.message }}
             </div>
-            <div v-if="debugLogs.length === 0" class="text-gray-600">Noch keine Logs...</div>
+            <div
+              v-if="debugLogs.length === 0"
+              class="text-gray-600"
+            >
+              Noch keine Logs...
+            </div>
           </div>
         </div>
       </div>

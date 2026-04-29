@@ -4,6 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useWhatsAppStore } from '@/stores/whatsapp'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import PipelineCampaignsList from '@/components/engagement/PipelineCampaignsList.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -345,6 +346,20 @@ onMounted(() => {
 
     <!-- Campaigns Tab -->
     <div v-else-if="activeTab === 'campaigns'">
+      <!-- Central engagement pipelines (channel=whatsapp) -->
+      <PipelineCampaignsList
+        channel-filter="whatsapp"
+        class="mb-8"
+      />
+
+      <div class="mb-4 mt-8 border-t border-gray-200 pt-6 dark:border-gray-700">
+        <h3 class="mb-3 text-base font-semibold text-gray-700 dark:text-gray-300">
+          WhatsApp-eigene Sequenzen
+        </h3>
+        <p class="mb-3 text-xs text-gray-500 dark:text-gray-400">
+          Veraltete WhatsApp-spezifische Campaigns. Werden langfristig in zentrale Engagement-Pipelines migriert.
+        </p>
+      </div>
       <EmptyState
         v-if="store.campaigns.length === 0"
         title="Keine Kampagnen"

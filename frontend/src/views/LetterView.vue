@@ -5,6 +5,7 @@ import { useLetterStore } from '@/stores/letter'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import Breadcrumb from '@/components/ui/Breadcrumb.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import PipelineCampaignsList from '@/components/engagement/PipelineCampaignsList.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -14,6 +15,7 @@ const store = useLetterStore()
 const activeTab = computed(() => route.meta?.tab || 'letters')
 
 const tabs = [
+  { key: 'campaigns', label: 'Kampagnen', route: '/letter/campaigns' },
   { key: 'letters', label: 'Briefe', route: '/letter' },
   { key: 'templates', label: 'Templates', route: '/letter/templates' },
   { key: 'batches', label: 'Batches', route: '/letter/batches' },
@@ -549,6 +551,11 @@ watch(activeTab, () => {
           {{ tab.label }}
         </router-link>
       </nav>
+    </div>
+
+    <!-- Campaigns Tab — central engagement-pipelines filtered to letter channel -->
+    <div v-if="activeTab === 'campaigns'">
+      <PipelineCampaignsList channel-filter="letter" />
     </div>
 
     <!-- Letters Tab -->
