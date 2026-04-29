@@ -1,41 +1,17 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useLayoutStore } from '@/stores/layout'
 import { useAuthStore } from '@/stores/auth'
-import { usePipelineContext } from '@/stores/pipelineContext'
-import { useEngagementStore } from '@/stores/engagement'
 import PasswordChangeModal from '@/components/auth/PasswordChangeModal.vue'
 
 const route = useRoute()
 const router = useRouter()
 const layout = useLayoutStore()
 const authStore = useAuthStore()
-const pipelineCtx = usePipelineContext()
-const engagementStore = useEngagementStore()
 
 const userMenuOpen = ref(false)
 const showPasswordModal = ref(false)
-const pipelineMenuOpen = ref(false)
-
-// Pipeline selector only visible on pipeline-relevant modules
-const pipelineModulePrefixes = ['/engagement', '/linkedin', '/contacts', '/crm', '/letter', '/campaigns', '/whatsapp', '/emailmarketing']
-const showPipelineSelector = computed(() => {
-  const path = route.path
-  return pipelineModulePrefixes.some((prefix) => path.startsWith(prefix))
-})
-
-const sortedPipelines = computed(() => {
-  const all = engagementStore.activePipelines
-  if (!pipelineCtx.activePipelineId) return all
-  const active = all.filter((p) => p.id === pipelineCtx.activePipelineId)
-  const rest = all.filter((p) => p.id !== pipelineCtx.activePipelineId)
-  return [...active, ...rest]
-})
-
-onMounted(() => {
-  pipelineCtx.ensurePipelines()
-})
 
 const breadcrumbs = computed(() => {
   const crumbs = []
@@ -152,114 +128,6 @@ function closeMenuOnOutsideClick() {
       </template>
     </nav>
 
-    <!-- Center: Pipeline Context Selector (only on pipeline-relevant modules) -->
-    <div
-      v-if="showPipelineSelector"
-      class="relative"
-    >
-      <button
-        class="flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition"
-        :class="
-          pipelineCtx.isActive
-            ? 'border-go4-primary/30 bg-go4-primary/5 text-go4-primary dark:border-go4-primary/40 dark:bg-go4-primary/10'
-            : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:border-gray-600 dark:text-gray-400 dark:hover:border-gray-500'
-        "
-        @click="pipelineMenuOpen = !pipelineMenuOpen"
-      >
-        <svg
-          class="h-4 w-4"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.5"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"
-          />
-        </svg>
-        <span class="max-w-[200px] truncate">{{ pipelineCtx.label }}</span>
-        <svg
-          class="h-3.5 w-3.5 shrink-0"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            d="M19.5 8.25l-7.5 7.5-7.5-7.5"
-          />
-        </svg>
-      </button>
-
-      <!-- Pipeline Dropdown -->
-      <div
-        v-if="pipelineMenuOpen"
-        class="absolute left-0 top-full z-50 mt-1 w-72 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800"
-      >
-        <button
-          class="flex w-full items-center gap-2 px-4 py-2 text-sm transition"
-          :class="
-            !pipelineCtx.isActive
-              ? 'bg-go4-primary/5 font-medium text-go4-primary'
-              : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700'
-          "
-          @click="pipelineCtx.clearPipeline(); pipelineMenuOpen = false"
-        >
-          <svg
-            class="h-4 w-4"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"
-            />
-          </svg>
-          Alle Pipelines
-        </button>
-        <div class="my-1 border-t border-gray-100 dark:border-gray-700" />
-        <button
-          v-for="pipeline in sortedPipelines"
-          :key="pipeline.id"
-          class="flex w-full items-center gap-2 px-4 py-2 text-sm transition"
-          :class="
-            pipelineCtx.activePipelineId === pipeline.id
-              ? 'bg-go4-primary/5 font-medium text-go4-primary'
-              : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700'
-          "
-          @click="pipelineCtx.setActivePipeline(pipeline.id); pipelineMenuOpen = false"
-        >
-          <span
-            class="h-2 w-2 shrink-0 rounded-full"
-            :class="pipeline.is_active ? 'bg-green-400' : 'bg-gray-300'"
-          />
-          <span class="truncate">{{ pipeline.name }}</span>
-          <span class="ml-auto text-xs text-gray-400">
-            {{ pipeline.channels?.length || 0 }} Kanaele
-          </span>
-        </button>
-        <div
-          v-if="engagementStore.activePipelines.length === 0"
-          class="px-4 py-3 text-center text-sm text-gray-400"
-        >
-          Keine Pipelines vorhanden
-        </div>
-      </div>
-
-      <!-- Overlay to close -->
-      <div
-        v-if="pipelineMenuOpen"
-        class="fixed inset-0 z-[-1]"
-        @click="pipelineMenuOpen = false"
-      />
-    </div>
 
     <!-- Right: Action buttons -->
     <div class="flex items-center gap-1">
