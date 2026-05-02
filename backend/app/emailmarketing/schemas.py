@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 class EmailProviderBase(BaseModel):
     """Base schema for email provider."""
 
-    provider_type: Literal["sendgrid", "mailgun", "o365"]
+    provider_type: Literal["sendgrid", "mailgun", "o365", "aws_ses", "brevo"]
     sender_email: EmailStr
     sender_name: str = Field(min_length=1, max_length=200)
     reply_to_email: EmailStr | None = None
@@ -84,6 +84,10 @@ class EmailTemplateBase(BaseModel):
     variables: list[str] = Field(default_factory=list)
     category: str | None = None
     tags: list[str] = Field(default_factory=list)
+    # Visual editor design state (Unlayer JSON). Null when authored as raw HTML.
+    design_json: dict | None = None
+    # Editor flavour: 'unlayer' | 'plain' | 'html'
+    editor_mode: Literal["unlayer", "plain", "html"] = "unlayer"
 
 
 class EmailTemplateCreate(EmailTemplateBase):
@@ -104,6 +108,64 @@ class EmailTemplateUpdate(BaseModel):
     is_active: bool | None = None
     category: str | None = None
     tags: list[str] | None = None
+    design_json: dict | None = None
+    editor_mode: Literal["unlayer", "plain", "html"] | None = None
+
+
+# ============== Assets ==============
+
+
+class EmailAssetResponse(BaseModel):
+    """Uploaded image/file metadata."""
+
+    id: int
+    tenant_id: str
+    filename: str
+    original_filename: str
+    mime_type: str
+    size_bytes: int
+    url_path: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ============== AI Chat (Email Designer) ==============
+
+
+class AiChatMessage(BaseModel):
+    """Single chat message in template-designer chat."""
+
+    id: int
+    role: str  # user|assistant|tool
+    content: str | None = None
+    tool_calls: list | dict | None = None
+    tool_use_id: str | None = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AiChatSendRequest(BaseModel):
+    """User sends a new message to the email-designer assistant."""
+
+    message: str = Field(min_length=1, max_length=4000)
+    current_html: str | None = None  # latest editor content for context
+
+
+class AiChatToolCall(BaseModel):
+    """A tool call Claude wants the frontend to apply."""
+
+    name: str  # set_full_html | apply_diff | insert_image
+    input: dict
+
+
+class AiChatSendResponse(BaseModel):
+    """Response after a chat round trip."""
+
+    assistant_message: AiChatMessage
+    tool_calls: list[AiChatToolCall] = Field(default_factory=list)
+    new_html: str | None = None  # convenience: html if tools modified it
 
 
 class EmailTemplateResponse(EmailTemplateBase):

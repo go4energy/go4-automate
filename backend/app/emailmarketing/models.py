@@ -37,7 +37,7 @@ class EmailProvider(TimestampMixin, Base):
     # Provider type
     provider_type: Mapped[str] = mapped_column(
         String(30), nullable=False
-    )  # sendgrid, mailgun, o365
+    )  # sendgrid, mailgun, o365, aws_ses
 
     # Credentials (encrypted)
     api_key_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -101,6 +101,18 @@ class EmailTemplate(TimestampMixin, Base):
     subject: Mapped[str] = mapped_column(String(500), nullable=False)
     html_content: Mapped[str] = mapped_column(Text, nullable=False)
     text_content: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Visual editor design state (react-email-editor JSON). Null for
+    # templates authored as raw HTML. html_content stays canonical for send.
+    design_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+    # Which editor flavour to load for this template.
+    # 'unlayer' (default) — Drag-&-Drop visual; design_json source of truth
+    # 'plain' — plain text only; text_content source of truth
+    # 'html' — raw HTML editor + optional KI-chat; html_content source of truth
+    editor_mode: Mapped[str] = mapped_column(
+        String(20), default="unlayer", nullable=False, server_default="unlayer"
+    )
 
     # Merge tags available in this template
     variables: Mapped[list] = mapped_column(
@@ -275,8 +287,12 @@ class EmailRecipient(TimestampMixin, Base):
     clicked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     bounced_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
-    # Provider reference
+    # Provider reference (returned by provider API after submission)
     provider_message_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+    # RFC822 Message-ID header we set on outbound — used to match replies
+    # via In-Reply-To / References headers on the inbound side.
+    message_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     # Relationships
     tenant: Mapped["Tenant"] = relationship("Tenant")
@@ -291,6 +307,7 @@ class EmailRecipient(TimestampMixin, Base):
     __table_args__ = (
         Index("ix_email_recipients_campaign_status", "campaign_id", "status"),
         Index("ix_email_recipients_token", "tracking_token"),
+        Index("ix_email_recipients_message_id", "message_id"),
     )
 
     def __repr__(self) -> str:
@@ -496,6 +513,13 @@ class EmailSequenceEnrollment(TimestampMixin, Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     unsubscribed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
+    # Stop-on-reply (and other auto-stops): worker skips further steps
+    # when stopped_on_reply_at is set. Reason: reply, unsubscribe, bounce, manual.
+    stopped_on_reply_at: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True
+    )
+    stopped_reason: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
     # Source of enrollment
     source: Mapped[str] = mapped_column(
         String(50), default="manual", nullable=False
@@ -556,3 +580,63 @@ class EmailUnsubscribe(TimestampMixin, Base):
 
     def __repr__(self) -> str:
         return f"<EmailUnsubscribe {self.email}>"
+
+
+class EmailAsset(TimestampMixin, Base):
+    """User-uploaded image / file referenced by email templates."""
+
+    __tablename__ = "email_assets"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(
+        String(50), ForeignKey("tenants.tenant_id"), nullable=False
+    )
+
+    # Server-generated filename (UUID-prefixed) inside the tenant folder
+    filename: Mapped[str] = mapped_column(String(200), nullable=False)
+    original_filename: Mapped[str] = mapped_column(String(300), nullable=False)
+    mime_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Public URL path (served by FastAPI StaticFiles)
+    url_path: Mapped[str] = mapped_column(String(500), nullable=False)
+
+    created_by: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # Relationships
+    tenant: Mapped["Tenant"] = relationship("Tenant")
+
+    __table_args__ = (Index("ix_email_assets_tenant", "tenant_id"),)
+
+    def __repr__(self) -> str:
+        return f"<EmailAsset {self.original_filename!r}>"
+
+
+class EmailTemplateChat(TimestampMixin, Base):
+    """Persisted Claude chat per email template — KI-Designer-Assistant."""
+
+    __tablename__ = "email_template_chats"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(
+        String(50), ForeignKey("tenants.tenant_id"), nullable=False
+    )
+    template_id: Mapped[int] = mapped_column(
+        ForeignKey("email_templates.id", ondelete="CASCADE"), nullable=False
+    )
+    role: Mapped[str] = mapped_column(String(20), nullable=False)  # user|assistant|tool
+    content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Claude tool_use blocks (when role=assistant); or tool_result block (when role=tool)
+    tool_calls: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    tool_use_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+    # Relationships
+    tenant: Mapped["Tenant"] = relationship("Tenant")
+    template: Mapped["EmailTemplate"] = relationship("EmailTemplate")
+
+    __table_args__ = (
+        Index("ix_email_template_chats_template", "template_id", "created_at"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<EmailTemplateChat tpl={self.template_id} role={self.role}>"
+

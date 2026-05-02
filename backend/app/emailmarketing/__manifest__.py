@@ -13,7 +13,13 @@ manifest = {
     "has_frontend": True,
     "has_models": True,
     "has_config_schema": True,
-    "routers": ["router", "tracking_router", "webhooks_router"],
+    "routers": [
+        "router",
+        "tracking_router",
+        "webhooks_router",
+        "asset_router",
+        "ai_chat_router",
+    ],
     "router_prefix": "/emailmarketing",
     "sidebar": {"group": "MARKETING", "order": 45},
     "frontend": {
@@ -27,17 +33,7 @@ manifest = {
                 "meta": {
                     "title": "E-Mail Marketing",
                     "breadcrumb": {"label": "E-Mail Marketing"},
-                    "tab": "campaigns",
-                },
-            },
-            {
-                "path": "campaigns",
-                "name": "emailmarketing-campaigns",
-                "view": "EmailMarketingView",
-                "meta": {
-                    "title": "Kampagnen",
-                    "breadcrumb": {"label": "Kampagnen", "parent": "emailmarketing"},
-                    "tab": "campaigns",
+                    "tab": "sequences",
                 },
             },
             {
@@ -88,7 +84,7 @@ manifest = {
                 "props": True,
                 "meta": {
                     "title": "Kampagne",
-                    "breadcrumb": {"label": "Details", "parent": "emailmarketing-campaigns"},
+                    "breadcrumb": {"label": "Details", "parent": "emailmarketing"},
                 },
             },
             {
@@ -98,7 +94,7 @@ manifest = {
                 "props": True,
                 "meta": {
                     "title": "Kampagne bearbeiten",
-                    "breadcrumb": {"label": "Bearbeiten", "parent": "emailmarketing-campaigns"},
+                    "breadcrumb": {"label": "Bearbeiten", "parent": "emailmarketing"},
                 },
             },
             {
@@ -107,7 +103,7 @@ manifest = {
                 "view": "EmailCampaignEditView",
                 "meta": {
                     "title": "Neue Kampagne",
-                    "breadcrumb": {"label": "Neu", "parent": "emailmarketing-campaigns"},
+                    "breadcrumb": {"label": "Neu", "parent": "emailmarketing"},
                 },
             },
             {

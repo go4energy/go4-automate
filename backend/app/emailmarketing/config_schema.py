@@ -157,7 +157,10 @@ class EmailMarketingInterface(ModuleInterface):
         payload: dict | None = None,
     ) -> dict:
         """Execute chatbot/admin actions for the email marketing module."""
-        from app.emailmarketing.service import EmailCampaignService, EmailProviderService
+        from app.emailmarketing.service import (
+            EmailCampaignService,
+            EmailProviderService,
+        )
 
         payload = payload or {}
 

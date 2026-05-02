@@ -1,30 +1,29 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useEmailMarketingStore } from '@/stores/emailmarketing'
+import { usePipelineContext } from '@/stores/pipelineContext'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
-import PipelineCampaignsList from '@/components/engagement/PipelineCampaignsList.vue'
 
 const router = useRouter()
 const route = useRoute()
 const store = useEmailMarketingStore()
+const pipelineCtx = usePipelineContext()
 
 // Tab state from route
-const activeTab = computed(() => route.meta?.tab || 'campaigns')
+const activeTab = computed(() => route.meta?.tab || 'sequences')
 
 const loading = ref(true)
 
+const hasProvider = computed(() => (store.providers || []).length > 0)
+const hasTemplate = computed(() => (store.templates || []).length > 0)
+const showOnboarding = computed(() => !hasProvider.value || !hasTemplate.value)
+
 // Tab definitions
 const tabs = [
-  {
-    id: 'campaigns',
-    label: 'Kampagnen',
-    icon: 'paper-airplane',
-    route: '/emailmarketing/campaigns'
-  },
-  { id: 'templates', label: 'Vorlagen', icon: 'document-text', route: '/emailmarketing/templates' },
   { id: 'sequences', label: 'Sequenzen', icon: 'queue-list', route: '/emailmarketing/sequences' },
+  { id: 'templates', label: 'Vorlagen', icon: 'document-text', route: '/emailmarketing/templates' },
   { id: 'providers', label: 'Provider', icon: 'server', route: '/emailmarketing/providers' },
   { id: 'freigabe', label: 'Freigabe', icon: 'check-circle', route: '/emailmarketing/freigabe' }
 ]
@@ -140,13 +139,14 @@ async function verifyProvider(provider) {
   }
 }
 
-// Load data
+// Load data — scoped to the globally selected pipeline.
 async function loadData() {
   loading.value = true
+  const pid = pipelineCtx.activePipelineId || undefined
   await Promise.all([
-    store.fetchCampaigns(),
+    store.fetchCampaigns({ pipeline_id: pid }),
     store.fetchTemplates(),
-    store.fetchSequences(),
+    store.fetchSequences({ pipeline_id: pid }),
     store.fetchProviders(),
     store.fetchEngagementActions()
   ])
@@ -166,9 +166,15 @@ async function executeAction(actionId, content) {
   await store.executeAction(actionId, content)
 }
 
-onMounted(() => {
+onMounted(async () => {
+  await pipelineCtx.ensurePipelines()
   loadData()
 })
+
+watch(
+  () => pipelineCtx.activePipelineId,
+  () => loadData(),
+)
 </script>
 
 <template>
@@ -260,6 +266,167 @@ onMounted(() => {
       </template>
     </PageHeader>
 
+    <!-- Onboarding-Karte: Schritte zum Loslegen -->
+    <div
+      v-if="!loading && showOnboarding"
+      class="mb-6 rounded-lg border border-go4-primary/30 bg-gradient-to-br from-go4-primary/5 to-blue-50 p-6 dark:from-go4-primary/10 dark:to-blue-900/20"
+    >
+      <div class="flex items-start gap-3">
+        <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-go4-primary text-white">
+          <svg
+            class="h-5 w-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M13 10V3L4 14h7v7l9-11h-7z"
+            />
+          </svg>
+        </div>
+        <div class="flex-1">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            E-Mail-Marketing einrichten
+          </h3>
+          <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+            Bevor du E-Mails versenden kannst, müssen drei Dinge konfiguriert sein.
+            Folge den Schritten unten — du kannst jederzeit zurückspringen.
+          </p>
+
+          <ol class="mt-4 space-y-3">
+            <!-- Schritt 1: Provider -->
+            <li class="flex items-start gap-3 rounded-lg bg-white p-3 dark:bg-gray-800">
+              <div
+                class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full"
+                :class="hasProvider ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300'"
+              >
+                <svg
+                  v-if="hasProvider"
+                  class="h-3.5 w-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="3"
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+                <span
+                  v-else
+                  class="text-xs font-bold"
+                >1</span>
+              </div>
+              <div class="flex-1">
+                <div class="flex items-center justify-between">
+                  <p class="font-medium text-gray-900 dark:text-gray-100">
+                    Provider hinzufügen
+                  </p>
+                  <router-link
+                    v-if="!hasProvider"
+                    to="/emailmarketing/providers/new"
+                    class="ml-2 rounded-lg bg-go4-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-go4-primary-dark"
+                  >
+                    Provider anlegen
+                  </router-link>
+                  <span
+                    v-else
+                    class="text-xs text-emerald-600"
+                  >Erledigt</span>
+                </div>
+                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                  Wer versendet die E-Mails? Empfohlen: <strong>AWS SES (Frankfurt)</strong> für DSGVO-konformes Hosting.
+                  Du brauchst Access Key + Secret Access Key aus deinem AWS-Konto.
+                </p>
+              </div>
+            </li>
+
+            <!-- Schritt 2: Vorlage -->
+            <li class="flex items-start gap-3 rounded-lg bg-white p-3 dark:bg-gray-800">
+              <div
+                class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full"
+                :class="hasTemplate ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300'"
+              >
+                <svg
+                  v-if="hasTemplate"
+                  class="h-3.5 w-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="3"
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+                <span
+                  v-else
+                  class="text-xs font-bold"
+                >2</span>
+              </div>
+              <div class="flex-1">
+                <div class="flex items-center justify-between">
+                  <p class="font-medium text-gray-900 dark:text-gray-100">
+                    Erste Vorlage erstellen
+                  </p>
+                  <router-link
+                    v-if="!hasTemplate"
+                    to="/emailmarketing/templates/new"
+                    class="ml-2 rounded-lg bg-go4-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-go4-primary-dark"
+                  >
+                    Vorlage erstellen
+                  </router-link>
+                  <span
+                    v-else
+                    class="text-xs text-emerald-600"
+                  >Erledigt</span>
+                </div>
+                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                  Layout der E-Mail (Header, Anrede, Body-Slot fürs LLM, Footer/Impressum) — visuell per Drag-&-Drop
+                  oder direkt als HTML. Pflicht-Slot:
+                  <code class="rounded bg-gray-100 px-1 dark:bg-gray-700">&#123;&#123;llm_body&#125;&#125;</code>
+                  — wird beim Versand pro Empfänger personalisiert.
+                </p>
+              </div>
+            </li>
+
+            <!-- Schritt 3: Versand-Strategie -->
+            <li class="flex items-start gap-3 rounded-lg bg-white p-3 dark:bg-gray-800">
+              <div class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                <span class="text-xs font-bold">3</span>
+              </div>
+              <div class="flex-1">
+                <div class="flex items-center justify-between">
+                  <p class="font-medium text-gray-900 dark:text-gray-100">
+                    Pipeline anlegen + versenden
+                  </p>
+                  <router-link
+                    to="/engagement"
+                    class="ml-2 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                  >
+                    Zum Engagement →
+                  </router-link>
+                </div>
+                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                  Eine Pipeline definiert Ziel, Tonalität und Empfänger.
+                  Engagement-Brain entscheidet pro Lead, ob/wann eine E-Mail rausgeht und entwirft den
+                  <code class="rounded bg-gray-100 px-1 dark:bg-gray-700">&#123;&#123;llm_body&#125;&#125;</code>-Text.
+                  Du gibst frei, wir senden.
+                </p>
+              </div>
+            </li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
     <!-- Tabs -->
     <div class="border-b border-gray-200 mb-6">
       <nav class="-mb-px flex space-x-8">
@@ -289,20 +456,15 @@ onMounted(() => {
 
     <!-- Campaigns Tab -->
     <div v-else-if="activeTab === 'campaigns'">
-      <!-- Central engagement pipelines (channel=email) -->
-      <PipelineCampaignsList
-        channel-filter="email"
-        class="mb-8"
-      />
-
-      <div class="mb-4 mt-8 border-t border-gray-200 pt-6 dark:border-gray-700">
-        <h3 class="mb-3 text-base font-semibold text-gray-700 dark:text-gray-300">
-          E-Mail-eigene Sequenzen
-        </h3>
-        <p class="mb-3 text-xs text-gray-500 dark:text-gray-400">
-          Veraltete E-Mail-spezifische Campaigns. Werden langfristig in zentrale Engagement-Pipelines migriert.
-        </p>
-      </div>
+      <p class="mb-3 text-xs text-gray-500 dark:text-gray-400">
+        E-Mail-spezifische Campaigns. Pipeline-zentrierte Kampagnen verwaltest du im
+        <router-link
+          to="/engagement"
+          class="text-go4-primary hover:text-go4-primary-dark"
+        >
+          Engagement-Modul
+        </router-link>; die ausgewählte Pipeline kannst du oben im Header wechseln.
+      </p>
       <EmptyState
         v-if="store.campaigns.length === 0"
         title="Keine Kampagnen"

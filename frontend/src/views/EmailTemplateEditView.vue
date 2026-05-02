@@ -1,9 +1,13 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useEmailMarketingStore } from '@/stores/emailmarketing'
 import { previewTemplate } from '@/api/emailmarketing'
 import PageHeader from '@/components/ui/PageHeader.vue'
+import UnlayerEmailEditor from '@/components/email/UnlayerEmailEditor.vue'
+import HtmlCodeEditor from '@/components/email/HtmlCodeEditor.vue'
+import AssetLibrary from '@/components/email/AssetLibrary.vue'
+import EmailDesignerChat from '@/components/email/EmailDesignerChat.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -13,21 +17,61 @@ const isNew = computed(() => !route.params.id)
 const loading = ref(true)
 const saving = ref(false)
 const previewHtml = ref('')
-const showPreview = ref(false)
+
+const visualEditor = ref(null)
+
+// HTML-mode sub-tabs: 'edit' | 'preview'
+const htmlSubTab = ref('edit')
 
 const form = ref({
   name: '',
   slug: '',
   description: '',
   subject: '',
-  html_content:
-    '<p>Hallo {{name}},</p>\n\n<p>Hier ist Ihr E-Mail-Inhalt.</p>\n\n<p>Mit freundlichen Grüßen</p>\n\n<p><a href="{{unsubscribe_url}}">Abmelden</a></p>',
+  html_content: '',
   text_content: '',
-  variables: ['name', 'email', 'unsubscribe_url'],
+  variables: ['first_name', 'llm_body', 'tracking_hash', 'unsubscribe_url'],
   category: '',
   tags: [],
-  is_active: true
+  is_active: true,
+  design_json: null,
+  editor_mode: 'unlayer',
 })
+
+const inputClass =
+  'block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 ' +
+  'placeholder-gray-400 focus:border-go4-primary focus:outline-none focus:ring-1 focus:ring-go4-primary ' +
+  'disabled:bg-gray-100 disabled:text-gray-500 ' +
+  'dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-500 dark:disabled:bg-gray-800'
+const labelClass = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1'
+const cardClass =
+  'rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800'
+const headingClass = 'text-lg font-semibold text-gray-900 dark:text-gray-100'
+const primaryBtnClass =
+  'rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white hover:bg-go4-primary-dark ' +
+  'disabled:opacity-50 disabled:cursor-not-allowed'
+const secondaryBtnClass =
+  'rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 ' +
+  'hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed ' +
+  'dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+
+const editorModes = [
+  {
+    value: 'unlayer',
+    label: 'Editor',
+    description: 'Drag-&-Drop visueller Editor (Unlayer). Empfohlen für Marketing-Mails.',
+  },
+  {
+    value: 'plain',
+    label: 'Reiner Text',
+    description: 'Nur Text, keine Formatierung. Hohe Deliverability, einfach. Für persönliche 1-zu-1 Mails.',
+  },
+  {
+    value: 'html',
+    label: 'HTML (Code + KI)',
+    description: 'Code-Editor mit KI-Assistenten (Claude). Für Power-User mit volle Kontrolle.',
+  },
+]
 
 function generateSlug(name) {
   return name
@@ -35,6 +79,70 @@ function generateSlug(name) {
     .replace(/[äöüß]/g, (c) => ({ ä: 'ae', ö: 'oe', ü: 'ue', ß: 'ss' })[c])
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
+}
+
+const defaultByMode = {
+  unlayer: '',
+  plain:
+    'Hallo {{first_name}},\n\n{{llm_body}}\n\nMit freundlichen Grüßen\nIhr Smartladen-Team\n\n— —\n{{impressum_block}}\n\nAbmelden: {{unsubscribe_url}}',
+  html:
+    `<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;font-family:Arial,sans-serif;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;padding:24px;">
+      <tr><td>
+        <p style="margin:0 0 16px;color:#333;">Hallo {{first_name}},</p>
+        <p style="margin:0 0 16px;color:#333;">{{llm_body}}</p>
+        <p style="margin:24px 0;text-align:center;">
+          <a href="{{tracking_link "/termin"}}" style="background:#1e40af;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;display:inline-block;">Termin buchen</a>
+        </p>
+        <p style="margin:0 0 16px;color:#333;">Mit freundlichen Grüßen<br>Ihr Smartladen-Team</p>
+        <hr style="border:none;border-top:1px solid #eee;margin:24px 0;">
+        <div style="font-size:11px;color:#888;">
+          {{impressum_block}}<br><br>
+          <a href="{{unsubscribe_url}}" style="color:#888;">Abmelden</a>
+        </div>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>`,
+}
+
+function applyDefaultIfEmpty() {
+  // When user picks a mode and the relevant content field is empty,
+  // seed it with the default starter for that mode.
+  const m = form.value.editor_mode
+  if (m === 'plain' && !form.value.text_content) {
+    form.value.text_content = defaultByMode.plain
+  }
+  if (m === 'html' && !form.value.html_content) {
+    form.value.html_content = defaultByMode.html
+  }
+  // 'unlayer' starts with empty editor (user drags blocks in)
+}
+
+function changeEditorMode(newMode) {
+  if (newMode === form.value.editor_mode) return
+  // Detect content that would be lost
+  const hasUnlayer = !!form.value.design_json
+  const hasHtml = (form.value.html_content || '').trim().length > 0
+  const hasPlain = (form.value.text_content || '').trim().length > 0
+
+  let warn = false
+  if (form.value.editor_mode === 'unlayer' && hasUnlayer) warn = true
+  if (form.value.editor_mode === 'html' && hasHtml && newMode !== 'html') warn = true
+  if (form.value.editor_mode === 'plain' && hasPlain && newMode !== 'plain') warn = true
+
+  if (warn) {
+    const ok = confirm(
+      `Modus-Wechsel: ${form.value.editor_mode} → ${newMode}\n\n` +
+      'Inhalte aus dem aktuellen Modus bleiben gespeichert, sind aber im neuen Modus nicht direkt editierbar. ' +
+      'Beim Speichern wird nur der Inhalt des aktiven Modus als versendebereit markiert.\n\n' +
+      'Wirklich wechseln?',
+    )
+    if (!ok) return
+  }
+  form.value.editor_mode = newMode
+  applyDefaultIfEmpty()
 }
 
 async function loadData() {
@@ -48,17 +156,21 @@ async function loadData() {
           slug: store.currentTemplate.slug,
           description: store.currentTemplate.description || '',
           subject: store.currentTemplate.subject,
-          html_content: store.currentTemplate.html_content,
+          html_content: store.currentTemplate.html_content || '',
           text_content: store.currentTemplate.text_content || '',
           variables: store.currentTemplate.variables || [],
           category: store.currentTemplate.category || '',
           tags: store.currentTemplate.tags || [],
-          is_active: store.currentTemplate.is_active
+          is_active: store.currentTemplate.is_active,
+          design_json: store.currentTemplate.design_json || null,
+          editor_mode: store.currentTemplate.editor_mode || 'unlayer',
         }
       }
     } catch (err) {
       router.push({ name: 'emailmarketing' })
     }
+  } else {
+    applyDefaultIfEmpty()
   }
   loading.value = false
 }
@@ -66,6 +178,23 @@ async function loadData() {
 async function save() {
   saving.value = true
   try {
+    if (form.value.editor_mode === 'unlayer' && visualEditor.value) {
+      try {
+        const { design, html } = await visualEditor.value.exportContent()
+        form.value.design_json = design
+        form.value.html_content = html
+      } catch {
+        alert('Editor noch nicht bereit, bitte erneut versuchen.')
+        saving.value = false
+        return
+      }
+    } else if (form.value.editor_mode === 'plain') {
+      // For plain mode, copy text into html_content as <pre>-wrapped fallback
+      // so the send pipeline always has html_content available.
+      form.value.html_content = `<pre style="font-family:Arial,sans-serif;white-space:pre-wrap;">${form.value.text_content}</pre>`
+    }
+    // 'html' mode: html_content is already maintained by the CodeMirror v-model
+
     if (isNew.value) {
       await store.addTemplate(form.value)
     } else {
@@ -79,42 +208,65 @@ async function save() {
   }
 }
 
-async function preview() {
+const sampleMergeData = {
+  first_name: 'Max',
+  last_name: 'Mustermann',
+  full_name: 'Max Mustermann',
+  company_name: 'Beispiel GmbH',
+  position: 'Geschäftsführer',
+  email: 'max@beispiel.de',
+  unsubscribe_url: '#abmelden',
+  llm_body: '[Hier würde der vom Brain-LLM personalisierte Body-Text stehen.]',
+  llm_subject: 'Beispiel-Betreff',
+  tracking_hash: 'abc123XYZ',
+  impressum_block: 'Smartladen GmbH · Musterstr. 1 · 10115 Berlin · HRB 12345',
+}
+
+async function refreshPreview() {
   try {
+    let html = form.value.html_content
+    if (form.value.editor_mode === 'unlayer' && visualEditor.value) {
+      try {
+        const result = await visualEditor.value.exportContent()
+        html = result.html
+      } catch {
+        /* editor not ready */
+      }
+    } else if (form.value.editor_mode === 'plain') {
+      html = `<pre style="font-family:Arial,sans-serif;white-space:pre-wrap;">${form.value.text_content}</pre>`
+    }
     const { data } = await previewTemplate({
-      html_content: form.value.html_content,
-      merge_data: { name: 'Max Mustermann', email: 'max@example.com', unsubscribe_url: '#' }
+      html_content: html,
+      merge_data: sampleMergeData,
     })
     previewHtml.value = data.html
-    showPreview.value = true
   } catch (err) {
-    alert('Vorschau-Fehler')
+    previewHtml.value = `<p style="color:red">Vorschau-Fehler: ${err.message || 'unbekannt'}</p>`
   }
 }
 
-onMounted(() => {
-  loadData()
-})
+// Auto-refresh preview when entering preview tab in HTML-mode
+watch(
+  () => htmlSubTab.value,
+  (tab) => {
+    if (tab === 'preview') refreshPreview()
+  },
+)
+
+onMounted(loadData)
 </script>
 
 <template>
   <div>
-    <PageHeader
-      :title="isNew ? 'Neue Vorlage' : 'Vorlage bearbeiten'"
-    >
+    <PageHeader :title="isNew ? 'Neue Vorlage' : 'Vorlage bearbeiten'">
       <template #actions>
         <button
-          class="btn btn-secondary mr-2"
-          @click="preview"
-        >
-          Vorschau
-        </button>
-        <button
+          type="button"
           :disabled="saving || !form.name || !form.slug || !form.subject"
-          class="btn btn-primary"
+          :class="primaryBtnClass"
           @click="save"
         >
-          {{ saving ? 'Speichern...' : 'Speichern' }}
+          {{ saving ? 'Speichern…' : 'Speichern' }}
         </button>
       </template>
     </PageHeader>
@@ -123,7 +275,7 @@ onMounted(() => {
       v-if="loading"
       class="flex items-center justify-center py-12"
     >
-      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" />
+      <span class="text-gray-500 dark:text-gray-400">Laden…</span>
     </div>
 
     <form
@@ -132,149 +284,271 @@ onMounted(() => {
       @submit.prevent="save"
     >
       <!-- Basic Info -->
-      <div class="bg-white rounded-lg shadow p-6">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">
+      <div :class="cardClass">
+        <h3 :class="`${headingClass} mb-4`">
           Grundeinstellungen
         </h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+            <label :class="labelClass">Name <span class="text-red-500">*</span></label>
             <input
               v-model="form.name"
               type="text"
               required
-              class="input"
-              placeholder="z.B. Welcome Email"
+              :class="inputClass"
+              placeholder="z.B. Cold-Outreach Lastmanagement"
               @input="isNew && (form.slug = generateSlug(form.name))"
             >
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Slug *</label>
+            <label :class="labelClass">Slug <span class="text-red-500">*</span></label>
             <input
               v-model="form.slug"
               type="text"
               required
               :disabled="!isNew"
-              class="input"
-              placeholder="z.B. welcome-email"
+              :class="inputClass"
+              placeholder="cold-outreach-lastmanagement"
             >
           </div>
           <div class="md:col-span-2">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Beschreibung</label>
+            <label :class="labelClass">Beschreibung</label>
             <input
               v-model="form.description"
               type="text"
-              class="input"
-              placeholder="Kurze Beschreibung..."
+              :class="inputClass"
+              placeholder="Kurze Beschreibung des Verwendungszwecks…"
             >
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Kategorie</label>
+            <label :class="labelClass">Kategorie</label>
             <input
               v-model="form.category"
               type="text"
-              class="input"
-              placeholder="z.B. onboarding"
+              :class="inputClass"
+              placeholder="z.B. cold-outreach"
             >
           </div>
-          <div class="flex items-center">
-            <input
-              id="is_active"
-              v-model="form.is_active"
-              type="checkbox"
-              class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-            >
-            <label
-              for="is_active"
-              class="ml-2 block text-sm text-gray-900"
-            >Aktiv</label>
+          <div class="flex items-end pb-1">
+            <label class="inline-flex items-center cursor-pointer">
+              <input
+                v-model="form.is_active"
+                type="checkbox"
+                class="h-4 w-4 rounded border-gray-300 text-go4-primary focus:ring-go4-primary dark:border-gray-600 dark:bg-gray-700"
+              >
+              <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Aktiv</span>
+            </label>
+          </div>
+
+          <!-- Editor-Mode Selector -->
+          <div class="md:col-span-2 mt-2 border-t border-gray-200 dark:border-gray-700 pt-4">
+            <label :class="labelClass">Editor-Modus</label>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <button
+                v-for="mode in editorModes"
+                :key="mode.value"
+                type="button"
+                class="text-left rounded-lg border p-3 transition-colors"
+                :class="form.editor_mode === mode.value
+                  ? 'border-go4-primary bg-go4-primary/5 dark:bg-go4-primary/10'
+                  : 'border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'"
+                @click="changeEditorMode(mode.value)"
+              >
+                <div class="flex items-center gap-2 mb-1">
+                  <div
+                    class="h-4 w-4 rounded-full border-2 flex items-center justify-center"
+                    :class="form.editor_mode === mode.value
+                      ? 'border-go4-primary'
+                      : 'border-gray-300 dark:border-gray-600'"
+                  >
+                    <div
+                      v-if="form.editor_mode === mode.value"
+                      class="h-2 w-2 rounded-full bg-go4-primary"
+                    />
+                  </div>
+                  <span class="font-medium text-sm text-gray-900 dark:text-gray-100">{{ mode.label }}</span>
+                </div>
+                <p class="text-xs text-gray-500 dark:text-gray-400 leading-snug">
+                  {{ mode.description }}
+                </p>
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Content -->
-      <div class="bg-white rounded-lg shadow p-6">
-        <h3 class="text-lg font-medium text-gray-900 mb-4">
-          E-Mail-Inhalt
+      <!-- Subject (always visible) -->
+      <div :class="cardClass">
+        <h3 :class="`${headingClass} mb-4`">
+          Betreff
         </h3>
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Betreff *</label>
-            <input
-              v-model="form.subject"
-              type="text"
-              required
-              class="input"
-              placeholder="Betreffzeile"
-            >
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">HTML-Inhalt *</label>
-            <textarea
-              v-model="form.html_content"
-              rows="15"
-              required
-              class="input font-mono text-sm"
-              placeholder="HTML-E-Mail-Inhalt..."
-            />
-            <p class="text-xs text-gray-500 mt-1">
-              Merge-Tags:
-              <code class="bg-gray-100 px-1 rounded">&#123;&#123;name&#125;&#125;</code>,
-              <code class="bg-gray-100 px-1 rounded">&#123;&#123;email&#125;&#125;</code>,
-              <code class="bg-gray-100 px-1 rounded">&#123;&#123;company&#125;&#125;</code>,
-              <code class="bg-gray-100 px-1 rounded">&#123;&#123;unsubscribe_url&#125;&#125;</code>
-            </p>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Plain-Text (optional)</label>
-            <textarea
-              v-model="form.text_content"
-              rows="5"
-              class="input font-mono text-sm"
-              placeholder="Nur-Text-Version..."
-            />
-          </div>
-        </div>
+        <input
+          v-model="form.subject"
+          type="text"
+          required
+          :class="inputClass"
+          placeholder="Betreffzeile (kann auch {{llm_subject}} enthalten)"
+        >
       </div>
-    </form>
 
-    <!-- Preview Modal -->
-    <div
-      v-if="showPreview"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-      @click.self="showPreview = false"
-    >
-      <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-3xl max-h-[80vh] overflow-auto">
-        <div class="flex justify-between items-center mb-4">
-          <h3 class="text-lg font-medium text-gray-900">
-            Vorschau
+      <!-- Mode: UNLAYER -->
+      <div
+        v-if="form.editor_mode === 'unlayer'"
+        :class="cardClass"
+      >
+        <h3 :class="`${headingClass} mb-4`">
+          Layout (Drag &amp; Drop)
+        </h3>
+        <UnlayerEmailEditor
+          ref="visualEditor"
+          :design="form.design_json"
+          :min-height="720"
+        />
+        <p class="mt-3 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+          Ziehe Blöcke aus der rechten Sidebar ins Layout. Im Editor-Tab
+          <strong>„Merge Tags"</strong> findest du alle Platzhalter
+          (<code class="rounded bg-gray-100 px-1 dark:bg-gray-700">&#123;&#123;first_name&#125;&#125;</code>,
+          <code class="rounded bg-gray-100 px-1 dark:bg-gray-700">&#123;&#123;llm_body&#125;&#125;</code> usw.)
+          zum Reinziehen.
+        </p>
+      </div>
+
+      <!-- Mode: PLAIN TEXT -->
+      <div
+        v-else-if="form.editor_mode === 'plain'"
+        :class="cardClass"
+      >
+        <h3 :class="`${headingClass} mb-4`">
+          Text-Inhalt
+        </h3>
+        <textarea
+          v-model="form.text_content"
+          rows="20"
+          required
+          :class="`${inputClass} font-mono leading-relaxed`"
+          placeholder="Hallo {{first_name}},..."
+        />
+        <p class="mt-2 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+          Reiner Text, keine HTML-Formatierung. Beste Deliverability, wirkt persönlich. Merge-Tags
+          (<code class="rounded bg-gray-100 px-1 dark:bg-gray-700">&#123;&#123;first_name&#125;&#125;</code>,
+          <code class="rounded bg-gray-100 px-1 dark:bg-gray-700">&#123;&#123;llm_body&#125;&#125;</code>)
+          funktionieren auch hier. Pflicht: Opt-Out-Link
+          <code class="rounded bg-gray-100 px-1 dark:bg-gray-700">&#123;&#123;unsubscribe_url&#125;&#125;</code>
+          und Impressum
+          <code class="rounded bg-gray-100 px-1 dark:bg-gray-700">&#123;&#123;impressum_block&#125;&#125;</code>.
+        </p>
+      </div>
+
+      <!-- Mode: HTML (Code + KI later) -->
+      <div
+        v-else-if="form.editor_mode === 'html'"
+        :class="cardClass"
+      >
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h3 :class="headingClass">
+            HTML-Editor
           </h3>
-          <button
-            class="text-gray-400 hover:text-gray-600"
-            @click="showPreview = false"
-          >
-            <svg
-              class="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+          <div class="inline-flex rounded-md border border-gray-200 dark:border-gray-700 p-0.5">
+            <button
+              type="button"
+              class="px-3 py-1 text-xs font-medium rounded transition-colors"
+              :class="htmlSubTab === 'edit'
+                ? 'bg-go4-primary text-white'
+                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'"
+              @click="htmlSubTab = 'edit'"
             >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
+              Code
+            </button>
+            <button
+              type="button"
+              class="px-3 py-1 text-xs font-medium rounded transition-colors"
+              :class="htmlSubTab === 'preview'
+                ? 'bg-go4-primary text-white'
+                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'"
+              @click="htmlSubTab = 'preview'"
+            >
+              Vorschau
+            </button>
+          </div>
         </div>
-        <div class="border rounded-lg p-4 bg-gray-50">
-          <div
-            class="prose max-w-none"
-            v-html="previewHtml"
+
+        <!-- KI-Designer-Chat -->
+        <div class="mb-4">
+          <EmailDesignerChat
+            :template-id="route.params.id || null"
+            :current-html="form.html_content"
+            @update-html="(html) => { form.html_content = html }"
           />
         </div>
+
+        <!-- Code Editor -->
+        <div v-show="htmlSubTab === 'edit'">
+          <HtmlCodeEditor
+            v-model="form.html_content"
+            :min-height="640"
+          />
+          <p class="mt-2 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+            Verfügbare Merge-Tags:
+            <code class="rounded bg-gray-100 px-1 dark:bg-gray-700">&#123;&#123;first_name&#125;&#125;</code>,
+            <code class="rounded bg-gray-100 px-1 dark:bg-gray-700">&#123;&#123;company_name&#125;&#125;</code>,
+            <code class="rounded bg-gray-100 px-1 dark:bg-gray-700">&#123;&#123;llm_body&#125;&#125;</code>,
+            <code class="rounded bg-gray-100 px-1 dark:bg-gray-700">&#123;&#123;tracking_link "/produkte"&#125;&#125;</code>,
+            <code class="rounded bg-gray-100 px-1 dark:bg-gray-700">&#123;&#123;unsubscribe_url&#125;&#125;</code>,
+            <code class="rounded bg-gray-100 px-1 dark:bg-gray-700">&#123;&#123;impressum_block&#125;&#125;</code>.
+          </p>
+        </div>
+
+        <!-- Preview Tab -->
+        <div v-show="htmlSubTab === 'preview'">
+          <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-4">
+            <iframe
+              :srcdoc="previewHtml"
+              class="w-full rounded bg-white"
+              :style="{ minHeight: '640px' }"
+              sandbox="allow-same-origin"
+            />
+          </div>
+          <button
+            type="button"
+            :class="`${secondaryBtnClass} mt-3`"
+            @click="refreshPreview"
+          >
+            Vorschau aktualisieren
+          </button>
+        </div>
       </div>
-    </div>
+
+      <!-- Asset Library — only relevant for unlayer + html modes -->
+      <div
+        v-if="form.editor_mode !== 'plain'"
+        :class="cardClass"
+      >
+        <h3 :class="`${headingClass} mb-2`">
+          Bilder &amp; Dateien
+        </h3>
+        <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">
+          Hochgeladene Bilder werden tenant-weit gespeichert und können in jeder Vorlage verwendet werden.
+          Klick auf ein Bild kopiert die URL — diese ins HTML / in den Unlayer-Image-Block einfügen.
+        </p>
+        <AssetLibrary />
+      </div>
+
+      <!-- Plain-Text Fallback (only for unlayer/html modes — plain mode IS the text) -->
+      <div
+        v-if="form.editor_mode !== 'plain'"
+        :class="cardClass"
+      >
+        <label :class="`${labelClass} mb-2`">
+          Plain-Text-Version
+          <span class="font-normal text-gray-400">(optional, empfohlen für bessere Deliverability)</span>
+        </label>
+        <textarea
+          v-model="form.text_content"
+          rows="6"
+          :class="`${inputClass} font-mono`"
+          placeholder="Reine Text-Version der Mail…"
+        />
+      </div>
+    </form>
   </div>
 </template>

@@ -103,6 +103,8 @@ def get_provider(config: "EmailProviderModel") -> EmailProvider:
     Raises:
         ValueError: If provider type is not supported.
     """
+    from app.emailmarketing.providers.aws_ses import AwsSesProvider
+    from app.emailmarketing.providers.brevo import BrevoProvider
     from app.emailmarketing.providers.mailgun import MailgunProvider
     from app.emailmarketing.providers.o365 import O365Provider
     from app.emailmarketing.providers.sendgrid import SendGridProvider
@@ -111,6 +113,8 @@ def get_provider(config: "EmailProviderModel") -> EmailProvider:
         "sendgrid": SendGridProvider,
         "mailgun": MailgunProvider,
         "o365": O365Provider,
+        "aws_ses": AwsSesProvider,
+        "brevo": BrevoProvider,
     }
 
     provider_class = providers.get(config.provider_type)

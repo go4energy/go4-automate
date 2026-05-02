@@ -49,6 +49,9 @@ PyJWT==2.10.1                # ^2.10.0 (JWT tokens)
 # OAuth token encryption
 cryptography==44.0.0         # ^44.0.0 (Fernet)
 
+# AWS SES (SendRawEmail for custom Message-ID headers)
+boto3==1.43.1                # ^1.43.0
+
 # Dev Dependencies
 pytest==8.3.4                # ^8.3.0
 pytest-asyncio==0.25.0       # ^0.25.0

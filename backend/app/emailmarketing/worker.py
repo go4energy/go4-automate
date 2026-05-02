@@ -27,6 +27,7 @@ from app.emailmarketing.models import (
     EmailUnsubscribe,
 )
 from app.emailmarketing.providers import EmailMessage, get_provider
+from app.emailmarketing.template_renderer import make_outreach_message_id
 from app.emailmarketing.tracking import process_email_content
 from app.engagement import (
     EmailActivityType,
@@ -218,6 +219,12 @@ class EmailWorker:
                         recipient.merge_data or {},
                     )
 
+                    # Custom Message-ID for In-Reply-To matching when leads reply
+                    outreach_message_id = make_outreach_message_id(
+                        prefix="rcpt",
+                        ref_id=recipient.id,
+                        token=recipient.tracking_token,
+                    )
                     message = EmailMessage(
                         to_email=recipient.email,
                         to_name=recipient.name,
@@ -225,6 +232,7 @@ class EmailWorker:
                         html_content=html,
                         text_content=campaign.text_content,
                         tracking_token=recipient.tracking_token,
+                        headers={"Message-ID": outreach_message_id},
                     )
 
                     result = await provider.send_email(message)
@@ -233,6 +241,7 @@ class EmailWorker:
                         recipient.status = "sent"
                         recipient.sent_at = datetime.utcnow()
                         recipient.provider_message_id = result.message_id
+                        recipient.message_id = outreach_message_id
                         sent_count += 1
                         await self._increment_provider_counters(session, provider_model.id)
 

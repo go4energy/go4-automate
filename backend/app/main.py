@@ -124,6 +124,7 @@ AUTH_EXEMPT_PREFIXES = (
     "/api/v1/briefing/oauth/callback",  # Provider callback resolves tenant via state
     "/api/v1/briefing/personal/oauth/callback",  # Provider callback resolves tenant via state
     "/api/v1/assistant/oauth/callback",  # Assistant OAuth resolves tenant via state
+    "/api/v1/tracking/",  # Customer Journey tracking (API-Key auth)
     "/uploads/",
 )
 
@@ -201,6 +202,15 @@ async def health_check() -> dict:
 upload_path = Path(settings.upload_dir)
 upload_path.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(upload_path)), name="uploads")
+
+# Email assets (uploaded images for email templates) — public, tenant-namespaced URLs
+email_assets_path = Path(__file__).resolve().parent.parent / "data" / "email_assets"
+email_assets_path.mkdir(parents=True, exist_ok=True)
+app.mount(
+    "/api/static/email-assets",
+    StaticFiles(directory=str(email_assets_path)),
+    name="email-assets",
+)
 
 # Auto-discover domain modules
 from app.utils.module_discovery import (  # noqa: E402
