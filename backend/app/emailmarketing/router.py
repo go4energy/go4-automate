@@ -166,6 +166,48 @@ async def verify_provider(
         raise HTTPException(status_code=500, detail="Interner Serverfehler") from e
 
 
+@router.get("/providers/{provider_id}/stats")
+async def get_provider_stats(
+    provider_id: int,
+    start_date: str = Query(
+        ..., description="ISO YYYY-MM-DD, z.B. 2026-04-01"
+    ),
+    end_date: str | None = Query(
+        None, description="ISO YYYY-MM-DD; default = heute"
+    ),
+    aggregated_by: str = Query("day", pattern="^(day|week|month)$"),
+    tenant_id: str = Depends(get_current_tenant_id),
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    """Fetch aggregierte Versand-Statistiken vom Provider (z.B. SendGrid /v3/stats).
+
+    Liefert pro Tag: requests, delivered, opens, clicks, bounces, blocks,
+    spam_reports, unsubscribes. Nutzbar für Dashboard-Charts oder
+    Health-Monitoring (Bounce-/Spam-Quote pro Tag).
+    """
+    from app.emailmarketing.providers import get_provider
+    try:
+        provider_service = EmailProviderService(db)
+        provider_model = await provider_service.get_by_id(tenant_id, provider_id)
+        if provider_model.provider_type != "sendgrid":
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Stats-API für Provider-Typ '{provider_model.provider_type}'"
+                    " noch nicht implementiert"
+                ),
+            )
+        provider = get_provider(provider_model)
+        return await provider.get_stats(start_date, end_date, aggregated_by)
+    except NotFoundError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message) from e
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Fehler in get_provider_stats")
+        raise HTTPException(status_code=500, detail="Interner Serverfehler") from e
+
+
 # ============== Template Endpoints ==============
 
 

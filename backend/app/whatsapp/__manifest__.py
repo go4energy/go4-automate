@@ -81,6 +81,16 @@ manifest = {
                     "tab": "freigabe",
                 },
             },
+            {
+                "path": "einstellungen",
+                "name": "whatsapp-einstellungen",
+                "view": "WhatsAppView",
+                "meta": {
+                    "title": "Einstellungen",
+                    "breadcrumb": {"label": "Einstellungen", "parent": "whatsapp"},
+                    "tab": "einstellungen",
+                },
+            },
             # Detail/Edit routes - Conversations
             {
                 "path": "conversations/:id",

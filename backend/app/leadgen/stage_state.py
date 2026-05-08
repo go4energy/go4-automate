@@ -33,7 +33,14 @@ from datetime import datetime
 from typing import Any
 
 # Canonical stage keys / order. The frontend renders rows in this order.
-STAGE_KEYS: tuple[str, ...] = ("places", "impressum", "verify", "llm")
+STAGE_KEYS: tuple[str, ...] = (
+    "places",
+    "impressum",
+    "verify",
+    "llm",
+    "linkedin",
+    "apollo",
+)
 
 
 def _stages_block(state: dict[str, Any]) -> dict[str, Any]:

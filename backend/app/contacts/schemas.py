@@ -137,6 +137,9 @@ class ContactResponse(ContactBase):
     created_at: datetime
     updated_at: datetime
     company_name: str | None = None
+    tracking_hash: str | None = None
+    source_contact_id: int | None = None
+    source_contact_name: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -28,6 +28,15 @@ export function verifyProvider(id) {
   return api.post(`${BASE}/providers/${id}/verify`)
 }
 
+/**
+ * Aggregierte Versand-Statistiken vom Provider.
+ * @param {number} id  Provider-ID
+ * @param {object} params  { start_date, end_date?, aggregated_by? }
+ */
+export function getProviderStats(id, params = {}) {
+  return api.get(`${BASE}/providers/${id}/stats`, { params })
+}
+
 // ============== Templates ==============
 
 export function getTemplates(params = {}) {

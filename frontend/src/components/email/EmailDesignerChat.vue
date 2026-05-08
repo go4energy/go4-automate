@@ -10,12 +10,16 @@
  * When new_html is returned, we emit it so the parent can update the
  * CodeMirror editor.
  */
-import { ref, onMounted, nextTick, computed } from 'vue'
+import { ref, onMounted, nextTick, computed, watch } from 'vue'
 import api from '@/api'
 
 const props = defineProps({
   templateId: { type: [Number, String], default: null },
   currentHtml: { type: String, default: '' },
+  // Optional callback returning a Promise<id> — invoked when the user wants
+  // to chat but the template hasn't been saved yet. Auto-save happens
+  // transparently and we continue with the resulting id.
+  autoSave: { type: Function, default: null },
 })
 const emit = defineEmits(['update-html'])
 
@@ -27,6 +31,8 @@ const input = ref('')
 const messagesContainer = ref(null)
 
 const ready = computed(() => Boolean(props.templateId))
+// We can chat as long as we have either an existing id or an auto-save callback
+const canStartChat = computed(() => Boolean(props.templateId || props.autoSave))
 const apiBase = computed(() => `/v1/emailmarketing/templates/${props.templateId}/ai-chat`)
 
 async function loadHistory() {
@@ -45,9 +51,27 @@ async function loadHistory() {
 
 async function send() {
   const text = input.value.trim()
-  if (!text || !ready.value || sending.value) return
+  if (!text || !canStartChat.value || sending.value) return
   sending.value = true
   error.value = null
+
+  // If the template hasn't been saved yet, auto-save it first so we get an id.
+  if (!props.templateId && props.autoSave) {
+    try {
+      const newId = await props.autoSave()
+      if (!newId) {
+        sending.value = false
+        error.value = 'Bitte erst Name + Slug + Betreff ausfüllen, dann KI-Chat nutzen.'
+        return
+      }
+      // Wait one tick for the parent to propagate the new template id via prop
+      await nextTick()
+    } catch (e) {
+      sending.value = false
+      error.value = 'Auto-Speichern fehlgeschlagen: ' + (e.message || 'unbekannt')
+      return
+    }
+  }
 
   // Optimistic user message
   messages.value.push({
@@ -115,6 +139,11 @@ const visibleMessages = computed(() =>
   messages.value.filter((m) => m.role !== 'tool'),
 )
 
+// When templateId becomes available (e.g. after auto-save), load history.
+watch(() => props.templateId, (newId, oldId) => {
+  if (newId && newId !== oldId) loadHistory()
+})
+
 onMounted(loadHistory)
 </script>
 
@@ -138,9 +167,9 @@ onMounted(loadHistory)
       </button>
     </div>
 
-    <!-- Not ready (template not yet saved) -->
+    <!-- Not ready AND no autoSave fallback — minimal guard -->
     <div
-      v-if="!ready"
+      v-if="!canStartChat"
       class="p-4 text-sm text-gray-600 dark:text-gray-300"
     >
       Bitte zuerst die Vorlage speichern (Name + Slug + Betreff). Dann steht dir der KI-Designer
@@ -148,6 +177,13 @@ onMounted(loadHistory)
     </div>
 
     <template v-else>
+      <!-- Hint when not yet saved but auto-save is available -->
+      <div
+        v-if="!ready"
+        class="px-4 pt-3 text-xs text-blue-700 dark:text-blue-200"
+      >
+        💡 Beim ersten Senden wird die Vorlage automatisch gespeichert (Name + Slug + Betreff erforderlich).
+      </div>
       <!-- Messages -->
       <div
         ref="messagesContainer"

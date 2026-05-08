@@ -12,11 +12,20 @@ from app.schemas.chat import (
     ConversationCreate,
     ConversationListItem,
     ConversationResponse,
+    TopicInfo,
 )
 from app.services.chat import ChatService
+from app.services.chat_topics import list_topics
 from app.utils.dependencies import get_current_tenant_id, get_tenant_config
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+
+
+@router.get("/topics", response_model=list[TopicInfo])
+async def get_topics() -> list[TopicInfo]:
+    """List all registered help topics. Frontend uses this to map topic-IDs
+    declared by views to titles for the chat-panel suggestions."""
+    return [TopicInfo(**t) for t in list_topics()]
 
 
 @router.post(
@@ -32,8 +41,22 @@ async def create_conversation(
     """Create a new conversation."""
     try:
         service = ChatService(db)
+        # Topic-tagged: reuse an existing active conversation for the same
+        # topic so the help thread stays continuous instead of fragmenting.
+        if data.topic:
+            existing = await service.find_topic_conversation(tenant_id, data.topic)
+            if existing:
+                # Refresh context_data so the latest form-state is used.
+                if data.context_data:
+                    existing.context_data = data.context_data
+                    await db.commit()
+                return existing
         conversation = await service.create_conversation(
-            tenant_id, data.title, data.context_type, data.context_data
+            tenant_id,
+            data.title,
+            data.context_type,
+            data.context_data,
+            topic=data.topic,
         )
         await db.commit()
         return conversation
@@ -71,6 +94,7 @@ async def list_conversations(
                     id=conv.id,
                     title=conv.title,
                     context_type=conv.context_type,
+                    topic=conv.topic,
                     status=conv.status,
                     created_at=conv.created_at,
                     last_message_preview=preview,

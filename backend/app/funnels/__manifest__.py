@@ -26,6 +26,16 @@ manifest = {
                 "meta": {"title": "Funnels"},
             },
             {
+                "path": "einstellungen",
+                "name": "funnels-einstellungen",
+                "view": "ModuleSettingsPageView",
+                "meta": {
+                    "title": "Funnels — Einstellungen",
+                    "moduleName": "funnels",
+                    "breadcrumb": {"label": "Einstellungen", "parent": "funnels"},
+                },
+            },
+            {
                 "path": ":id",
                 "name": "funnel-detail",
                 "view": "FunnelDetailView",

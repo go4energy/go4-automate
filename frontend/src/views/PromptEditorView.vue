@@ -175,6 +175,14 @@ onMounted(() => {
             Loeschen
           </button>
         </template>
+        <button
+          type="button"
+          class="rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white transition hover:bg-go4-primary/90 disabled:opacity-50"
+          :disabled="saving"
+          @click="save"
+        >
+          {{ saving ? 'Speichern…' : isNew ? 'Erstellen' : 'Speichern' }}
+        </button>
       </template>
     </PageHeader>
 
@@ -466,14 +474,6 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Save -->
-        <button
-          class="w-full rounded-lg bg-go4-primary px-4 py-2.5 text-sm font-medium text-white transition hover:bg-go4-primary/90 disabled:opacity-50"
-          :disabled="saving"
-          @click="save"
-        >
-          {{ saving ? 'Speichern...' : isNew ? 'Erstellen' : 'Speichern' }}
-        </button>
       </div>
 
       <!-- Right: Preview + Test -->

@@ -4,14 +4,48 @@ import json
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from loguru import logger
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.emailmarketing.models import EmailProvider
 from app.emailmarketing.service import TrackingService
 
 # Webhooks router - specific auth per provider
 # Named 'router' for module discovery compatibility
 router = APIRouter(prefix="/emailmarketing/webhooks", tags=["emailmarketing-webhooks"])
+
+
+async def _resolve_tenant_for_sendgrid_email(
+    db: AsyncSession, sender_email: str | None
+) -> str | None:
+    """Find tenant_id by matching the sender domain to a SendGrid provider.
+
+    SendGrid Event-Webhooks senden den 'email'-Wert (Empfänger). Um den
+    Tenant zu finden nutzen wir den Sender (from-Header) — falls verfügbar
+    — oder fallen zurück auf den ersten aktiven SendGrid-Provider in der
+    DB. Bei Single-Tenant-Setup reicht das.
+    """
+    if sender_email and "@" in sender_email:
+        domain = sender_email.split("@", 1)[1].lower()
+        result = await db.execute(
+            select(EmailProvider).where(
+                EmailProvider.provider_type == "sendgrid",
+                EmailProvider.status == "active",
+            )
+        )
+        for prov in result.scalars().all():
+            if prov.sender_email and prov.sender_email.endswith(f"@{domain}"):
+                return prov.tenant_id
+    # Fallback: first active SendGrid provider (Single-Tenant-Setup)
+    result = await db.execute(
+        select(EmailProvider).where(
+            EmailProvider.provider_type == "sendgrid",
+            EmailProvider.status == "active",
+        ).limit(1)
+    )
+    prov = result.scalar_one_or_none()
+    return prov.tenant_id if prov else None
 
 
 @router.post("/sendgrid")
@@ -33,47 +67,81 @@ async def sendgrid_webhook(
 
         service = TrackingService(db)
 
+        # Map SendGrid event types to our internal types
+        event_mapping = {
+            "delivered": "delivered",
+            "bounce": "bounce",
+            "dropped": "bounce",  # blocked before send
+            "open": "open",
+            "click": "click",
+            "spamreport": "spam",
+            "unsubscribe": "unsubscribe",
+        }
+
         for event in events:
             event_type = event.get("event", "").lower()
-            # email and message_id available for future matching without tracking_token
-            # email = event.get("email")
-            # message_id = event.get("sg_message_id", "").split(".")[0]
-
-            # Map SendGrid events to our event types
-            event_mapping = {
-                "delivered": "delivered",
-                "bounce": "bounce",
-                "dropped": "bounce",
-                "open": "open",
-                "click": "click",
-                "spamreport": "spam",
-                "unsubscribe": "unsubscribe",
-            }
-
             mapped_event = event_mapping.get(event_type)
             if not mapped_event:
                 continue
 
-            # Handle tracking token if present
+            recipient_email = event.get("email")
             tracking_token = event.get("tracking_token")
-            if tracking_token:
+            ip = event.get("ip")
+
+            # Open / Click / Unsubscribe — historisch tracking_token-basiert
+            # (klassische Email-Marketing-Kampagnen mit EmailRecipient-Records).
+            if mapped_event in ("open", "click", "unsubscribe") and tracking_token:
                 if mapped_event == "open":
                     await service.record_open(tracking_token)
                 elif mapped_event == "click":
                     url = event.get("url", "")
-                    ip = event.get("ip")
                     user_agent = event.get("useragent")
                     await service.record_click(tracking_token, url, ip, user_agent)
                 elif mapped_event == "unsubscribe":
-                    ip = event.get("ip")
                     await service.record_unsubscribe(tracking_token, ip)
-            else:
-                # Try to match by message ID or email
-                # This requires knowing the tenant, which we might not have
-                # For now, log and skip
+                continue
+
+            # Bounce / Spam — immer in Suppression-List, egal ob tracking_token
+            # vorhanden. Engagement-Sends nutzen action.id als token; klassische
+            # Kampagnen den EmailRecipient-Token. Fallback: per email + Tenant-
+            # Mapping über Provider-Domain.
+            if mapped_event in ("bounce", "spam"):
+                # Tenant ermitteln — bei Single-Tenant-Setup reicht der erste
+                # aktive SendGrid-Provider
+                tenant_id = await _resolve_tenant_for_sendgrid_email(
+                    db, sender_email=event.get("from") or recipient_email
+                )
+                if not tenant_id:
+                    logger.warning(
+                        "Webhook: kein Tenant für Event {ev}", ev=event_type,
+                    )
+                    continue
+
+                if mapped_event == "bounce":
+                    bounce_type = (
+                        "soft" if event.get("type") == "blocked" else "hard"
+                    )
+                    await service.record_bounce(
+                        tenant_id=tenant_id,
+                        email=recipient_email,
+                        tracking_token=tracking_token,
+                        bounce_type=bounce_type,
+                        reason=event.get("reason"),
+                    )
+                else:  # spam
+                    await service.record_spam_report(
+                        tenant_id=tenant_id,
+                        email=recipient_email,
+                        tracking_token=tracking_token,
+                    )
+                continue
+
+            # delivered — informativ; aktuell nicht persistiert für Engagement-
+            # Sends (klassischer Worker macht das selbst)
+            if mapped_event == "delivered":
                 logger.debug(
-                    "SendGrid webhook ohne tracking_token: {event}",
-                    event=event_type,
+                    "Delivered: {email} (token={t})",
+                    email=recipient_email, t=tracking_token,
                 )
 
         await db.commit()

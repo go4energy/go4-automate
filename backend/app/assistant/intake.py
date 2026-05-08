@@ -258,7 +258,7 @@ class AssistantIntakeService:
 
     async def _ensure_access_token(self, conn: IntegrationConnection) -> str:
         """Decrypt token, refresh if expired, return valid access_token."""
-        from app.briefing.oauth import decrypt_token, encrypt_token
+        from app.integrations.oauth import decrypt_token, encrypt_token
 
         if not conn.encrypted_token:
             msg = "Kein gespeichertes Token"
@@ -294,11 +294,11 @@ class AssistantIntakeService:
     async def _refresh_token(self, provider: str, refresh_token: str) -> dict:
         """Refresh an OAuth token via the appropriate provider."""
         if provider == "microsoft_graph":
-            from app.briefing.oauth import refresh_microsoft_token
+            from app.integrations.oauth import refresh_microsoft_token
 
             return await refresh_microsoft_token(refresh_token)
         if provider == "google_workspace":
-            from app.briefing.oauth import refresh_google_token
+            from app.integrations.oauth import refresh_google_token
 
             return await refresh_google_token(refresh_token)
         msg = f"Unbekannter Provider: {provider}"

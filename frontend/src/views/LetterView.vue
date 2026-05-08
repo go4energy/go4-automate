@@ -2,23 +2,24 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useLetterStore } from '@/stores/letter'
+import { usePipelineContext } from '@/stores/pipelineContext'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
-import PipelineCampaignsList from '@/components/engagement/PipelineCampaignsList.vue'
 
 const route = useRoute()
 const router = useRouter()
 const store = useLetterStore()
+const pipelineCtx = usePipelineContext()
 
 // Active tab from route
-const activeTab = computed(() => route.meta?.tab || 'letters')
+const activeTab = computed(() => route.meta?.tab || 'dashboard')
 
 const tabs = [
-  { key: 'campaigns', label: 'Kampagnen', route: '/letter' },
+  { key: 'dashboard', label: 'Dashboard', route: '/letter' },
   { key: 'letters', label: 'Briefe', route: '/letter/letters' },
   { key: 'templates', label: 'Templates', route: '/letter/templates' },
   { key: 'batches', label: 'Batches', route: '/letter/batches' },
-  { key: 'settings', label: 'Einstellungen', route: '/letter/settings' },
+  { key: 'settings', label: 'Setup', route: '/letter/setup' },
 ]
 
 // Stats + provider data
@@ -236,16 +237,21 @@ async function testConnection() {
   }
 }
 
-// Load data
+// Load data — scoped to the globally selected pipeline.
 async function loadData() {
   try {
+    const pid = pipelineCtx.activePipelineId || undefined
     const tasks = [
       store.fetchStats(),
-      store.fetchLetters(),
+      store.fetchLetters({ pipeline_id: pid }),
       store.fetchTemplates(),
-      store.fetchBatches(),
+      store.fetchBatches({ pipeline_id: pid }),
       store.fetchBalance(),
-      store.fetchCostStats({ period: costPeriod.value, mode: costMode.value }),
+      store.fetchCostStats({
+        period: costPeriod.value,
+        mode: costMode.value,
+        pipeline_id: pid,
+      }),
     ]
     if (activeTab.value === 'settings') tasks.push(loadSettings())
     await Promise.all(tasks)
@@ -421,14 +427,20 @@ function formatDate(dateStr) {
   })
 }
 
-onMounted(() => {
+onMounted(async () => {
+  await pipelineCtx.ensurePipelines()
   loadData()
 })
 
-// Reload when tab changes
+// Reload when tab or active pipeline changes
 watch(activeTab, () => {
   loadData()
 })
+
+watch(
+  () => pipelineCtx.activePipelineId,
+  () => loadData(),
+)
 </script>
 
 <template>
@@ -549,9 +561,64 @@ watch(activeTab, () => {
       </nav>
     </div>
 
-    <!-- Campaigns Tab — central engagement-pipelines filtered to letter channel -->
-    <div v-if="activeTab === 'campaigns'">
-      <PipelineCampaignsList channel-filter="letter" />
+    <!-- Dashboard Tab — Status der ausgewählten Pipeline -->
+    <div v-if="activeTab === 'dashboard'">
+      <div
+        v-if="!pipelineCtx.activePipelineId"
+        class="rounded-lg border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-500 dark:border-gray-600 dark:bg-gray-800"
+      >
+        <p class="font-medium text-gray-700 dark:text-gray-300">
+          Keine Pipeline ausgewählt
+        </p>
+        <p class="mt-1">
+          Wähle oben im Header eine Pipeline aus oder lege im Engagement-Modul eine neue an,
+          um die Briefe dieser Kampagne zu sehen.
+        </p>
+        <router-link
+          to="/engagement"
+          class="mt-3 inline-block text-go4-primary hover:text-go4-primary-dark"
+        >
+          Zum Engagement →
+        </router-link>
+      </div>
+      <div
+        v-else-if="!pipelineCtx.activePipelineMatchesModule"
+        class="rounded-lg border border-amber-200 bg-amber-50 p-6 text-sm text-amber-800 dark:border-amber-800/50 dark:bg-amber-900/20 dark:text-amber-200"
+      >
+        <p class="font-medium">
+          Diese Pipeline hat keinen Letter-Kanal aktiv
+        </p>
+        <p class="mt-1">
+          Aktiviere den Brief-Kanal im Engagement, um Briefe für
+          <strong>{{ pipelineCtx.activePipeline?.name }}</strong> zu versenden.
+        </p>
+        <router-link
+          :to="`/engagement/pipelines/${pipelineCtx.activePipelineId}/setup`"
+          class="mt-2 inline-block text-go4-primary hover:text-go4-primary-dark"
+        >
+          Pipeline-Setup öffnen →
+        </router-link>
+      </div>
+      <div
+        v-else
+        class="rounded-lg border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800"
+      >
+        <div class="mb-3 flex items-center justify-between">
+          <h3 class="font-semibold text-gray-900 dark:text-gray-100">
+            {{ pipelineCtx.activePipeline?.name }}
+          </h3>
+          <router-link
+            to="/letter/letters"
+            class="text-sm text-go4-primary hover:text-go4-primary-dark"
+          >
+            Briefe öffnen →
+          </router-link>
+        </div>
+        <p class="text-sm text-gray-500 dark:text-gray-400">
+          Stats und Briefe-Übersicht werden über die anderen Tabs angezeigt.
+          Die globalen Stats-Cards oben spiegeln das gesamte Tenant-Volumen.
+        </p>
+      </div>
     </div>
 
     <!-- Letters Tab -->

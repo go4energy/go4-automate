@@ -70,3 +70,12 @@ class MailActionProvider(Protocol):
         mailbox: str | None = None,
     ) -> dict:
         """Move a message to another folder."""
+
+    async def update_message(
+        self,
+        provider_message_id: str,
+        updates: dict,
+        *,
+        mailbox: str | None = None,
+    ) -> dict:
+        """Patch message fields such as read state."""

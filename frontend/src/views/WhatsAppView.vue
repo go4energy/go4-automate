@@ -1,14 +1,16 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useWhatsAppStore } from '@/stores/whatsapp'
+import { usePipelineContext } from '@/stores/pipelineContext'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
-import PipelineCampaignsList from '@/components/engagement/PipelineCampaignsList.vue'
+import ModuleSettings from '@/components/settings/ModuleSettings.vue'
 
 const router = useRouter()
 const route = useRoute()
 const store = useWhatsAppStore()
+const pipelineCtx = usePipelineContext()
 
 // Tab state from route
 const activeTab = computed(() => route.meta?.tab || 'inbox')
@@ -21,7 +23,8 @@ const tabs = [
   { id: 'campaigns', label: 'Kampagnen', icon: 'speakerphone', route: '/whatsapp/campaigns' },
   { id: 'templates', label: 'Templates', icon: 'template', route: '/whatsapp/templates' },
   { id: 'accounts', label: 'Accounts', icon: 'cog', route: '/whatsapp/accounts' },
-  { id: 'freigabe', label: 'Freigabe', icon: 'check-circle', route: '/whatsapp/freigabe' }
+  { id: 'freigabe', label: 'Freigabe', icon: 'check-circle', route: '/whatsapp/freigabe' },
+  { id: 'einstellungen', label: 'Einstellungen', icon: 'cog', route: '/whatsapp/einstellungen' }
 ]
 
 // Format date
@@ -145,12 +148,13 @@ async function syncTemplatesForAccount(accountId) {
   }
 }
 
-// Load data
+// Load data — scoped to the globally selected pipeline.
 async function loadData() {
   loading.value = true
+  const pid = pipelineCtx.activePipelineId || undefined
   await Promise.all([
     store.fetchConversations(),
-    store.fetchCampaigns(),
+    store.fetchCampaigns({ pipeline_id: pid }),
     store.fetchTemplates(),
     store.fetchAccounts(),
     store.fetchDashboard(),
@@ -172,9 +176,15 @@ async function executeAction(actionId, content) {
   await store.executeAction(actionId, content)
 }
 
-onMounted(() => {
+onMounted(async () => {
+  await pipelineCtx.ensurePipelines()
   loadData()
 })
+
+watch(
+  () => pipelineCtx.activePipelineId,
+  () => loadData(),
+)
 </script>
 
 <template>
@@ -344,20 +354,15 @@ onMounted(() => {
 
     <!-- Campaigns Tab -->
     <div v-else-if="activeTab === 'campaigns'">
-      <!-- Central engagement pipelines (channel=whatsapp) -->
-      <PipelineCampaignsList
-        channel-filter="whatsapp"
-        class="mb-8"
-      />
-
-      <div class="mb-4 mt-8 border-t border-gray-200 pt-6 dark:border-gray-700">
-        <h3 class="mb-3 text-base font-semibold text-gray-700 dark:text-gray-300">
-          WhatsApp-eigene Sequenzen
-        </h3>
-        <p class="mb-3 text-xs text-gray-500 dark:text-gray-400">
-          Veraltete WhatsApp-spezifische Campaigns. Werden langfristig in zentrale Engagement-Pipelines migriert.
-        </p>
-      </div>
+      <p class="mb-3 text-xs text-gray-500 dark:text-gray-400">
+        WhatsApp-spezifische Campaigns. Pipeline-zentrierte Kampagnen verwaltest du im
+        <router-link
+          to="/engagement"
+          class="text-go4-primary hover:text-go4-primary-dark"
+        >
+          Engagement-Modul
+        </router-link>; die ausgewählte Pipeline kannst du oben im Header wechseln.
+      </p>
       <EmptyState
         v-if="store.campaigns.length === 0"
         title="Keine Kampagnen"
@@ -837,6 +842,11 @@ onMounted(() => {
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Einstellungen Tab -->
+    <div v-else-if="activeTab === 'einstellungen'">
+      <ModuleSettings module-name="whatsapp" />
     </div>
   </div>
 </template>

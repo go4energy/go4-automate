@@ -7,7 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import lazyload
 
 from app.database import get_db
+from app.exceptions import AppError
 from app.models.tenant import Tenant
+from app.services.module_docs import get_module_doc
 from app.utils.dependencies import get_current_tenant_id
 from app.utils.module_registry import get_all_manifests, get_all_modules, get_manifest
 
@@ -132,6 +134,15 @@ async def get_desktop_modules(
         )
     )
     return result
+
+
+@router.get("/documentation/{name}")
+async def get_module_documentation(name: str) -> dict:
+    """Return controlled markdown documentation for a module."""
+    try:
+        return get_module_doc(name)
+    except AppError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message) from e
 
 
 async def _get_desktop_layout(db: AsyncSession, tenant_id: str) -> dict:

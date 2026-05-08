@@ -10,6 +10,7 @@ import MetaSetupTab from '@/components/engagement/MetaSetupTab.vue'
 import AudiencesTab from '@/components/engagement/AudiencesTab.vue'
 import OptimizationTab from '@/components/engagement/OptimizationTab.vue'
 import PipelineCampaignsList from '@/components/engagement/PipelineCampaignsList.vue'
+import EngagementTabs from '@/components/engagement/EngagementTabs.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -180,7 +181,8 @@ async function loadData() {
       await store.fetchDashboard()
       await store.fetchPipelines()
     } else if (activeTab.value === 'pipelines') {
-      await store.fetchPipelines()
+      // Pipeline list is loaded by <PipelineCampaignsList /> itself;
+      // fetching here would cause a render loop with the child's onMounted.
     } else if (activeTab.value === 'enrollments') {
       await store.fetchEnrollments()
     } else if (activeTab.value === 'actions') {
@@ -347,43 +349,28 @@ function formatChannel(channel) {
 </script>
 
 <template>
-  <div class="bg-go4-bg dark:bg-gray-900">
+  <div>
     <PageHeader
       title="Engagement"
+      info-module="engagement"
     />
 
-    <div class="sm: lg:">
-      <!-- Tabs (empty in master/detail mode — sub-tabs live in PipelineDetailView) -->
-      <nav
-        v-if="tabs.length > 0"
-        class="-mb-px flex gap-6 border-b border-gray-200 dark:border-gray-700"
-      >
-        <router-link
-          v-for="tab in tabs"
-          :key="tab.key"
-          :to="tab.route"
-          class="border-b-2 pb-3 text-sm font-medium transition-colors"
-          :class="
-            activeTab === tab.key
-              ? 'border-go4-primary text-go4-primary'
-              : 'border-transparent text-go4-muted hover:border-gray-300 hover:text-go4-secondary dark:text-gray-400 dark:hover:text-gray-300'
-          "
-        >
-          {{ tab.label }}
-        </router-link>
-      </nav>
+    <!-- Tabs: konsistente Bar (Pipelines + globale Daten-Tabs der ausgewählten Pipeline) -->
+    <EngagementTabs active-tab="pipelines" />
 
-      <!-- Loading -->
+    <div>
+
+      <!-- Loading (skipped for pipelines tab — child has its own loading state) -->
       <div
-        v-if="store.loading"
+        v-if="store.loading && activeTab !== 'pipelines'"
         class="mt-8 flex items-center justify-center py-12"
       >
         <span class="text-go4-muted dark:text-gray-400">Laden...</span>
       </div>
 
-      <!-- Error -->
+      <!-- Error (skipped for pipelines tab — child has its own error state) -->
       <div
-        v-else-if="store.error"
+        v-else-if="store.error && activeTab !== 'pipelines'"
         class="mt-8 rounded-lg bg-red-50 p-4 text-red-700 dark:bg-red-900/30 dark:text-red-300"
       >
         {{ store.error }}

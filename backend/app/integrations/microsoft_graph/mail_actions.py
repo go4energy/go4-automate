@@ -63,6 +63,39 @@ class MicrosoftGraphMailActionProvider(MailActionProvider, MailSendProvider):
             json={"destinationId": destination_folder},
         )
 
+    async def forward_message(
+        self,
+        provider_message_id: str,
+        to_recipients: list[str],
+        comment: str | None = None,
+        *,
+        mailbox: str | None = None,
+    ) -> dict:
+        """Forward a message with all its attachments via Graph API."""
+        principal = f"users/{mailbox}" if mailbox else "me"
+        payload = {
+            "toRecipients": self._recipient_payload(to_recipients),
+        }
+        if comment:
+            payload["comment"] = comment
+        return await self.client.post(
+            f"{principal}/messages/{provider_message_id}/forward",
+            json=payload,
+        )
+
+    async def update_message(
+        self,
+        provider_message_id: str,
+        updates: dict,
+        *,
+        mailbox: str | None = None,
+    ) -> dict:
+        principal = f"users/{mailbox}" if mailbox else "me"
+        return await self.client.patch(
+            f"{principal}/messages/{provider_message_id}",
+            json=updates,
+        )
+
     def _build_message_payload(self, draft: MailDraft) -> dict:
         payload = {
             "subject": draft.subject,

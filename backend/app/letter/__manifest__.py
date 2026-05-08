@@ -69,7 +69,17 @@ manifest = {
                 "meta": {
                     "title": "Letter",
                     "breadcrumb": {"label": "Letter"},
-                    "tab": "campaigns",
+                    "tab": "dashboard",
+                },
+            },
+            {
+                "path": "dashboard",
+                "name": "letter-dashboard",
+                "view": "LetterView",
+                "meta": {
+                    "title": "Dashboard",
+                    "breadcrumb": {"label": "Dashboard", "parent": "letter"},
+                    "tab": "dashboard",
                 },
             },
             {
@@ -116,12 +126,12 @@ manifest = {
                 },
             },
             {
-                "path": "settings",
-                "name": "letter-settings",
+                "path": "setup",
+                "name": "letter-setup",
                 "view": "LetterView",
                 "meta": {
-                    "title": "Einstellungen",
-                    "breadcrumb": {"label": "Einstellungen", "parent": "letter"},
+                    "title": "Setup",
+                    "breadcrumb": {"label": "Setup", "parent": "letter"},
                     "tab": "settings",
                 },
             },

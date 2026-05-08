@@ -67,8 +67,8 @@ def upgrade() -> None:
             "user_id",
             "provider",
             "integration_type",
-            "connected_email",
-            name="uq_integration_conn_tenant_user_provider_type_email",
+            "mailbox_address",
+            name="uq_integration_conn_tenant_user_provider_type_mailbox",
         ),
     )
     op.create_index(

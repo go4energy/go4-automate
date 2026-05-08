@@ -9,7 +9,9 @@ const STAGE_DEFS = [
   { key: 'places',    label: 'Discovery (Google Places)' },
   { key: 'impressum', label: 'Impressum-Scraping' },
   { key: 'verify',    label: 'Verify (Serper)' },
-  { key: 'llm',       label: 'LLM-Analyse (Haiku)' }
+  { key: 'llm',       label: 'LLM-Analyse (Haiku)' },
+  { key: 'linkedin',  label: 'LinkedIn-Anreicherung (Serper + Gender)' },
+  { key: 'apollo',    label: 'Apollo-Anreicherung (LinkedIn-Match)' }
 ]
 
 const STATUS_ICON = {
@@ -39,10 +41,34 @@ function fmtDuration(start, end) {
 
 const stages = computed(() => {
   const block = props.run?.stage_state?.stages || {}
+  const explicitStages = props.run?.stage_state?.explicit_stages || null
   const currentStage = props.run?.current_stage
   const isFinal = ['completed', 'failed'].includes(props.run?.status)
+  const runState = props.run?.stage_state || {}
 
-  return STAGE_DEFS.map((def) => {
+  // Dynamic timeline: only render stages that were actually executed.
+  // The worker writes ``status: 'skipped'`` entries for unselected stages
+  // (so the timeline knows about them) but we don't want to show those —
+  // they clutter the list with greyed-out "übersprungen" rows. Show:
+  //  1. Stages with a non-skipped status entry (running/completed/failed)
+  //  2. The currently-running stage (even if its entry hasn't been written yet)
+  //  3. Fallback for legacy runs without any `stages` block: show whichever
+  //     ones were explicit_stages, otherwise the full pipeline.
+  const hasStagesBlock = Object.keys(block).length > 0
+  const filtered = STAGE_DEFS.filter((def) => {
+    const entry = block[def.key]
+    if (entry && entry.status && entry.status !== 'skipped') return true
+    if (def.key === currentStage && !isFinal) return true
+    if (!hasStagesBlock) {
+      if (Array.isArray(explicitStages) && explicitStages.length > 0) {
+        return explicitStages.includes(def.key)
+      }
+      return true
+    }
+    return false
+  })
+
+  return filtered.map((def) => {
     const entry = block[def.key] || {}
     let status = entry.status
     // Fallback for older runs without `stages`: derive a status from the
@@ -76,6 +102,23 @@ const stages = computed(() => {
       homepagesFound:  Number(entry.homepages_found)  || 0,
       noHomepage:      Number(entry.no_homepage)      || 0,
       skippedNoSite:   Number(entry.skipped_no_site)  || 0,
+      // LinkedIn-stage counters live both on stages.linkedin (basic) and on
+      // the run-level state (richer breakdown). Pull the rich ones too so
+      // the timeline can show "company via Serper / Impressum".
+      serperCalls:        Number(entry.serper_calls)                              || 0,
+      genderViaLlm:       Number(entry.gender_via_llm)                            || 0,
+      contactsViaSerper:  Number(runState.contacts_via_serper)     || 0,
+      contactsViaImpressum: Number(runState.contacts_via_impressum) || 0,
+      companyViaSerper:   Number(runState.company_via_serper)      || 0,
+      companyViaImpressum: Number(runState.company_via_impressum)  || 0,
+      // Apollo-stage breakdown — counters live on the run-level state and
+      // on the stage entry itself (cost, processed, succeeded).
+      apolloBulkCalls:    Number(entry.bulk_calls || runState.apollo_bulk_calls)         || 0,
+      apolloCredits:      Number(entry.credits_used || runState.apollo_credits_used)     || 0,
+      apolloMatchHigh:    Number(runState.apollo_matched_high)   || 0,
+      apolloMatchMedium:  Number(runState.apollo_matched_medium) || 0,
+      apolloMatchLow:     Number(runState.apollo_matched_low)    || 0,
+      apolloNoMatch:      Number(runState.apollo_no_match)       || 0,
       icon: STATUS_ICON[status] || STATUS_ICON.pending
     }
   })
@@ -122,6 +165,28 @@ function metricsFor(s) {
     if (s.skippedNoSite) out.push({ label: 'Synth. (no-site)', value: s.skippedNoSite.toLocaleString('de-DE') })
     if (s.succeeded)     out.push({ label: 'OK',           value: s.succeeded.toLocaleString('de-DE'), tone: 'success' })
     if (s.failed)        out.push({ label: 'Fehler',       value: s.failed.toLocaleString('de-DE'),    tone: 'danger' })
+    return out
+  }
+  if (s.key === 'linkedin') {
+    const out = []
+    if (s.total)               out.push({ label: 'Firmen verarbeitet', value: `${s.processed.toLocaleString('de-DE')} / ${s.total.toLocaleString('de-DE')}` })
+    if (s.serperCalls)         out.push({ label: 'Serper-Calls',       value: s.serperCalls.toLocaleString('de-DE') })
+    if (s.contactsViaSerper)   out.push({ label: 'Personen via Serper', value: s.contactsViaSerper.toLocaleString('de-DE'), tone: 'success' })
+    if (s.contactsViaImpressum)out.push({ label: 'Personen via Impressum', value: s.contactsViaImpressum.toLocaleString('de-DE'), tone: 'success' })
+    if (s.companyViaSerper)    out.push({ label: 'Firmen via Serper',  value: s.companyViaSerper.toLocaleString('de-DE'), tone: 'success' })
+    if (s.companyViaImpressum) out.push({ label: 'Firmen via Impressum', value: s.companyViaImpressum.toLocaleString('de-DE'), tone: 'success' })
+    if (s.genderViaLlm)        out.push({ label: 'Gender via LLM',     value: s.genderViaLlm.toLocaleString('de-DE') })
+    return out
+  }
+  if (s.key === 'apollo') {
+    const out = []
+    if (s.total)              out.push({ label: 'Personen verarbeitet', value: `${s.processed.toLocaleString('de-DE')} / ${s.total.toLocaleString('de-DE')}` })
+    if (s.apolloBulkCalls)    out.push({ label: 'Bulk-Calls',           value: s.apolloBulkCalls.toLocaleString('de-DE') })
+    if (s.apolloCredits)      out.push({ label: 'Credits',              value: s.apolloCredits.toLocaleString('de-DE'), tone: 'danger' })
+    if (s.apolloMatchHigh)    out.push({ label: 'High-Match',           value: s.apolloMatchHigh.toLocaleString('de-DE'), tone: 'success' })
+    if (s.apolloMatchMedium)  out.push({ label: 'Medium',               value: s.apolloMatchMedium.toLocaleString('de-DE'), tone: 'success' })
+    if (s.apolloMatchLow)     out.push({ label: 'Low',                  value: s.apolloMatchLow.toLocaleString('de-DE') })
+    if (s.apolloNoMatch)      out.push({ label: 'No-Match',             value: s.apolloNoMatch.toLocaleString('de-DE') })
     return out
   }
   return []

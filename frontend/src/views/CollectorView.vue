@@ -6,6 +6,7 @@ import { getPromptBySlug } from '@/api/prompts'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import ModuleSettings from '@/components/settings/ModuleSettings.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -57,7 +58,8 @@ const tabs = [
   { key: 'sources', label: 'Quellen', route: '/collector/sources' },
   { key: 'findings', label: 'Findings', route: '/collector/findings' },
   { key: 'prompts', label: 'KI', route: '/collector/prompts' },
-  { key: 'topics', label: 'Themen', route: '/collector/topics' }
+  { key: 'topics', label: 'Themen', route: '/collector/topics' },
+  { key: 'einstellungen', label: 'Einstellungen', route: '/collector/einstellungen' }
 ]
 
 const sourceTypeBadge = {
@@ -1145,6 +1147,14 @@ function formatDate(dateStr) {
           </tbody>
         </table>
       </div>
+    </div>
+
+    <!-- ==================== Einstellungen Tab ==================== -->
+    <div
+      v-else-if="activeTab === 'einstellungen'"
+      class="mt-6"
+    >
+      <ModuleSettings module-name="collector" />
     </div>
 
     <!-- ==================== Group Modal ==================== -->

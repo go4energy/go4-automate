@@ -80,6 +80,16 @@ manifest = {
                     "tab": "speakers",
                 },
             },
+            {
+                "path": "einstellungen",
+                "name": "briefing-einstellungen",
+                "view": "BriefingView",
+                "meta": {
+                    "title": "Einstellungen",
+                    "breadcrumb": {"label": "Einstellungen", "parent": "briefing"},
+                    "tab": "einstellungen",
+                },
+            },
             # Detail/Edit routes
             {
                 "path": "channels/new",

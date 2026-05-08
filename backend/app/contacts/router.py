@@ -293,6 +293,32 @@ async def get_contact_filters(
         raise HTTPException(status_code=500, detail="Interner Serverfehler") from e
 
 
+@router.get("/tags/suggest")
+async def suggest_tags(
+    q: str = Query(default="", max_length=50),
+    limit: int = Query(default=20, ge=1, le=100),
+    tenant_id: str = Depends(get_current_tenant_id),
+    db: AsyncSession = Depends(get_db),
+) -> list[str]:
+    """Auto-suggest distinct tags for combobox inputs.
+
+    Used by Pipeline-Edit-UI (auto_enroll_filter) to help users pick
+    consistent tag values. Substring match — case-insensitive.
+    """
+    try:
+        service = ContactService(db)
+        all_tags = await service.get_distinct_tags(tenant_id)
+        if q:
+            needle = q.lower()
+            filtered = [t for t in all_tags if needle in t.lower()]
+        else:
+            filtered = list(all_tags)
+        return sorted(filtered)[:limit]
+    except Exception as e:
+        logger.exception("Unerwarteter Fehler in suggest_tags")
+        raise HTTPException(status_code=500, detail="Interner Serverfehler") from e
+
+
 @router.get("/{contact_id}", response_model=ContactResponse)
 async def get_contact(
     contact_id: int,
@@ -303,10 +329,19 @@ async def get_contact(
     try:
         service = ContactService(db)
         contact = await service.get_by_id(tenant_id, contact_id)
+        # Resolve forward-source name (Forward-Audit-Badge im Frontend)
+        source_name: str | None = None
+        if contact.source_contact_id:
+            try:
+                source = await service.get_by_id(tenant_id, contact.source_contact_id)
+                source_name = source.name
+            except NotFoundError:
+                source_name = None
         return ContactResponse(
             **{
                 **contact.__dict__,
                 "company_name": contact.company.name if contact.company else None,
+                "source_contact_name": source_name,
             }
         )
     except NotFoundError as e:

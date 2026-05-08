@@ -8,6 +8,8 @@ import { changePassword } from '@/api/auth'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import SettingsGlobalTab from '@/components/settings/SettingsGlobalTab.vue'
 import SettingsModuleTab from '@/components/settings/SettingsModuleTab.vue'
+import SettingsLLMTab from '@/components/settings/SettingsLLMTab.vue'
+import TenantMasterDataView from '@/views/TenantMasterDataView.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import api from '@/api'
 
@@ -226,11 +228,14 @@ const activeTabKey = computed(() => {
   return store.activeTab
 })
 
+// Module-specific tabs are now rendered IN the modules themselves
+// (via /modul/einstellungen). This view only shows globally relevant tabs.
 const allTabs = computed(() => {
-  const list = store.tabs
   return [
     { key: 'profil', label: 'Profil' },
-    ...list,
+    { key: 'stammdaten', label: 'Stammdaten' },
+    { key: 'llm', label: 'LLM-Modelle' },
+    { key: 'global', label: 'Plattform' },
     { key: 'tags', label: 'Tags' },
     { key: 'streams', label: 'Streams' },
     { key: 'prompts', label: 'Prompts' },
@@ -254,7 +259,14 @@ onMounted(async () => {
 watch(
   () => store.activeTab,
   (tab) => {
-    if (tab !== 'prompts' && tab !== 'tags' && tab !== 'streams' && tab !== 'profil') {
+    if (
+      tab !== 'prompts' &&
+      tab !== 'tags' &&
+      tab !== 'streams' &&
+      tab !== 'profil' &&
+      tab !== 'llm' &&
+      tab !== 'stammdaten'
+    ) {
       store.fetchTabData(tab)
     }
   }
@@ -287,6 +299,11 @@ function switchTab(key) {
     }
     store.setActiveTab(key)
     fetchStreams()
+  } else if (key === 'llm' || key === 'stammdaten') {
+    if (isPromptsTab.value) {
+      router.push('/settings')
+    }
+    store.setActiveTab(key)
   } else {
     if (isPromptsTab.value) {
       router.push('/settings')
@@ -490,6 +507,12 @@ function goToNewPrompt() {
         :saving="store.saving"
         @save="onSaveGlobal"
       />
+
+      <!-- LLM-Modelle Tab -->
+      <SettingsLLMTab v-else-if="activeTabKey === 'llm'" />
+
+      <!-- Tenant-Stammdaten Tab -->
+      <TenantMasterDataView v-else-if="activeTabKey === 'stammdaten'" />
 
       <!-- Tags Tab -->
       <div

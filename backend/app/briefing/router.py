@@ -100,23 +100,10 @@ async def _fetch_available_ollama_models() -> list[str]:
 
 
 def _oauth_scope(provider: str, integration_type: str | None = None) -> str:
-    """Return provider scopes for source or personal integrations."""
-    if provider == "microsoft":
-        if integration_type == "email":
-            return "Mail.Read User.Read offline_access"
-        if integration_type == "calendar":
-            return "Calendars.Read User.Read offline_access"
-        return "Calendars.Read Mail.Read User.Read offline_access"
+    """Return provider scopes. Delegates to shared layer."""
+    from app.integrations.oauth import oauth_scope
 
-    if integration_type == "email":
-        return "https://www.googleapis.com/auth/gmail.readonly openid email"
-    if integration_type == "calendar":
-        return "https://www.googleapis.com/auth/calendar.readonly openid email"
-    return (
-        "https://www.googleapis.com/auth/calendar.readonly "
-        "https://www.googleapis.com/auth/gmail.readonly "
-        "openid email"
-    )
+    return oauth_scope(provider, integration_type)
 
 
 def _build_oauth_auth_url(
@@ -165,61 +152,17 @@ async def _exchange_oauth_code(
     callback_url: str,
     integration_type: str | None = None,
 ) -> dict:
-    """Exchange an OAuth code for access and refresh tokens."""
-    import httpx
+    """Exchange an OAuth code for tokens. Delegates to shared layer."""
+    from app.integrations.oauth import exchange_oauth_code
 
-    scope = _oauth_scope(provider, integration_type)
-
-    async with httpx.AsyncClient(timeout=30) as client:
-        if provider == "microsoft":
-            tid = settings.microsoft_tenant_id or "common"
-            response = await client.post(
-                f"https://login.microsoftonline.com/{tid}/oauth2/v2.0/token",
-                data={
-                    "grant_type": "authorization_code",
-                    "client_id": settings.microsoft_client_id,
-                    "client_secret": settings.microsoft_client_secret,
-                    "code": code,
-                    "redirect_uri": callback_url,
-                    "scope": scope,
-                },
-            )
-        else:
-            response = await client.post(
-                "https://oauth2.googleapis.com/token",
-                data={
-                    "grant_type": "authorization_code",
-                    "client_id": settings.google_client_id,
-                    "client_secret": settings.google_client_secret,
-                    "code": code,
-                    "redirect_uri": callback_url,
-                },
-            )
-
-        response.raise_for_status()
-        return response.json()
+    return await exchange_oauth_code(code, provider, callback_url, integration_type)
 
 
 async def _fetch_oauth_email(access_token: str, provider: str) -> str:
-    """Fetch the primary email address for the connected account."""
-    import httpx
+    """Fetch primary email. Delegates to shared layer."""
+    from app.integrations.oauth import fetch_oauth_email
 
-    async with httpx.AsyncClient(timeout=30) as client:
-        if provider == "microsoft":
-            response = await client.get(
-                "https://graph.microsoft.com/v1.0/me",
-                headers={"Authorization": f"Bearer {access_token}"},
-            )
-            response.raise_for_status()
-            me = response.json()
-            return me.get("mail") or me.get("userPrincipalName", "")
-
-        response = await client.get(
-            "https://www.googleapis.com/oauth2/v2/userinfo",
-            headers={"Authorization": f"Bearer {access_token}"},
-        )
-        response.raise_for_status()
-        return response.json().get("email", "")
+    return await fetch_oauth_email(access_token, provider)
 
 
 def _extract_token_scopes(tokens: dict) -> list[str]:

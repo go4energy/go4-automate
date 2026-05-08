@@ -70,6 +70,16 @@ manifest = {
                     "tab": "topics",
                 },
             },
+            {
+                "path": "einstellungen",
+                "name": "collector-einstellungen",
+                "view": "CollectorView",
+                "meta": {
+                    "title": "Einstellungen",
+                    "breadcrumb": {"label": "Einstellungen", "parent": "collector"},
+                    "tab": "einstellungen",
+                },
+            },
             # Detail/Edit routes
             {
                 "path": "sources/new",

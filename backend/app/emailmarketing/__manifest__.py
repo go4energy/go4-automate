@@ -76,6 +76,26 @@ manifest = {
                     "tab": "freigabe",
                 },
             },
+            {
+                "path": "statistik",
+                "name": "emailmarketing-statistik",
+                "view": "EmailMarketingView",
+                "meta": {
+                    "title": "Statistik",
+                    "breadcrumb": {"label": "Statistik", "parent": "emailmarketing"},
+                    "tab": "statistik",
+                },
+            },
+            {
+                "path": "einstellungen",
+                "name": "emailmarketing-einstellungen",
+                "view": "EmailMarketingView",
+                "meta": {
+                    "title": "Einstellungen",
+                    "breadcrumb": {"label": "Einstellungen", "parent": "emailmarketing"},
+                    "tab": "einstellungen",
+                },
+            },
             # Detail/Edit routes
             {
                 "path": "campaigns/:id",

@@ -39,40 +39,43 @@ def _pipeline(**overrides):
 
 
 # ============== render_tracking_link ==============
+# The link uses the per-(contact, campaign) ref_code, NOT contact.tracking_hash.
+# ref_code is supplied by the renderer (which got it from
+# RefCodeService.ensure_ref_code beforehand).
 
 
 def test_tracking_link_full_setup():
-    url = render_tracking_link("/produkte", _contact(), _pipeline())
+    url = render_tracking_link("/produkte", _pipeline(), ref_code="oamzjc")
     assert url.startswith("https://go4.energy/produkte?")
-    assert "ref=abc123XYZ" in url
+    assert "ref=oamzjc" in url
     assert "utm_source=outreach" in url
     assert "utm_medium=email" in url
     assert "utm_campaign=lastmanagement-mfh" in url
 
 
 def test_tracking_link_path_without_leading_slash_normalized():
-    url = render_tracking_link("kontakt", _contact(), _pipeline())
+    url = render_tracking_link("kontakt", _pipeline(), ref_code="oamzjc")
     assert "go4.energy/kontakt?" in url
 
 
 def test_tracking_link_no_pipeline_uses_defaults():
-    url = render_tracking_link("/page", _contact(), None)
+    url = render_tracking_link("/page", None, ref_code="oamzjc")
     assert url.startswith("https://go4.energy/page?")
-    assert "ref=abc123XYZ" in url
+    assert "ref=oamzjc" in url
     # no UTM params when pipeline absent
     assert "utm_source" not in url
 
 
-def test_tracking_link_no_hash_omits_ref():
-    contact = _contact(tracking_hash=None)
-    url = render_tracking_link("/page", contact, _pipeline())
+def test_tracking_link_no_ref_code_omits_ref():
+    """Without ref_code, link still works — UTM-only attribution."""
+    url = render_tracking_link("/page", _pipeline(), ref_code=None)
     assert "ref=" not in url
     assert "utm_source=outreach" in url
 
 
 def test_tracking_link_custom_base_url():
     pipeline = _pipeline(tracking_config={"base_url": "https://smartladen.de"})
-    url = render_tracking_link("/info", _contact(), pipeline)
+    url = render_tracking_link("/info", pipeline, ref_code="oamzjc")
     assert url.startswith("https://smartladen.de/info?")
 
 
@@ -100,9 +103,11 @@ def test_template_full_name_split():
 
 def test_template_tracking_link_tag():
     html = '<a href=\'{{tracking_link "/produkte"}}\'>Mehr</a>'
-    out = render_template(html, contact=_contact(), pipeline=_pipeline())
+    out = render_template(
+        html, contact=_contact(), pipeline=_pipeline(), ref_code="oamzjc"
+    )
     assert "https://go4.energy/produkte?" in out
-    assert "ref=abc123XYZ" in out
+    assert "ref=oamzjc" in out
 
 
 def test_template_tracking_hash_tag():

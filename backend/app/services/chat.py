@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 from app.exceptions import NotFoundError
 from app.models.chat_message import ChatMessage
 from app.models.conversation import Conversation
+from app.services.chat_topics import get_topic, mask_secrets
 from app.services.llm import LLMService
 
 # System prompts per context type
@@ -67,23 +68,50 @@ class ChatService:
         title: str | None,
         context_type: str,
         context_data: dict | None,
+        topic: str | None = None,
     ) -> Conversation:
         """Create a new conversation."""
+        # Topic-tagged conversations get a default title from the topic registry
+        # so the user immediately sees what the chat is about.
+        if topic and not title:
+            entry = get_topic(topic)
+            if entry:
+                title = f"💡 {entry[0]}"
         conversation = Conversation(
             tenant_id=tenant_id,
             title=title,
             context_type=context_type,
             context_data=context_data,
+            topic=topic,
         )
         self.db.add(conversation)
         await self.db.flush()
         await self.db.refresh(conversation)
         logger.info(
-            "Conversation erstellt: id={id} type={ctx}",
+            "Conversation erstellt: id={id} type={ctx} topic={t}",
             id=conversation.id,
             ctx=context_type,
+            t=topic,
         )
         return conversation
+
+    async def find_topic_conversation(
+        self, tenant_id: str, topic: str
+    ) -> Conversation | None:
+        """Return the most recent active conversation for a topic, if any."""
+        stmt = (
+            select(Conversation)
+            .options(selectinload(Conversation.messages))
+            .where(
+                Conversation.tenant_id == tenant_id,
+                Conversation.topic == topic,
+                Conversation.status == "active",
+            )
+            .order_by(Conversation.updated_at.desc())
+            .limit(1)
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
 
     async def list_conversations(
         self, tenant_id: str, status: str | None = None
@@ -131,11 +159,43 @@ class ChatService:
         await self.db.refresh(message)
         return message
 
-    def _build_system_prompt(self, context_type: str, tenant_config: dict) -> str:
-        """Build system prompt with tenant context."""
+    def _build_system_prompt(
+        self,
+        context_type: str,
+        tenant_config: dict,
+        topic: str | None = None,
+        context_data: dict | None = None,
+    ) -> str:
+        """Build system prompt with tenant context, optional topic snippet
+        and the page form-state (with secret-masking) so Claude has the
+        same view of the screen as the user."""
         template = CONTEXT_PROMPTS.get(context_type, CONTEXT_PROMPTS["general"])
         company = tenant_config.get("COMPANY_NAME", "")
-        return template.replace("{{COMPANY_NAME}}", company)
+        prompt = template.replace("{{COMPANY_NAME}}", company)
+
+        topic_entry = get_topic(topic)
+        if topic_entry:
+            _title, snippet = topic_entry
+            prompt += "\n\n" + snippet
+
+        if context_data:
+            safe_ctx = mask_secrets(context_data)
+            module = safe_ctx.get("module") if isinstance(safe_ctx, dict) else None
+            page = safe_ctx.get("page") if isinstance(safe_ctx, dict) else None
+            form_state = (
+                safe_ctx.get("form_state") if isinstance(safe_ctx, dict) else None
+            )
+            ctx_lines = ["\n\nKONTEXT der aktuellen Seite:"]
+            if module:
+                ctx_lines.append(f"- Modul: {module}")
+            if page:
+                ctx_lines.append(f"- Seite: {page}")
+            if form_state:
+                ctx_lines.append(f"- Formular-State: {json.dumps(form_state, ensure_ascii=False)}")
+            if len(ctx_lines) > 1:
+                prompt += "\n".join(ctx_lines)
+
+        return prompt
 
     async def _load_history(self, conv_id: int) -> list[dict]:
         """Load recent conversation history as message dicts."""
@@ -172,10 +232,13 @@ class ChatService:
             conversation.title = title
             await self.db.commit()
 
-        # Load history and build system prompt
+        # Load history and build system prompt (incl. topic snippet + page state)
         history = await self._load_history(conv_id)
         system_prompt = self._build_system_prompt(
-            conversation.context_type, tenant_config
+            conversation.context_type,
+            tenant_config,
+            topic=conversation.topic,
+            context_data=conversation.context_data,
         )
 
         # Stream from LLM

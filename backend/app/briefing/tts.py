@@ -62,6 +62,29 @@ class TTSService:
 
     async def _call_xtts(self, text: str, speaker_wav: str, language: str) -> bytes:
         """HTTP POST to XTTS v2 server."""
+        # Resolve speaker name to absolute file path if not already a path
+        if speaker_wav and not speaker_wav.startswith("/"):
+            from pathlib import Path
+
+            # Try xtts directory first (tenant-prefixed), then raw name
+            xtts_dir = Path(settings.speaker_upload_dir).resolve() / "xtts"
+            candidates = [
+                xtts_dir / f"{speaker_wav}.wav",
+                xtts_dir / f"go4energy_{speaker_wav}.wav",
+            ]
+            for candidate in candidates:
+                if candidate.exists():
+                    speaker_wav = str(candidate)
+                    break
+            else:
+                # Check all tenant dirs
+                for tenant_dir in Path(settings.speaker_upload_dir).resolve().iterdir():
+                    if tenant_dir.is_dir() and tenant_dir.name != "xtts":
+                        wav = tenant_dir / f"{speaker_wav}.wav"
+                        if wav.exists():
+                            speaker_wav = str(wav)
+                            break
+
         try:
             async with httpx.AsyncClient() as client:
                 resp = await client.post(

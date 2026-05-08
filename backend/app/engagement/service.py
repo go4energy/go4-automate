@@ -65,6 +65,9 @@ class PipelineService:
         tracking_cfg = data.tracking_config
         if hasattr(tracking_cfg, "model_dump"):
             tracking_cfg = tracking_cfg.model_dump()
+        auto_enroll = data.auto_enroll_filter
+        if hasattr(auto_enroll, "model_dump"):
+            auto_enroll = auto_enroll.model_dump()
         pipeline = EngagementPipeline(
             tenant_id=tenant_id,
             name=data.name,
@@ -79,6 +82,7 @@ class PipelineService:
             min_days_between_touches=data.min_days_between_touches,
             auto_actions=data.auto_actions,
             tracking_config=tracking_cfg or {},
+            auto_enroll_filter=auto_enroll,
             is_active=data.is_active,
         )
         self.db.add(pipeline)
@@ -131,6 +135,8 @@ class PipelineService:
         pipeline = await self.get_by_id(tenant_id, pipeline_id)
 
         update_data = data.model_dump(exclude_unset=True)
+        # Pydantic-Submodels (tracking_config, auto_enroll_filter) sind durch
+        # model_dump() bereits dicts. Nichts weiter zu tun.
         for key, value in update_data.items():
             setattr(pipeline, key, value)
 

@@ -50,6 +50,16 @@ manifest = {
                     "tab": "companies",
                 },
             },
+            {
+                "path": "einstellungen",
+                "name": "contacts-einstellungen",
+                "view": "ContactsView",
+                "meta": {
+                    "title": "Einstellungen",
+                    "breadcrumb": {"label": "Einstellungen", "parent": "contacts"},
+                    "tab": "einstellungen",
+                },
+            },
             # Detail routes
             {
                 "path": "people/:id",

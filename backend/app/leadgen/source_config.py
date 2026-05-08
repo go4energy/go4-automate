@@ -53,6 +53,23 @@ class LLMStageConfig(BaseModel):
     # linked in Google's data). Defaults on for new campaigns; degrades to
     # no-op when SERPER_API_KEY is not set.
     verify_no_website_via_serper: bool = True
+
+    # Opt-in: synthesise a fixed-score LLMInsights row for places that
+    # genuinely have no website (Serper-verify also failed). Designed for
+    # homepage-sales campaigns where "no website" IS the qualification
+    # criterion. Default ``None`` means no synth row — those places get
+    # ``status='no_website'`` and stay out of the LLM-scored exports until
+    # the operator decides what to do with them.
+    no_website_score: int | None = Field(
+        default=None,
+        ge=0,
+        le=10,
+        description=(
+            "If set (0-10), places without a website get a synth-row with "
+            "this score. Use only for homepage-sales campaigns; leave None "
+            "for normal lead-gen so scoring is the LLM's job alone."
+        ),
+    )
     serper_blacklist_extra: list[str] = Field(
         default_factory=list,
         description=(

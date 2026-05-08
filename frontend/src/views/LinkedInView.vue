@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { marked } from 'marked'
 import { useLinkedInStore } from '@/stores/linkedin'
+import { usePipelineContext } from '@/stores/pipelineContext'
 import api from '@/api'
 
 // Configure marked for better rendering with heading IDs
@@ -38,6 +39,7 @@ import ProfileCard from '@/components/linkedin/ProfileCard.vue'
 const router = useRouter()
 const route = useRoute()
 const store = useLinkedInStore()
+const pipelineCtx = usePipelineContext()
 const funnelsStore = useFunnelsStore()
 
 // Read active tab from route meta
@@ -242,7 +244,6 @@ const tabs = [
   { key: 'jobs', label: 'Scraper Jobs', route: '/linkedin/jobs' },
   { key: 'contacts', label: 'Kontakte', route: '/linkedin/contacts' },
   { key: 'templates', label: 'Vorlagen', route: '/linkedin/templates' },
-  { key: 'campaigns', label: 'Kampagnen', route: '/linkedin/campaigns' },
   { key: 'inbox', label: 'Inbox', route: '/linkedin/inbox' },
   { key: 'freigabe', label: 'Freigabe', route: '/linkedin/freigabe' },
   { key: 'guide', label: 'Anleitung', route: '/linkedin/guide' },
@@ -434,20 +435,31 @@ function formatScheduleDays(days) {
   return days.map((d) => dayNames[d]).join(', ')
 }
 
-onMounted(async () => {
+async function loadLinkedInData() {
+  const pid = pipelineCtx.activePipelineId || undefined
   await Promise.all([
     store.fetchStats(),
     store.fetchAccounts(),
     store.fetchJobs(),
     store.fetchAllContacts(),
     store.fetchTemplates(),
-    store.fetchCampaigns(),
+    store.fetchCampaigns({ pipeline_id: pid }),
     store.fetchInbox(),
     store.fetchEngagementActions(),
     funnelsStore.fetchFunnels(),
     fetchSchedulerStatus()
   ])
+}
+
+onMounted(async () => {
+  await pipelineCtx.ensurePipelines()
+  await loadLinkedInData()
 })
+
+watch(
+  () => pipelineCtx.activePipelineId,
+  () => loadLinkedInData(),
+)
 
 function createAccount() {
   router.push('/linkedin/accounts/new')

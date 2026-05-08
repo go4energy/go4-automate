@@ -8,6 +8,7 @@ import ViewModeToggle from '@/components/ui/ViewModeToggle.vue'
 import FilterSidebar from '@/components/ui/FilterSidebar.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import DataTable from '@/components/ui/DataTable.vue'
+import ModuleSettings from '@/components/settings/ModuleSettings.vue'
 import ContactCard from '@/components/contacts/ContactCard.vue'
 import CompanyCard from '@/components/contacts/CompanyCard.vue'
 import ContactFormModal from '@/components/contacts/ContactFormModal.vue'
@@ -56,6 +57,11 @@ const tabs = [
     label: 'Firmen',
     route: '/contacts/companies',
     count: computed(() => store.totalCompanies)
+  },
+  {
+    key: 'einstellungen',
+    label: 'Einstellungen',
+    route: '/contacts/einstellungen'
   }
 ]
 
@@ -509,6 +515,11 @@ function formatDate(dateString) {
               <span class="text-gray-600 dark:text-gray-400">{{ value }}</span>
             </template>
           </DataTable>
+        </template>
+
+        <!-- Einstellungen Tab -->
+        <template v-if="activeTab === 'einstellungen'">
+          <ModuleSettings module-name="contacts" />
         </template>
       </div>
     </div>

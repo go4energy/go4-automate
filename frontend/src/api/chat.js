@@ -20,15 +20,28 @@ export function deleteConversation(id) {
   return api.delete(`/v1/chat/conversations/${id}`)
 }
 
+export function listTopics() {
+  return api.get('/v1/chat/topics')
+}
+
 export async function sendMessage(convId, content) {
   const tenantId = localStorage.getItem('tenant_id') || 'go4energy'
+  const token = localStorage.getItem('token')
+  const headers = {
+    'Content-Type': 'application/json',
+    'X-Tenant-ID': tenantId
+  }
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
   const response = await fetch(`${API_BASE}/chat/conversations/${convId}/messages`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Tenant-ID': tenantId
-    },
+    headers,
     body: JSON.stringify({ content })
   })
+  if (!response.ok) {
+    const text = await response.text().catch(() => '')
+    throw new Error(`Chat-Endpoint antwortet ${response.status}: ${text || response.statusText}`)
+  }
   return response
 }

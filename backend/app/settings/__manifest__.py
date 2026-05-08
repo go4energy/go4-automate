@@ -13,7 +13,7 @@ manifest = {
     "has_frontend": True,
     "has_models": False,
     "has_config_schema": True,
-    "routers": ["router"],
+    "routers": ["router", "llm_router"],
     "router_prefix": "/settings",
     "sidebar": {"group": "VERWALTUNG", "order": 30},
     "frontend": {

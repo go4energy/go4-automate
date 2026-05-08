@@ -2,6 +2,8 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useEmailMarketingStore } from '@/stores/emailmarketing'
+import ModuleSettings from '@/components/settings/ModuleSettings.vue'
+import EmailStatsTab from '@/components/email/EmailStatsTab.vue'
 import { usePipelineContext } from '@/stores/pipelineContext'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
@@ -25,7 +27,9 @@ const tabs = [
   { id: 'sequences', label: 'Sequenzen', icon: 'queue-list', route: '/emailmarketing/sequences' },
   { id: 'templates', label: 'Vorlagen', icon: 'document-text', route: '/emailmarketing/templates' },
   { id: 'providers', label: 'Provider', icon: 'server', route: '/emailmarketing/providers' },
-  { id: 'freigabe', label: 'Freigabe', icon: 'check-circle', route: '/emailmarketing/freigabe' }
+  { id: 'freigabe', label: 'Freigabe', icon: 'check-circle', route: '/emailmarketing/freigabe' },
+  { id: 'statistik', label: 'Statistik', icon: 'chart-bar', route: '/emailmarketing/statistik' },
+  { id: 'einstellungen', label: 'Einstellungen', icon: 'cog', route: '/emailmarketing/einstellungen' }
 ]
 
 // Format date
@@ -1071,6 +1075,16 @@ watch(
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Statistik Tab -->
+    <div v-else-if="activeTab === 'statistik'">
+      <EmailStatsTab />
+    </div>
+
+    <!-- Einstellungen Tab -->
+    <div v-else-if="activeTab === 'einstellungen'">
+      <ModuleSettings module-name="emailmarketing" />
     </div>
   </div>
 </template>

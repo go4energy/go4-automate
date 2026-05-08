@@ -280,9 +280,12 @@ class LeadgenIntakeService:
     async def suggest(self, text: str) -> IntakeSuggestion:
         system, user = _build_prompt(text)
         try:
+            from app.services.llm import get_default_model
+
             raw = await self._llm.generate_with_config(
                 provider="anthropic",
-                model="claude-haiku-4-5",
+                # Bulk-class — webpage analysis / classification, no DB context here
+                model=get_default_model("bulk"),
                 system_prompt=system,
                 user_prompt=user,
                 temperature=0.2,

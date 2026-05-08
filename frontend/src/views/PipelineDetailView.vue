@@ -2,10 +2,15 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useEngagementStore } from '@/stores/engagement'
+import { usePipelineContext } from '@/stores/pipelineContext'
 import { getContacts } from '@/api/contacts'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
+import EngagementTabs from '@/components/engagement/EngagementTabs.vue'
+import ChannelPromptList from '@/components/engagement/ChannelPromptList.vue'
+import BulkBrainCard from '@/components/engagement/BulkBrainCard.vue'
+import DraftsManager from '@/components/engagement/DraftsManager.vue'
 
 const props = defineProps({
   id: { type: [String, Number], default: null }
@@ -14,8 +19,30 @@ const props = defineProps({
 const route = useRoute()
 const router = useRouter()
 const store = useEngagementStore()
+const pipelineCtx = usePipelineContext()
 
 const pipelineId = computed(() => props.id || route.params.id)
+
+// Header-Selector wechselt globale Pipeline → URL spiegeln, damit die View
+// die Daten der neu gewählten Pipeline lädt.
+watch(
+  () => pipelineCtx.activePipelineId,
+  (newId) => {
+    const current = parseInt(pipelineId.value)
+    if (!newId || newId === current) return
+    const tabSegment = route.path.split('/').pop()
+    router.replace(`/engagement/pipelines/${newId}/${tabSegment}`)
+  },
+)
+
+// Mount: synchronisiere globale Auswahl mit URL-ID, damit der Header-Selector
+// die korrekte Pipeline anzeigt.
+onMounted(() => {
+  const id = parseInt(pipelineId.value)
+  if (Number.isFinite(id) && id !== pipelineCtx.activePipelineId) {
+    pipelineCtx.setActivePipeline(id)
+  }
+})
 
 const loading = ref(false)
 const error = ref(null)
@@ -86,6 +113,14 @@ const channelLabels = {
   whatsapp: 'WhatsApp'
 }
 
+// Content-Tabs (Übersicht-Tab right column): Zielgruppe / Produkt / Playbook
+const contentTab = ref('audience')
+const contentTabs = [
+  { key: 'audience', label: 'Zielgruppe' },
+  { key: 'product', label: 'Produktbeschreibung' },
+  { key: 'playbook', label: 'Playbook' },
+]
+
 const pipeline = computed(() => store.currentPipeline)
 const stats = computed(() => store.pipelineStats)
 const funnel = computed(() => store.pipelineFunnel)
@@ -135,6 +170,12 @@ onMounted(async () => {
 
 watch(activeTab, () => {
   loadTabData()
+})
+
+// Reload when the URL pipeline ID changes (e.g. via the global header selector).
+watch(pipelineId, async () => {
+  await loadCore()
+  await loadTabData()
 })
 
 function goBack() {
@@ -322,24 +363,8 @@ async function enrollSelected() {
       </template>
     </PageHeader>
 
-    <!-- Tabs (router-link, Leadgen-style master/detail) -->
-    <div class="border-b border-gray-200 px-4 dark:border-gray-700">
-      <nav class="-mb-px flex gap-6">
-        <router-link
-          v-for="tab in tabs"
-          :key="tab.key"
-          :to="tab.route"
-          class="border-b-2 pb-3 text-sm font-medium transition-colors"
-          :class="
-            activeTab === tab.key
-              ? 'border-go4-primary text-go4-primary'
-              : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-          "
-        >
-          {{ tab.label }}
-        </router-link>
-      </nav>
-    </div>
+    <!-- Tabs: gleiche Bar wie in EngagementView (Pipelines + globale Pipeline-Tabs) -->
+    <EngagementTabs :active-tab="activeTab" />
 
     <!-- Content -->
     <div class="flex-1 overflow-auto p-4">
@@ -383,9 +408,7 @@ async function enrollSelected() {
           <!-- Stats Cards -->
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div class="rounded-lg bg-white p-4 shadow dark:bg-gray-800">
-              <div class="text-sm text-gray-500 dark:text-gray-400">
-                Enrollments
-              </div>
+              <div class="text-sm text-gray-500 dark:text-gray-400">Enrollments</div>
               <div class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">
                 {{ stats?.total_enrollments || 0 }}
               </div>
@@ -393,11 +416,8 @@ async function enrollSelected() {
                 {{ stats?.active_enrollments || 0 }} aktiv
               </div>
             </div>
-
             <div class="rounded-lg bg-white p-4 shadow dark:bg-gray-800">
-              <div class="text-sm text-gray-500 dark:text-gray-400">
-                Conversion
-              </div>
+              <div class="text-sm text-gray-500 dark:text-gray-400">Conversion</div>
               <div class="mt-1 text-2xl font-bold text-go4-primary">
                 {{ stats?.conversion_rate || 0 }}%
               </div>
@@ -405,43 +425,31 @@ async function enrollSelected() {
                 {{ stats?.converted_count || 0 }} konvertiert
               </div>
             </div>
-
             <div class="rounded-lg bg-white p-4 shadow dark:bg-gray-800">
-              <div class="text-sm text-gray-500 dark:text-gray-400">
-                Durchschn. Touches
-              </div>
+              <div class="text-sm text-gray-500 dark:text-gray-400">Durchschn. Touches</div>
               <div class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">
                 {{ stats?.avg_touch_count?.toFixed(1) || 0 }}
               </div>
-              <div class="mt-1 text-sm text-gray-500">
-                pro Enrollment
-              </div>
+              <div class="mt-1 text-sm text-gray-500">pro Enrollment</div>
             </div>
-
             <div class="rounded-lg bg-white p-4 shadow dark:bg-gray-800">
-              <div class="text-sm text-gray-500 dark:text-gray-400">
-                Ausstehend
-              </div>
+              <div class="text-sm text-gray-500 dark:text-gray-400">Ausstehend</div>
               <div class="mt-1 text-2xl font-bold text-yellow-600 dark:text-yellow-400">
                 {{ stats?.pending_actions || 0 }}
               </div>
-              <div class="mt-1 text-sm text-gray-500">
-                Aktionen zur Freigabe
-              </div>
+              <div class="mt-1 text-sm text-gray-500">Aktionen zur Freigabe</div>
             </div>
           </div>
 
-          <!-- Pipeline Info -->
-          <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <div class="rounded-lg bg-white p-6 shadow dark:bg-gray-800">
-              <h3 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
-                Details
-              </h3>
-              <dl class="space-y-3">
-                <div class="flex justify-between">
-                  <dt class="text-sm text-gray-500 dark:text-gray-400">
-                    Status
-                  </dt>
+          <!-- Two-column layout: left = Details + content tabs, right = Channels & Prompts -->
+          <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <!-- LEFT — 2/3 width -->
+            <div class="space-y-6 lg:col-span-2">
+              <!-- Compact Details card -->
+              <div class="rounded-lg bg-white p-5 shadow dark:bg-gray-800">
+                <h3 class="mb-3 text-base font-semibold text-gray-900 dark:text-white">Details</h3>
+                <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                  <dt class="text-gray-500 dark:text-gray-400">Status</dt>
                   <dd>
                     <span
                       class="rounded-full px-2 py-0.5 text-xs font-medium"
@@ -450,104 +458,82 @@ async function enrollSelected() {
                       {{ pipeline.is_active ? 'Aktiv' : 'Inaktiv' }}
                     </span>
                   </dd>
-                </div>
-                <div class="flex justify-between">
-                  <dt class="text-sm text-gray-500 dark:text-gray-400">
-                    Slug
-                  </dt>
-                  <dd class="text-sm font-mono text-gray-900 dark:text-white">
-                    {{ pipeline.slug }}
-                  </dd>
-                </div>
-                <div class="flex justify-between">
-                  <dt class="text-sm text-gray-500 dark:text-gray-400">
-                    Ziel
-                  </dt>
-                  <dd class="text-sm text-gray-900 dark:text-white">
-                    {{ pipeline.goal || '-' }}
-                  </dd>
-                </div>
-                <div class="flex justify-between">
-                  <dt class="text-sm text-gray-500 dark:text-gray-400">
-                    Tonalitaet
-                  </dt>
-                  <dd class="text-sm text-gray-900 dark:text-white">
-                    {{ pipeline.tone_of_voice || '-' }}
-                  </dd>
-                </div>
-                <div class="flex justify-between">
-                  <dt class="text-sm text-gray-500 dark:text-gray-400">
-                    Min. Tage zwischen Touches
-                  </dt>
-                  <dd class="text-sm text-gray-900 dark:text-white">
-                    {{ pipeline.min_days_between_touches }}
-                  </dd>
-                </div>
-                <div class="flex justify-between">
-                  <dt class="text-sm text-gray-500 dark:text-gray-400">
-                    Erstellt
-                  </dt>
-                  <dd class="text-sm text-gray-900 dark:text-white">
-                    {{ formatDate(pipeline.created_at) }}
-                  </dd>
-                </div>
-              </dl>
-            </div>
+                  <dt class="text-gray-500 dark:text-gray-400">Slug</dt>
+                  <dd class="font-mono text-xs text-gray-900 dark:text-white truncate">{{ pipeline.slug }}</dd>
+                  <dt class="text-gray-500 dark:text-gray-400">Ziel</dt>
+                  <dd class="text-gray-900 dark:text-white">{{ pipeline.goal || '-' }}</dd>
+                  <dt class="text-gray-500 dark:text-gray-400">Tonalität</dt>
+                  <dd class="text-gray-900 dark:text-white truncate" :title="pipeline.tone_of_voice">{{ pipeline.tone_of_voice || '-' }}</dd>
+                  <dt class="text-gray-500 dark:text-gray-400">Min. Tage</dt>
+                  <dd class="text-gray-900 dark:text-white">{{ pipeline.min_days_between_touches }}</dd>
+                  <dt class="text-gray-500 dark:text-gray-400">Erstellt</dt>
+                  <dd class="text-gray-900 dark:text-white">{{ formatDate(pipeline.created_at) }}</dd>
+                </dl>
+              </div>
 
-            <div class="space-y-6">
-              <!-- Channels -->
-              <div class="rounded-lg bg-white p-6 shadow dark:bg-gray-800">
-                <h3 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
-                  Kanaele
-                </h3>
-                <div class="flex flex-wrap gap-2">
-                  <span
-                    v-for="channel in pipeline.channels"
-                    :key="channel"
-                    class="rounded-lg bg-go4-primary/10 px-3 py-1.5 text-sm font-medium text-go4-primary"
+              <!-- Tabbed content card: Zielgruppe / Produktbeschreibung / Playbook -->
+              <div class="rounded-lg bg-white shadow dark:bg-gray-800">
+                <div class="flex items-center justify-between border-b border-gray-200 px-5 dark:border-gray-700">
+                  <nav class="-mb-px flex gap-6">
+                    <button
+                      v-for="t in contentTabs"
+                      :key="t.key"
+                      type="button"
+                      class="border-b-2 py-3 text-sm font-medium transition"
+                      :class="
+                        contentTab === t.key
+                          ? 'border-go4-primary text-go4-primary'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                      "
+                      @click="contentTab = t.key"
+                    >
+                      {{ t.label }}
+                    </button>
+                  </nav>
+                  <router-link
+                    :to="`/engagement/pipelines/${pipeline.id}/edit?tab=${contentTab}`"
+                    class="rounded-md p-1.5 text-gray-400 transition hover:bg-gray-100 hover:text-go4-primary dark:hover:bg-gray-700"
+                    :title="`${contentTabs.find((t) => t.key === contentTab)?.label} bearbeiten`"
                   >
-                    {{ channelLabels[channel] || channel }}
-                  </span>
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" />
+                    </svg>
+                  </router-link>
+                </div>
+                <div class="max-h-[28rem] overflow-y-auto px-5 py-4">
+                  <p
+                    v-if="contentTab === 'audience'"
+                    class="whitespace-pre-wrap text-sm leading-relaxed text-gray-600 dark:text-gray-300"
+                  >
+                    {{ pipeline.target_audience || '— keine Zielgruppe definiert —' }}
+                  </p>
+                  <p
+                    v-else-if="contentTab === 'product'"
+                    class="whitespace-pre-wrap text-sm leading-relaxed text-gray-600 dark:text-gray-300"
+                  >
+                    {{ pipeline.product_description || '— keine Produktbeschreibung —' }}
+                  </p>
+                  <p
+                    v-else-if="contentTab === 'playbook'"
+                    class="whitespace-pre-wrap text-sm leading-relaxed text-gray-600 dark:text-gray-300"
+                  >
+                    {{ pipeline.playbook || '— kein Playbook definiert —' }}
+                  </p>
                 </div>
               </div>
-
-              <!-- Target Audience -->
-              <div
-                v-if="pipeline.target_audience"
-                class="rounded-lg bg-white p-6 shadow dark:bg-gray-800"
-              >
-                <h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
-                  Zielgruppe
-                </h3>
-                <p class="text-sm text-gray-600 dark:text-gray-300">
-                  {{ pipeline.target_audience }}
-                </p>
-              </div>
             </div>
-          </div>
 
-          <!-- Product Description -->
-          <div
-            v-if="pipeline.product_description"
-            class="rounded-lg bg-white p-6 shadow dark:bg-gray-800"
-          >
-            <h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
-              Produktbeschreibung
-            </h3>
-            <p class="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap">
-              {{ pipeline.product_description }}
-            </p>
-          </div>
-
-          <!-- Playbook -->
-          <div
-            v-if="pipeline.playbook"
-            class="rounded-lg bg-white p-6 shadow dark:bg-gray-800"
-          >
-            <h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
-              Playbook
-            </h3>
-            <pre class="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap font-mono">{{ pipeline.playbook }}</pre>
+            <!-- RIGHT — 1/3 width: channels + prompts + bulk brain -->
+            <div class="space-y-6">
+              <ChannelPromptList
+                :pipeline-id="pipeline.id"
+                :pipeline-channels="pipeline.channels || []"
+              />
+              <BulkBrainCard
+                :pipeline-id="pipeline.id"
+                :total-enrollments="stats?.total_enrollments || 0"
+              />
+            </div>
           </div>
         </div>
       </template>
@@ -711,46 +697,7 @@ async function enrollSelected() {
       </template>
 
       <template v-else-if="activeTab === 'actions' && pipeline">
-        <!-- PendingActions tab (approval queue filtered by pipeline) -->
-        <div class="rounded-lg bg-white p-6 shadow-sm dark:bg-gray-800">
-          <h3 class="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">
-            Aktionen / Approval-Queue
-          </h3>
-          <div
-            v-if="store.pendingActions?.length"
-            class="space-y-2"
-          >
-            <div
-              v-for="action in store.pendingActions"
-              :key="action.id"
-              class="rounded border border-gray-200 p-3 text-sm dark:border-gray-700"
-            >
-              <div class="flex items-center justify-between">
-                <div>
-                  <span class="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium uppercase">
-                    {{ action.module }} · {{ action.action_type }}
-                  </span>
-                  <span class="ml-2 text-xs text-gray-500">{{ action.status }}</span>
-                </div>
-                <div class="text-xs text-gray-400">
-                  {{ formatDate(action.created_at) }}
-                </div>
-              </div>
-              <div
-                v-if="action.suggested_content"
-                class="mt-2 line-clamp-2 text-gray-600 dark:text-gray-300"
-              >
-                {{ action.suggested_content.replace(/<[^>]+>/g, '').slice(0, 200) }}
-              </div>
-            </div>
-          </div>
-          <div
-            v-else
-            class="py-12 text-center text-sm text-gray-500"
-          >
-            Keine offenen Aktionen für diese Pipeline.
-          </div>
-        </div>
+        <DraftsManager :pipeline-id="pipeline.id" />
       </template>
 
       <template v-else-if="activeTab === 'ab-tests' && pipeline">
@@ -764,6 +711,7 @@ async function enrollSelected() {
           </div>
         </div>
       </template>
+
 
       <template v-else-if="activeTab === 'funnel-legacy'">
         <div

@@ -20,6 +20,18 @@ const showEditModal = ref(false)
 const showDeleteDialog = ref(false)
 const modalLoading = ref(false)
 const deleteLoading = ref(false)
+const hashCopied = ref(false)
+
+async function copyHash() {
+  if (!contact.value?.tracking_hash) return
+  try {
+    await navigator.clipboard.writeText(contact.value.tracking_hash)
+    hashCopied.value = true
+    setTimeout(() => (hashCopied.value = false), 1500)
+  } catch {
+    // Clipboard API may be blocked — fall back silently
+  }
+}
 
 const contact = computed(() => store.currentContact)
 
@@ -133,7 +145,7 @@ function formatDate(dateString) {
 
     <!-- Content -->
     <template v-else-if="contact">
-      <!-- Header -->
+      <!-- Header — minimal: Name + @Firma -->
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-4">
           <button
@@ -165,13 +177,11 @@ function formatDate(dateString) {
               {{ contact.name }}
             </h1>
             <p
-              v-if="contact.position || contact.company_name"
+              v-if="contact.company_name"
               class="text-gray-500 dark:text-gray-400"
             >
-              <span v-if="contact.position">{{ contact.position }}</span>
-              <span v-if="contact.position && contact.company_name"> @ </span>
+              @
               <button
-                v-if="contact.company_name"
                 type="button"
                 class="text-go4-primary hover:underline"
                 @click="goToCompany"
@@ -179,23 +189,6 @@ function formatDate(dateString) {
                 {{ contact.company_name }}
               </button>
             </p>
-            <div class="mt-1 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-              <span>{{ contact.email }}</span>
-              <span v-if="contact.phone">· {{ contact.phone }}</span>
-            </div>
-            <!-- Tags -->
-            <div
-              v-if="contact.tags?.length > 0"
-              class="mt-2 flex flex-wrap gap-1"
-            >
-              <span
-                v-for="tag in contact.tags"
-                :key="tag"
-                class="inline-flex rounded-full bg-go4-primary/10 px-2 py-0.5 text-xs text-go4-primary"
-              >
-                {{ tag }}
-              </span>
-            </div>
           </div>
         </div>
         <div class="flex items-center gap-2">
@@ -216,141 +209,238 @@ function formatDate(dateString) {
         </div>
       </div>
 
-      <!-- Main Content -->
-      <div class="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Left Column: Info -->
-        <div class="lg:col-span-2 space-y-6">
-          <!-- Quick Actions -->
-          <div class="flex gap-3">
-            <button
-              type="button"
-              class="flex items-center gap-2 rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white hover:bg-go4-primary-dark"
-              @click="emailContact"
-            >
-              <svg
-                class="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                />
-              </svg>
-              E-Mail senden
-            </button>
-            <button
-              v-if="contact.phone"
-              type="button"
-              class="flex items-center gap-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600"
-              @click="callContact"
-            >
-              <svg
-                class="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
-                />
-              </svg>
-              Anrufen
-            </button>
-          </div>
+      <!-- Forward-Badge: Lead kam über Forward von einem anderen Contact -->
+      <div
+        v-if="contact?.source_contact_id"
+        class="mt-4 inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-100"
+      >
+        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+        </svg>
+        <span>Weitergeleitet von</span>
+        <router-link
+          :to="`/contacts/${contact.source_contact_id}`"
+          class="font-semibold underline hover:no-underline"
+        >
+          {{ contact.source_contact_name || `Contact #${contact.source_contact_id}` }}
+        </router-link>
+      </div>
 
-          <!-- Contact Details Card -->
-          <div class="rounded-lg bg-white dark:bg-gray-800 p-6 shadow-sm">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-              Kontaktdaten
-            </h2>
-            <dl class="grid grid-cols-2 gap-4">
-              <div>
-                <dt class="text-sm text-gray-500 dark:text-gray-400">
-                  E-Mail
-                </dt>
-                <dd class="text-sm text-gray-900 dark:text-gray-100">
-                  {{ contact.email }}
-                </dd>
-              </div>
-              <div>
-                <dt class="text-sm text-gray-500 dark:text-gray-400">
-                  Telefon
-                </dt>
-                <dd class="text-sm text-gray-900 dark:text-gray-100">
-                  {{ contact.phone || '-' }}
-                </dd>
-              </div>
-              <div>
-                <dt class="text-sm text-gray-500 dark:text-gray-400">
-                  Mobil
-                </dt>
-                <dd class="text-sm text-gray-900 dark:text-gray-100">
-                  {{ contact.mobile || '-' }}
-                </dd>
-              </div>
-              <div>
-                <dt class="text-sm text-gray-500 dark:text-gray-400">
-                  Position
-                </dt>
-                <dd class="text-sm text-gray-900 dark:text-gray-100">
-                  {{ contact.position || '-' }}
-                </dd>
-              </div>
-              <div v-if="contact.linkedin">
-                <dt class="text-sm text-gray-500 dark:text-gray-400">
-                  LinkedIn
-                </dt>
-                <dd>
-                  <a
-                    :href="contact.linkedin"
-                    target="_blank"
-                    class="text-sm text-go4-primary hover:underline"
-                  >
-                    Profil öffnen
-                  </a>
-                </dd>
-              </div>
-              <div v-if="contact.twitter">
-                <dt class="text-sm text-gray-500 dark:text-gray-400">
-                  Twitter
-                </dt>
-                <dd>
-                  <a
-                    :href="contact.twitter"
-                    target="_blank"
-                    class="text-sm text-go4-primary hover:underline"
-                  >
-                    Profil öffnen
-                  </a>
-                </dd>
-              </div>
-            </dl>
-          </div>
-
-          <!-- Notes -->
-          <div
-            v-if="contact.notes"
-            class="rounded-lg bg-white dark:bg-gray-800 p-6 shadow-sm"
+      <!-- Quick Actions -->
+      <div class="mt-6 flex gap-3">
+        <button
+          type="button"
+          class="flex items-center gap-2 rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white hover:bg-go4-primary-dark"
+          @click="emailContact"
+        >
+          <svg
+            class="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
           >
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-              Notizen
-            </h2>
-            <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-              {{ contact.notes }}
-            </p>
-          </div>
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+            />
+          </svg>
+          E-Mail senden
+        </button>
+        <button
+          v-if="contact.phone"
+          type="button"
+          class="flex items-center gap-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600"
+          @click="callContact"
+        >
+          <svg
+            class="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+            />
+          </svg>
+          Anrufen
+        </button>
+      </div>
 
-          <!-- Leadgen Insights -->
+      <!-- Main Content — 2-col grid, items in same row align to same height -->
+      <div class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Kontaktdaten — alles was vorher im Header war -->
+        <div class="rounded-lg bg-white dark:bg-gray-800 p-6 shadow-sm">
+          <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+            Kontaktdaten
+          </h2>
+          <dl class="grid grid-cols-2 gap-4">
+            <div>
+              <dt class="text-sm text-gray-500 dark:text-gray-400">
+                E-Mail
+              </dt>
+              <dd class="text-sm text-gray-900 dark:text-gray-100 break-all">
+                {{ contact.email }}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-sm text-gray-500 dark:text-gray-400">
+                Telefon
+              </dt>
+              <dd class="text-sm text-gray-900 dark:text-gray-100">
+                {{ contact.phone || '-' }}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-sm text-gray-500 dark:text-gray-400">
+                Mobil
+              </dt>
+              <dd class="text-sm text-gray-900 dark:text-gray-100">
+                {{ contact.mobile || '-' }}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-sm text-gray-500 dark:text-gray-400">
+                Position
+              </dt>
+              <dd class="text-sm text-gray-900 dark:text-gray-100">
+                {{ contact.position || '-' }}
+              </dd>
+            </div>
+            <div v-if="contact.linkedin">
+              <dt class="text-sm text-gray-500 dark:text-gray-400">
+                LinkedIn
+              </dt>
+              <dd>
+                <a
+                  :href="contact.linkedin"
+                  target="_blank"
+                  class="text-sm text-go4-primary hover:underline"
+                >
+                  Profil öffnen
+                </a>
+              </dd>
+            </div>
+            <div v-if="contact.twitter">
+              <dt class="text-sm text-gray-500 dark:text-gray-400">
+                Twitter
+              </dt>
+              <dd>
+                <a
+                  :href="contact.twitter"
+                  target="_blank"
+                  class="text-sm text-go4-primary hover:underline"
+                >
+                  Profil öffnen
+                </a>
+              </dd>
+            </div>
+            <div v-if="contact.tracking_hash">
+              <dt
+                class="text-sm text-gray-500 dark:text-gray-400"
+                title="Eindeutiger Hash für Click-Tracking-Links in Mails/Briefen. Wird beim Enrollment in eine Pipeline mit auto_create_tracking_hash=true automatisch erzeugt."
+              >
+                Tracking-Hash
+              </dt>
+              <dd class="flex items-center gap-2">
+                <code class="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs text-gray-700 dark:bg-gray-700 dark:text-gray-200">
+                  {{ contact.tracking_hash }}
+                </code>
+                <button
+                  type="button"
+                  class="rounded p-1 text-gray-400 transition hover:bg-gray-100 hover:text-go4-primary dark:hover:bg-gray-700"
+                  title="Hash in Zwischenablage kopieren"
+                  @click="copyHash"
+                >
+                  <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                </button>
+                <span
+                  v-if="hashCopied"
+                  class="text-xs text-emerald-600 dark:text-emerald-400"
+                >
+                  ✓ kopiert
+                </span>
+              </dd>
+            </div>
+            <div
+              v-if="contact.tags?.length > 0"
+              class="col-span-2"
+            >
+              <dt class="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                Tags
+              </dt>
+              <dd class="flex flex-wrap gap-1">
+                <span
+                  v-for="tag in contact.tags"
+                  :key="tag"
+                  class="inline-flex rounded-full bg-go4-primary/10 px-2 py-0.5 text-xs text-go4-primary"
+                >
+                  {{ tag }}
+                </span>
+              </dd>
+            </div>
+          </dl>
+        </div>
+
+        <!-- Details (Quelle, Erstellt, Aktualisiert) — neben Kontaktdaten, gleiche Höhe -->
+        <div class="rounded-lg bg-white dark:bg-gray-800 p-6 shadow-sm">
+          <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+            Details
+          </h2>
+          <dl class="space-y-3">
+            <div>
+              <dt class="text-sm text-gray-500 dark:text-gray-400">
+                Quelle
+              </dt>
+              <dd class="text-sm text-gray-900 dark:text-gray-100">
+                {{ contact.source || '-' }}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-sm text-gray-500 dark:text-gray-400">
+                Erstellt
+              </dt>
+              <dd class="text-sm text-gray-900 dark:text-gray-100">
+                {{ formatDate(contact.created_at) }}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-sm text-gray-500 dark:text-gray-400">
+                Aktualisiert
+              </dt>
+              <dd class="text-sm text-gray-900 dark:text-gray-100">
+                {{ formatDate(contact.updated_at) }}
+              </dd>
+            </div>
+          </dl>
+        </div>
+
+        <!-- Notes (optional) -->
+        <div
+          v-if="contact.notes"
+          class="rounded-lg bg-white dark:bg-gray-800 p-6 shadow-sm"
+        >
+          <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+            Notizen
+          </h2>
+          <p class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+            {{ contact.notes }}
+          </p>
+        </div>
+
+        <!-- Activity Timeline — neben Notizen (oder allein in der Reihe wenn keine Notizen) -->
+        <ActivityTimeline :contact-id="contactId" />
+
+          <!-- Leadgen Insights — full width across both columns -->
           <div
             v-if="hasLeadgenInsights"
-            class="rounded-lg bg-white dark:bg-gray-800 p-6 shadow-sm"
+            class="rounded-lg bg-white dark:bg-gray-800 p-6 shadow-sm lg:col-span-2"
           >
             <div class="mb-4 flex items-center gap-2">
               <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
@@ -456,10 +546,10 @@ function formatDate(dateString) {
             </dl>
           </div>
 
-          <!-- LinkedIn data -->
+          <!-- LinkedIn data — full width across both columns -->
           <div
             v-if="hasLinkedInData"
-            class="rounded-lg bg-white dark:bg-gray-800 p-6 shadow-sm"
+            class="rounded-lg bg-white dark:bg-gray-800 p-6 shadow-sm lg:col-span-2"
           >
             <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
               LinkedIn
@@ -517,46 +607,6 @@ function formatDate(dateString) {
               </div>
             </dl>
           </div>
-        </div>
-
-        <!-- Right Column: Meta & Timeline -->
-        <div class="space-y-6">
-          <!-- Meta Info -->
-          <div class="rounded-lg bg-white dark:bg-gray-800 p-6 shadow-sm">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-              Details
-            </h2>
-            <dl class="space-y-3">
-              <div>
-                <dt class="text-sm text-gray-500 dark:text-gray-400">
-                  Quelle
-                </dt>
-                <dd class="text-sm text-gray-900 dark:text-gray-100">
-                  {{ contact.source || '-' }}
-                </dd>
-              </div>
-              <div>
-                <dt class="text-sm text-gray-500 dark:text-gray-400">
-                  Erstellt
-                </dt>
-                <dd class="text-sm text-gray-900 dark:text-gray-100">
-                  {{ formatDate(contact.created_at) }}
-                </dd>
-              </div>
-              <div>
-                <dt class="text-sm text-gray-500 dark:text-gray-400">
-                  Aktualisiert
-                </dt>
-                <dd class="text-sm text-gray-900 dark:text-gray-100">
-                  {{ formatDate(contact.updated_at) }}
-                </dd>
-              </div>
-            </dl>
-          </div>
-
-          <!-- Activity Timeline -->
-          <ActivityTimeline :contact-id="contactId" />
-        </div>
       </div>
     </template>
 

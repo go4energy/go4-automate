@@ -277,3 +277,78 @@ export function recordConversion(data) {
 export function getAttributionDashboard(params = {}) {
   return api.get('/v1/engagement/tracking/attribution', { params })
 }
+
+// ─── Pipeline Prompts (per-pipeline channel-specific LLM prompts) ───
+export function listPipelinePrompts(pipelineId) {
+  return api.get(`/v1/engagement/pipelines/${pipelineId}/prompts`)
+}
+
+export function createPipelinePrompt(pipelineId, data) {
+  return api.post(`/v1/engagement/pipelines/${pipelineId}/prompts`, data)
+}
+
+export function updatePipelinePrompt(pipelineId, promptId, data) {
+  return api.put(`/v1/engagement/pipelines/${pipelineId}/prompts/${promptId}`, data)
+}
+
+export function deletePipelinePrompt(pipelineId, promptId) {
+  return api.delete(`/v1/engagement/pipelines/${pipelineId}/prompts/${promptId}`)
+}
+
+export function testPipelinePrompt(pipelineId, promptId, payload) {
+  return api.post(`/v1/engagement/pipelines/${pipelineId}/prompts/${promptId}/test`, payload)
+}
+
+// ─── Bulk Brain-Run ─────────────────────────────────────────────────
+export function triggerBulkBrain(pipelineId, payload) {
+  return api.post(`/v1/engagement/pipelines/${pipelineId}/brain/run-bulk`, payload || {})
+}
+
+export function triggerAbBrain(pipelineId, payload) {
+  return api.post(`/v1/engagement/pipelines/${pipelineId}/brain/run-ab`, payload || {})
+}
+
+export function getBulkBrainStatus(pipelineId) {
+  return api.get(`/v1/engagement/pipelines/${pipelineId}/brain/status`)
+}
+
+export function stopBulkBrain(pipelineId) {
+  return api.post(`/v1/engagement/pipelines/${pipelineId}/brain/stop`)
+}
+
+export function bulkDeleteActions(actionIds) {
+  return api.post('/v1/engagement/actions/bulk/delete', { action_ids: actionIds })
+}
+
+export function deleteAllDrafts(pipelineId, channel = 'email') {
+  return api.delete(`/v1/engagement/pipelines/${pipelineId}/drafts`, { params: { channel } })
+}
+
+// ─── Drafts (per pipeline) ───────────────────────────────────────────
+export function listDrafts(pipelineId, channel = 'email') {
+  return api.get(`/v1/engagement/pipelines/${pipelineId}/drafts`, { params: { channel } })
+}
+
+export function previewAction(actionId) {
+  return api.get(`/v1/engagement/actions/${actionId}/preview`)
+}
+
+export function bulkApproveActions(actionIds) {
+  return api.post('/v1/engagement/actions/bulk/approve', { action_ids: actionIds })
+}
+
+export function bulkRegenerateActions(actionIds, modelOverride = null) {
+  return api.post('/v1/engagement/actions/bulk/regenerate', {
+    action_ids: actionIds,
+    model_override: modelOverride,
+  })
+}
+
+export function regenerateAction(actionId, modelOverride = null) {
+  const params = modelOverride ? { model_override: modelOverride } : {}
+  return api.post(`/v1/engagement/actions/${actionId}/regenerate`, null, { params })
+}
+
+export function massReplaceInDrafts(pipelineId, payload) {
+  return api.post(`/v1/engagement/pipelines/${pipelineId}/drafts/mass-replace`, payload)
+}

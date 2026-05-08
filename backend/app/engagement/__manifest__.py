@@ -13,16 +13,18 @@ manifest = {
     "has_frontend": True,
     "has_models": True,
     "has_config_schema": False,
-    "routers": ["router"],
+    "routers": ["router", "prompts_router", "bulk_outreach_router"],
     "router_prefix": "/engagement",
     "sidebar": {"group": "SALES", "order": 15},
     "frontend": {
         "base_route": "/engagement",
         "routes": [
-            # Master/Detail pattern (Leadgen-style):
-            #   /engagement                       → Pipelines-Liste
-            #   /engagement/pipelines             → Pipelines-Liste (alias)
-            #   /engagement/pipelines/:id/...     → Pipeline-Detail mit Sub-Tabs
+            # Pipeline-zentrierte Architektur:
+            #   /engagement                       → Pipelines-Tabelle (Verwaltung)
+            #   /engagement/pipelines/:id/<tab>   → Daten der gewählten Pipeline
+            #
+            # Der globale Pipeline-Selector im Header steuert die aktive ID;
+            # PipelineDetailView reagiert auf Wechsel via router.replace.
             {
                 "path": "",
                 "name": "engagement",
@@ -33,7 +35,6 @@ manifest = {
                     "tab": "pipelines",
                 },
             },
-            # Pipelines
             {
                 "path": "pipelines",
                 "name": "engagement-pipelines",
@@ -45,6 +46,16 @@ manifest = {
                 },
             },
             {
+                "path": "einstellungen",
+                "name": "engagement-einstellungen",
+                "view": "ModuleSettingsPageView",
+                "meta": {
+                    "title": "Engagement — Einstellungen",
+                    "moduleName": "engagement",
+                    "breadcrumb": {"label": "Einstellungen", "parent": "engagement"},
+                },
+            },
+            {
                 "path": "pipelines/new",
                 "name": "engagement-pipeline-new",
                 "view": "PipelineEditView",
@@ -53,7 +64,6 @@ manifest = {
                     "breadcrumb": {"label": "Neu", "parent": "engagement-pipelines"},
                 },
             },
-            # Pipeline detail with sub-tabs (Leadgen-style master/detail).
             {
                 "path": "pipelines/:id",
                 "name": "engagement-pipeline-detail",
@@ -71,8 +81,8 @@ manifest = {
                 "view": "PipelineDetailView",
                 "props": True,
                 "meta": {
-                    "title": "Übersicht",
-                    "breadcrumb": {"label": "Übersicht", "parent": "engagement-pipelines"},
+                    "title": "Dashboard",
+                    "breadcrumb": {"label": "Dashboard", "parent": "engagement-pipelines"},
                     "tab": "uebersicht",
                 },
             },

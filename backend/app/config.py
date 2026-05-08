@@ -73,10 +73,21 @@ class Settings(BaseSettings):
     # Search API
     serper_api_key: str = ""
 
+    # Apollo.io – People Enrichment (LinkedIn URL discovery)
+    apollo_api_key: str = ""
+    apollo_api_base_url: str = "https://api.apollo.io/api/v1"
+    # Apollo delivers phone reveals asynchronously via webhook. Leave empty
+    # to disable phone reveals entirely (the worker stage refuses the call
+    # if the operator toggles phone-reveal on without this URL configured).
+    apollo_phone_webhook_url: str = ""
+
     # LLM — Briefing (switchable)
     llm_model_briefing: str = "anthropic"  # "anthropic" | "ollama"
     ollama_url: str = "http://localhost:11434"
     ollama_model: str = "mistral"
+
+    # STT (faster-whisper / OpenAI)
+    stt_url: str = "http://localhost:8765/v1"
 
     # TTS (Remote Piper Server / XTTS)
     tts_engine: str = "piper"  # "piper" | "xtts" | "disabled"
@@ -102,6 +113,25 @@ class Settings(BaseSettings):
 
     # Auth (Platform)
     initial_admin_password: str = "changeme"
+
+    # Customer Journey Tracking
+    # Single-key (legacy, backwards-compatible). When tracking_api_keys is empty
+    # and this is set, it is auto-mapped to {"go4.energy": <key>}.
+    tracking_api_key: str = ""
+    # Multi-key map: { "<source_site label>": "<api_key>" }.
+    # Configured via env as JSON, e.g.
+    #   TRACKING_API_KEYS={"go4.energy":"...","smartladen.de":"..."}
+    tracking_api_keys: dict[str, str] = {}
+    tracking_blocked_ips: list[str] = ["34.52.252.219"]
+
+    @property
+    def tracking_keys_resolved(self) -> dict[str, str]:
+        """Effective key→source_site map (handles legacy single-key fallback)."""
+        if self.tracking_api_keys:
+            return self.tracking_api_keys
+        if self.tracking_api_key:
+            return {"go4.energy": self.tracking_api_key}
+        return {}
 
     # Tenant
     default_tenant_id: str = "go4energy"

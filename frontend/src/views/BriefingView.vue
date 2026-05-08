@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
+import ModuleSettings from '@/components/settings/ModuleSettings.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -20,7 +21,8 @@ const tabs = [
   { key: 'sources', label: 'Quellen', route: '/briefing/sources' },
   { key: 'findings', label: 'Findings', route: '/briefing/findings' },
   { key: 'channels', label: 'Channels', route: '/briefing/channels' },
-  { key: 'speakers', label: 'Sprecher', route: '/briefing/speakers' }
+  { key: 'speakers', label: 'Sprecher', route: '/briefing/speakers' },
+  { key: 'einstellungen', label: 'Einstellungen', route: '/briefing/einstellungen' }
 ]
 
 const statusFilter = ref('')
@@ -1534,6 +1536,14 @@ const filteredFindings = () => {
           </table>
         </div>
       </template>
+    </div>
+
+    <!-- Einstellungen Tab -->
+    <div
+      v-else-if="activeTab === 'einstellungen'"
+      class="mt-6"
+    >
+      <ModuleSettings module-name="briefing" />
     </div>
   </div>
 </template>

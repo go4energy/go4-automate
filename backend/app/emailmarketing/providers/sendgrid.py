@@ -163,3 +163,68 @@ class SendGridProvider(EmailProvider):
         except Exception as e:
             logger.error("SendGrid Verifizierung fehlgeschlagen: {err}", err=str(e))
             return False
+
+    async def get_stats(
+        self,
+        start_date: str,
+        end_date: str | None = None,
+        aggregated_by: str = "day",
+    ) -> list[dict]:
+        """Fetch aggregated stats from SendGrid /v3/stats.
+
+        Args:
+            start_date: ISO date string YYYY-MM-DD (required)
+            end_date: optional, defaults to today
+            aggregated_by: 'day' / 'week' / 'month'
+
+        Returns:
+            List of dicts mit Tagesmetriken: requests, delivered, opens,
+            clicks, bounces, blocks, spam_reports, unsubscribes.
+        """
+        params = {
+            "start_date": start_date,
+            "aggregated_by": aggregated_by,
+        }
+        if end_date:
+            params["end_date"] = end_date
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{SENDGRID_API_URL}/stats",
+                    headers=self._get_headers(),
+                    params=params,
+                    timeout=15.0,
+                )
+                if response.status_code != 200:
+                    logger.error(
+                        "SendGrid Stats {status}: {body}",
+                        status=response.status_code, body=response.text[:200],
+                    )
+                    return []
+                # Response shape: [{date, stats: [{metrics: {...}}]}, ...]
+                # Wir flachen pro Tag eine Zeile mit den Metriken plattgemacht
+                rows = []
+                for entry in response.json():
+                    metrics = (entry.get("stats") or [{}])[0].get("metrics", {})
+                    rows.append({
+                        "date": entry.get("date"),
+                        "requests": metrics.get("requests", 0),
+                        "delivered": metrics.get("delivered", 0),
+                        "opens": metrics.get("opens", 0),
+                        "unique_opens": metrics.get("unique_opens", 0),
+                        "clicks": metrics.get("clicks", 0),
+                        "unique_clicks": metrics.get("unique_clicks", 0),
+                        "bounces": metrics.get("bounces", 0),
+                        "blocks": metrics.get("blocks", 0),
+                        "spam_reports": metrics.get("spam_reports", 0),
+                        "unsubscribes": metrics.get("unsubscribes", 0),
+                        "invalid_emails": metrics.get("invalid_emails", 0),
+                    })
+                return rows
+        except httpx.TimeoutException:
+            logger.error("SendGrid Stats: Timeout")
+            return []
+        except Exception:
+            logger.exception("SendGrid Stats: Fehler")
+            return []

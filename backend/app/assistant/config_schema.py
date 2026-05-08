@@ -95,6 +95,50 @@ class AssistantInterface(ModuleInterface):
             "risk_level": "high",
         },
         {
+            "key": "autopilot_min_confidence",
+            "type": "number",
+            "min": 0,
+            "max": 1,
+            "default": 0.85,
+            "description": "Mindest-Confidence fuer autopilot-faehige Vorschlaege",
+            "affects_kpis": ["auto_actions"],
+            "category": "automation",
+            "editable_by_ai": True,
+            "editable_by_enduser": True,
+            "secret": False,
+            "requires_confirmation": False,
+            "risk_level": "medium",
+        },
+        {
+            "key": "autopilot_max_rule_risk",
+            "type": "enum",
+            "options": ["low", "medium", "high"],
+            "default": "medium",
+            "description": "Hoechste Risikostufe fuer autopilot-faehige Regeln",
+            "affects_kpis": ["auto_actions"],
+            "category": "automation",
+            "editable_by_ai": True,
+            "editable_by_enduser": True,
+            "secret": False,
+            "requires_confirmation": True,
+            "risk_level": "high",
+        },
+        {
+            "key": "suggestion_min_confidence",
+            "type": "number",
+            "min": 0,
+            "max": 1,
+            "default": 0.7,
+            "description": "Untergrenze fuer sichtbare Regelvorschlaege",
+            "affects_kpis": ["briefing_quality"],
+            "category": "automation",
+            "editable_by_ai": True,
+            "editable_by_enduser": True,
+            "secret": False,
+            "requires_confirmation": False,
+            "risk_level": "low",
+        },
+        {
             "key": "max_items_per_run",
             "type": "integer",
             "min": 1,
@@ -200,18 +244,44 @@ class AssistantInterface(ModuleInterface):
     ) -> dict:
         """Execute admin/AI action."""
         if action_key == "run_briefing":
+            from app.assistant.service import AssistantService
+
+            user_id = (payload or {}).get("user_id")
+            if not user_id:
+                return {
+                    "module": self.MODULE_NAME,
+                    "action": action_key,
+                    "status": "error",
+                    "result": {"message": "user_id erforderlich"},
+                }
+            svc = AssistantService(db)
+            result = await svc.run_briefing(tenant_id, user_id)
+            await db.commit()
             return {
                 "module": self.MODULE_NAME,
                 "action": action_key,
                 "status": "ok",
-                "result": {"message": "Briefing-Run gestartet"},
+                "result": result,
             }
         if action_key == "sync_sources":
+            from app.assistant.intake import AssistantIntakeService
+
+            user_id = (payload or {}).get("user_id")
+            if not user_id:
+                return {
+                    "module": self.MODULE_NAME,
+                    "action": action_key,
+                    "status": "error",
+                    "result": {"message": "user_id erforderlich"},
+                }
+            intake = AssistantIntakeService(db)
+            result = await intake.run_intake(tenant_id, user_id)
+            await db.commit()
             return {
                 "module": self.MODULE_NAME,
                 "action": action_key,
                 "status": "ok",
-                "result": {"message": "Quellen-Sync gestartet"},
+                "result": result,
             }
         return await super().execute_action(db, tenant_id, action_key, payload)
 

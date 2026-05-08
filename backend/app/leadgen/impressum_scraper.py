@@ -47,6 +47,14 @@ _PLZ_CITY_RE = re.compile(
     # newline, colon, comma or two spaces so we don't swallow the next section.
     r"\b(\d{5})[ \t]+([A-ZÄÖÜ][A-Za-zÄÖÜäöüß\- ]{1,60})(?=[\s]*(?:[\n\r:;,]|$))"
 )
+_LINKEDIN_PERSON_RE = re.compile(
+    r"https?://(?:[a-z]{2,3}\.)?linkedin\.com/in/[^\s\"'<>?]+",
+    re.IGNORECASE,
+)
+_LINKEDIN_COMPANY_RE = re.compile(
+    r"https?://(?:[a-z]{2,3}\.)?linkedin\.com/(?:company|school)/[^\s\"'<>?]+",
+    re.IGNORECASE,
+)
 
 
 @dataclass
@@ -62,6 +70,11 @@ class ImpressumData:
     ust_id: str | None = None
     raw_text_length: int = 0
     error: str | None = None
+    # LinkedIn links discovered via <a href> scan. ``person_links`` carries one
+    # entry per ``linkedin.com/in/`` URL with the surrounding link text so the
+    # downstream worker can match it against a name candidate.
+    linkedin_company_url: str | None = None
+    linkedin_person_links: list[dict] = field(default_factory=list)
 
 
 def _normalise_website(url: str | None) -> str | None:
@@ -94,6 +107,51 @@ def _extract_manager_names(text: str) -> list[str]:
         if len(names) >= 5:
             break
     return names
+
+
+def _normalise_linkedin_url(url: str) -> str:
+    """Strip query string + trailing slash, lowercase host, dedup-friendly."""
+    url = url.strip().rstrip("/")
+    # Drop everything after a query/fragment delimiter.
+    for sep in ("?", "#"):
+        if sep in url:
+            url = url.split(sep, 1)[0]
+    return url
+
+
+def _extract_linkedin_links(soup: BeautifulSoup) -> tuple[str | None, list[dict]]:
+    """Return ``(company_url, [{"url": ..., "text": ...}, ...])``.
+
+    Person URLs (``/in/``) are returned with the visible anchor text so the
+    worker can correlate them with managing-director names. Company URLs
+    (``/company/``) are deduplicated to a single entry; the first hit wins.
+    """
+    person_links: list[dict] = []
+    company_url: str | None = None
+    seen_persons: set[str] = set()
+
+    for a in soup.find_all("a", href=True):
+        href = (a.get("href") or "").strip()
+        if not href:
+            continue
+        if _LINKEDIN_PERSON_RE.match(href):
+            normalised = _normalise_linkedin_url(href)
+            if normalised in seen_persons:
+                continue
+            seen_persons.add(normalised)
+            text = a.get_text(" ", strip=True)
+            person_links.append({"url": normalised, "text": text or ""})
+        elif _LINKEDIN_COMPANY_RE.match(href) and company_url is None:
+            company_url = _normalise_linkedin_url(href)
+
+    # Fallback: some sites print the URL as plain text (e.g. footer credits).
+    if company_url is None:
+        text_blob = soup.get_text(" ", strip=True)
+        m = _LINKEDIN_COMPANY_RE.search(text_blob)
+        if m:
+            company_url = _normalise_linkedin_url(m.group(0))
+
+    return company_url, person_links
 
 
 def _extract_postal_address(text: str) -> str | None:
@@ -130,6 +188,7 @@ def parse_impressum_html(html: str, source_url: str) -> ImpressumData:
         ust = re.sub(r"\s+", "", ust)
     directors = _extract_manager_names(text)
     address = _extract_postal_address(text)
+    linkedin_company_url, linkedin_person_links = _extract_linkedin_links(soup)
 
     return ImpressumData(
         source_url=source_url,
@@ -140,6 +199,8 @@ def parse_impressum_html(html: str, source_url: str) -> ImpressumData:
         handelsregister=hrb,
         ust_id=ust,
         raw_text_length=len(text),
+        linkedin_company_url=linkedin_company_url,
+        linkedin_person_links=linkedin_person_links,
     )
 
 

@@ -29,7 +29,9 @@ export const useAuthStore = defineStore('auth', () => {
       const { data } = await apiLogin(email, password)
       token.value = data.access_token
       localStorage.setItem('token', data.access_token)
-      // Fetch full user info with resolved permissions
+      // Use login payload immediately so a flaky /me call does not block login.
+      user.value = data.user || null
+      // Best effort: hydrate resolved permissions and groups.
       await fetchMe()
       return true
     } catch (err) {
@@ -47,8 +49,10 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = data
       return true
     } catch {
-      // Token invalid — clear auth state
-      logout()
+      // Keep the login payload user if available; only clear a truly empty auth state.
+      if (!user.value) {
+        logout()
+      }
       return false
     }
   }

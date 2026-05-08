@@ -26,6 +26,16 @@ manifest = {
                 "meta": {"title": "Umfragen"},
             },
             {
+                "path": "einstellungen",
+                "name": "surveys-einstellungen",
+                "view": "ModuleSettingsPageView",
+                "meta": {
+                    "title": "Umfragen — Einstellungen",
+                    "moduleName": "surveys",
+                    "breadcrumb": {"label": "Einstellungen", "parent": "surveys"},
+                },
+            },
+            {
                 "path": ":id",
                 "name": "survey-detail",
                 "view": "SurveyDetailView",

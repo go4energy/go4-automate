@@ -440,6 +440,32 @@ class EmailCampaignService:
         )
         return {row[0] for row in result.all()}
 
+
+async def is_email_suppressed(
+    db: AsyncSession, tenant_id: str, email: str
+) -> bool:
+    """Single-email Suppression-Check für alle Send-Pfade.
+
+    Wird vor JEDEM Provider-Call genutzt — Engagement-Bulk, Brain-Drafts,
+    Test-Sends, Single-Mails. So gibt es nur EINEN Punkt der das Verhalten
+    definiert: kein Send an Adressen in ``email_unsubscribes``.
+
+    Plus: case-insensitive Vergleich, weil Email-Adressen so abgespeichert
+    werden können wie der Empfänger sie eingegeben hat.
+    """
+    if not email:
+        return True
+    norm = email.strip().lower()
+    if not norm:
+        return True
+    result = await db.execute(
+        select(EmailUnsubscribe.email).where(
+            EmailUnsubscribe.tenant_id == tenant_id,
+        )
+    )
+    suppressed = {row[0].lower() for row in result.all()}
+    return norm in suppressed
+
     async def send_campaign(self, tenant_id: str, campaign_id: int) -> int:
         """Send campaign to all recipients."""
         campaign = await self.get_by_id(tenant_id, campaign_id)
@@ -552,6 +578,11 @@ class EmailCampaignService:
         self, tenant_id: str, campaign_id: int, to_email: str, merge_data: dict
     ) -> bool:
         """Send a test email."""
+        if await is_email_suppressed(self.db, tenant_id, to_email):
+            raise AppError(
+                f"Empfänger {to_email} hat sich abgemeldet — kein Test-Versand möglich",
+                400,
+            )
         campaign = await self.get_by_id(tenant_id, campaign_id)
 
         if not campaign.provider_id:
@@ -617,6 +648,19 @@ class EmailCampaignService:
         Returns:
             Dict with send result
         """
+        # Suppression first — never send to unsubscribed recipients.
+        if await is_email_suppressed(self.db, tenant_id, to_email):
+            logger.info(
+                "Single-Send blockiert: {to} ist abgemeldet (tenant {tid})",
+                to=to_email, tid=tenant_id,
+            )
+            return {
+                "success": False,
+                "skipped": True,
+                "reason": "unsubscribed",
+                "to_email": to_email,
+            }
+
         # Get provider
         provider_service = EmailProviderService(self.db)
 
@@ -1155,7 +1199,13 @@ class TrackingService:
         tracking_token: str,
         ip_address: str | None = None,
     ) -> tuple[str | None, str | None]:
-        """Record unsubscribe and return (email, tenant_id) or (None, None)."""
+        """Record unsubscribe and return (email, tenant_id) or (None, None).
+
+        Lookup-Reihenfolge:
+        1. ``EmailRecipient.tracking_token`` — klassische Email-Marketing-Kampagnen
+        2. ``Contact.tracking_hash`` — Fallback für Engagement-Sends, die keinen
+           EmailRecipient-Eintrag haben (Cold-Outreach via render_for_action).
+        """
         result = await self.db.execute(
             select(EmailRecipient).where(
                 EmailRecipient.tracking_token == tracking_token
@@ -1164,6 +1214,42 @@ class TrackingService:
         recipient = result.scalar_one_or_none()
 
         if not recipient:
+            # Fallback: Contact mit passendem tracking_hash suchen
+            from app.contacts.models import Contact
+            contact = (
+                await self.db.execute(
+                    select(Contact).where(Contact.tracking_hash == tracking_token)
+                )
+            ).scalar_one_or_none()
+            if contact and contact.email:
+                # Direkt EmailUnsubscribe anlegen + Activity loggen
+                existing = (
+                    await self.db.execute(
+                        select(EmailUnsubscribe).where(
+                            EmailUnsubscribe.tenant_id == contact.tenant_id,
+                            EmailUnsubscribe.email == contact.email,
+                        )
+                    )
+                ).scalar_one_or_none()
+                if not existing:
+                    self.db.add(EmailUnsubscribe(
+                        tenant_id=contact.tenant_id,
+                        email=contact.email,
+                        reason="user_request",
+                        source_type="engagement",
+                        ip_address=ip_address,
+                    ))
+                    try:
+                        await log_email_activity(
+                            db=self.db,
+                            tenant_id=contact.tenant_id,
+                            contact_id=contact.id,
+                            activity_type=EmailActivityType.EMAIL_UNSUBSCRIBED,
+                            subject="Newsletter abgemeldet",
+                        )
+                    except Exception:
+                        logger.exception("log_email_activity failed for unsubscribe")
+                return contact.email, contact.tenant_id
             logger.warning("Unsubscribe: Token nicht gefunden {token}", token=tracking_token)
             return None, None
 
@@ -1219,6 +1305,205 @@ class TrackingService:
             logger.info("Abmeldung: {email}", email=recipient.email)
 
         return recipient.email, recipient.tenant_id
+
+    async def record_bounce(
+        self,
+        tenant_id: str,
+        email: str | None,
+        tracking_token: str | None = None,
+        bounce_type: str = "hard",
+        reason: str | None = None,
+    ) -> str | None:
+        """Record bounce — adds email to permanent suppression + updates
+        any matching engagement Action to status='bounced'.
+
+        Lookup-Reihenfolge: tracking_token (=PendingAction.id) → email.
+        Returns the suppressed email or None.
+        """
+        from app.contacts.models import Contact
+        from app.engagement.models import PendingAction
+
+        target_email = email
+        action_id = None
+
+        if tracking_token and tracking_token.isdigit():
+            action_id = int(tracking_token)
+            action = (
+                await self.db.execute(
+                    select(PendingAction).where(
+                        PendingAction.id == action_id,
+                        PendingAction.tenant_id == tenant_id,
+                    )
+                )
+            ).scalar_one_or_none()
+            if action:
+                contact = (
+                    await self.db.execute(
+                        select(Contact).where(Contact.id == action.contact_id)
+                    )
+                ).scalar_one_or_none()
+                if contact:
+                    target_email = contact.email
+                # Mark action as bounced
+                action.status = "bounced"
+                ctx = dict(action.context or {})
+                ctx["bounce_type"] = bounce_type
+                if reason:
+                    ctx["bounce_reason"] = reason[:500]
+                action.context = ctx
+
+        if not target_email:
+            logger.warning(
+                "record_bounce: weder email noch action gefunden (token={t})",
+                t=tracking_token,
+            )
+            return None
+
+        # Hard bounces gehen permanent in Suppression. Soft bounces nicht
+        # (separate Retry-Logik nötig — out of scope).
+        if bounce_type != "hard":
+            logger.info(
+                "Soft-bounce für {email} — keine permanente Suppression",
+                email=target_email,
+            )
+            return target_email
+
+        existing = (
+            await self.db.execute(
+                select(EmailUnsubscribe).where(
+                    EmailUnsubscribe.tenant_id == tenant_id,
+                    EmailUnsubscribe.email == target_email,
+                )
+            )
+        ).scalar_one_or_none()
+        if not existing:
+            self.db.add(
+                EmailUnsubscribe(
+                    tenant_id=tenant_id,
+                    email=target_email,
+                    reason="hard_bounce",
+                    source_type="webhook",
+                )
+            )
+            logger.info(
+                "Hard-Bounce → Suppression: {email} (tenant {tid})",
+                email=target_email, tid=tenant_id,
+            )
+
+        # Activity loggen wenn Contact bekannt
+        contact = (
+            await self.db.execute(
+                select(Contact).where(
+                    Contact.tenant_id == tenant_id,
+                    Contact.email == target_email,
+                )
+            )
+        ).scalar_one_or_none()
+        if contact:
+            try:
+                await log_email_activity(
+                    db=self.db,
+                    tenant_id=tenant_id,
+                    contact_id=contact.id,
+                    activity_type=EmailActivityType.EMAIL_BOUNCED,
+                    subject=f"E-Mail bounce ({bounce_type})",
+                    metadata={"reason": reason} if reason else None,
+                    commit=False,
+                )
+            except Exception:
+                logger.exception("log_email_activity failed for bounce")
+
+        await self.db.flush()
+        return target_email
+
+    async def record_spam_report(
+        self,
+        tenant_id: str,
+        email: str | None,
+        tracking_token: str | None = None,
+    ) -> str | None:
+        """Record a Spam-Complaint (FBL) — adds email to permanent
+        suppression + updates any matching Action to status='spam_reported'.
+
+        Spam-Complaints zählen in die 0,1%-Schwelle bei SendGrid — Empfänger
+        muss SOFORT permanent unterdrückt werden.
+        """
+        from app.contacts.models import Contact
+        from app.engagement.models import PendingAction
+
+        target_email = email
+        if tracking_token and tracking_token.isdigit():
+            action_id = int(tracking_token)
+            action = (
+                await self.db.execute(
+                    select(PendingAction).where(
+                        PendingAction.id == action_id,
+                        PendingAction.tenant_id == tenant_id,
+                    )
+                )
+            ).scalar_one_or_none()
+            if action:
+                contact = (
+                    await self.db.execute(
+                        select(Contact).where(Contact.id == action.contact_id)
+                    )
+                ).scalar_one_or_none()
+                if contact:
+                    target_email = contact.email
+                action.status = "spam_reported"
+                ctx = dict(action.context or {})
+                ctx["spam_reported_at"] = datetime.utcnow().isoformat() + "Z"
+                action.context = ctx
+
+        if not target_email:
+            logger.warning("record_spam_report: weder email noch action gefunden")
+            return None
+
+        existing = (
+            await self.db.execute(
+                select(EmailUnsubscribe).where(
+                    EmailUnsubscribe.tenant_id == tenant_id,
+                    EmailUnsubscribe.email == target_email,
+                )
+            )
+        ).scalar_one_or_none()
+        if not existing:
+            self.db.add(
+                EmailUnsubscribe(
+                    tenant_id=tenant_id,
+                    email=target_email,
+                    reason="spam_complaint",
+                    source_type="webhook",
+                )
+            )
+            logger.warning(
+                "SPAM-COMPLAINT → Suppression: {email} (tenant {tid})",
+                email=target_email, tid=tenant_id,
+            )
+
+        contact = (
+            await self.db.execute(
+                select(Contact).where(
+                    Contact.tenant_id == tenant_id,
+                    Contact.email == target_email,
+                )
+            )
+        ).scalar_one_or_none()
+        if contact:
+            try:
+                await log_email_activity(
+                    db=self.db,
+                    tenant_id=tenant_id,
+                    contact_id=contact.id,
+                    activity_type=EmailActivityType.EMAIL_COMPLAINED,
+                    subject="Als Spam gemeldet",
+                    commit=False,
+                )
+            except Exception:
+                logger.exception("log_email_activity failed for spam")
+
+        await self.db.flush()
+        return target_email
 
     async def handle_webhook_event(
         self,

@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.emailmarketing.asset_service import AssetService
 from app.emailmarketing.models import EmailTemplate, EmailTemplateChat
+from app.services.llm import get_model_for_class
 
 SYSTEM_PROMPT = """Du bist ein erfahrener E-Mail-Template-Designer für ein deutsches B2B-Cold-Outreach-Tool.
 
@@ -277,7 +278,7 @@ class AiChatService:
                 )
             if count > 1:
                 return (
-                    f"Diff fehlgeschlagen: Suchtext kommt {count}× vor, muss eindeutig sein.",
+                    f"Diff fehlgeschlagen: Suchtext kommt {count}-mal vor, muss eindeutig sein.",
                     None,
                 )
             new_html = current_html.replace(search, replace, 1)
@@ -336,9 +337,13 @@ class AiChatService:
         client = self._client_or_raise()
         messages = self._to_anthropic_messages(history, user_message, current_html)
 
+        # Resolve which Anthropic model to use — premium-class for the
+        # creative template-design work (admin can override in Settings).
+        model_id = await get_model_for_class("premium", self.db, tenant_id)
+
         # First Claude call
         response = await client.messages.create(
-            model="claude-opus-4-7",
+            model=model_id,
             max_tokens=4096,
             system=SYSTEM_PROMPT,
             tools=TOOLS,
@@ -406,7 +411,7 @@ class AiChatService:
             messages.append({"role": "user", "content": tool_results})
 
             response = await client.messages.create(
-                model="claude-opus-4-7",
+                model=model_id,
                 max_tokens=4096,
                 system=SYSTEM_PROMPT,
                 tools=TOOLS,

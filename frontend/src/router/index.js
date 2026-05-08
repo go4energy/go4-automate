@@ -66,10 +66,25 @@ router.beforeEach(async (to) => {
 // user arrived at the current page (not the manifest's parent hierarchy).
 router.afterEach(async (to, from) => {
   // Skip Login/initial-load transitions — they'd pollute the trail.
-  if (!from.name || to.path === '/login' || from.path === '/login') return
-  const { useNavStore } = await import('@/stores/nav')
-  const navStore = useNavStore()
-  navStore.recordTransition(from, to)
+  if (to.path !== '/login' && from.name && from.path !== '/login') {
+    const { useNavStore } = await import('@/stores/nav')
+    const navStore = useNavStore()
+    navStore.recordTransition(from, to)
+  }
+
+  // Sync the global pipeline context with the route:
+  // 1. Track which outreach module the user is in (drives the header selector visibility + filter).
+  // 2. ?pipeline=N in URL takes precedence over localStorage (deep links).
+  if (to.path === '/login') return
+  const { usePipelineContext, moduleKeyForPath } = await import(
+    '@/stores/pipelineContext'
+  )
+  const ctx = usePipelineContext()
+  ctx.setCurrentModule(moduleKeyForPath(to.path))
+  const urlPipeline = parseInt(to.query.pipeline)
+  if (Number.isFinite(urlPipeline) && urlPipeline !== ctx.activePipelineId) {
+    ctx.setActivePipeline(urlPipeline)
+  }
 })
 
 // View resolver: pre-scan all views for dynamic import

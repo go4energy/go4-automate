@@ -29,6 +29,7 @@ class ConversationCreate(BaseModel):
     title: str | None = None
     context_type: str = "general"
     context_data: dict | None = None
+    topic: str | None = None
 
 
 class ConversationResponse(BaseModel):
@@ -37,6 +38,7 @@ class ConversationResponse(BaseModel):
     id: int
     title: str | None
     context_type: str
+    topic: str | None = None
     status: str
     created_at: datetime
     messages: list[ChatMessageResponse] = []
@@ -50,8 +52,16 @@ class ConversationListItem(BaseModel):
     id: int
     title: str | None
     context_type: str
+    topic: str | None = None
     status: str
     created_at: datetime
     last_message_preview: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class TopicInfo(BaseModel):
+    """Topic registry entry — exposed so the frontend can resolve titles."""
+
+    id: str
+    title: str

@@ -1,17 +1,59 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useLayoutStore } from '@/stores/layout'
 import { useAuthStore } from '@/stores/auth'
+import { usePageTopics } from '@/stores/pageTopics'
+import {
+  usePipelineContext,
+  OUTREACH_MODULE_CHANNELS,
+} from '@/stores/pipelineContext'
 import PasswordChangeModal from '@/components/auth/PasswordChangeModal.vue'
 
 const route = useRoute()
 const router = useRouter()
 const layout = useLayoutStore()
 const authStore = useAuthStore()
+const pageTopics = usePageTopics()
+const pipelineCtx = usePipelineContext()
+
+const hasPageHelp = computed(() => pageTopics.topics.length > 0)
+const helpButtonTitle = computed(() =>
+  hasPageHelp.value
+    ? `Hilfe verfügbar zu: ${pageTopics.topics.map((t) => t.title).join(', ')}`
+    : 'KI-Assistent',
+)
 
 const userMenuOpen = ref(false)
 const showPasswordModal = ref(false)
+const pipelineMenuOpen = ref(false)
+
+const showPipelineSelector = computed(() =>
+  Object.prototype.hasOwnProperty.call(
+    OUTREACH_MODULE_CHANNELS,
+    pipelineCtx.currentModuleKey,
+  ),
+)
+
+const sortedPipelines = computed(() =>
+  [...pipelineCtx.pipelinesForCurrentModule].sort((a, b) =>
+    (a.name || '').localeCompare(b.name || ''),
+  ),
+)
+
+function selectPipeline(id) {
+  pipelineCtx.setActivePipeline(id)
+  pipelineMenuOpen.value = false
+  // Mirror selection in URL so deep links / refresh keep state.
+  const next = { ...route.query }
+  if (id) next.pipeline = String(id)
+  else delete next.pipeline
+  router.replace({ path: route.path, query: next })
+}
+
+onMounted(() => {
+  if (showPipelineSelector.value) pipelineCtx.ensurePipelines()
+})
 
 const breadcrumbs = computed(() => {
   const crumbs = []
@@ -129,12 +171,107 @@ function closeMenuOnOutsideClick() {
     </nav>
 
 
+    <!-- Center: Pipeline Selector (Outreach modules only) -->
+    <div
+      v-if="showPipelineSelector"
+      class="relative"
+    >
+      <button
+        type="button"
+        class="flex items-center gap-2 rounded-lg border border-gray-200 bg-white/70 px-3 py-1.5 text-sm text-gray-700 hover:border-go4-primary hover:text-go4-primary dark:border-gray-700 dark:bg-gray-800/70 dark:text-gray-200 dark:hover:border-go4-primary"
+        @click="pipelineMenuOpen = !pipelineMenuOpen"
+      >
+        <svg
+          class="h-4 w-4 text-gray-400"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5"
+          />
+        </svg>
+        <span
+          class="max-w-[16rem] truncate"
+          :class="!pipelineCtx.isActive ? 'text-gray-400 italic' : ''"
+        >{{ pipelineCtx.label }}</span>
+        <svg
+          class="h-4 w-4 text-gray-400"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M19.5 8.25l-7.5 7.5-7.5-7.5"
+          />
+        </svg>
+      </button>
+
+      <div
+        v-if="pipelineMenuOpen"
+        class="absolute left-0 top-full z-30 mt-1 w-80 rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800"
+      >
+        <div
+          v-if="sortedPipelines.length === 0"
+          class="px-3 py-3 text-sm text-gray-500 dark:text-gray-400"
+        >
+          Es gibt noch keine Pipeline, die dieses Modul benutzt.<br>
+          Bitte zuerst im Engagement-Modul anlegen.
+          <router-link
+            to="/engagement"
+            class="mt-2 block text-go4-primary hover:text-go4-primary-dark"
+            @click="pipelineMenuOpen = false"
+          >
+            Zum Engagement →
+          </router-link>
+        </div>
+        <button
+          v-for="p in sortedPipelines"
+          :key="p.id"
+          type="button"
+          class="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700"
+          :class="
+            p.id === pipelineCtx.activePipelineId
+              ? 'bg-go4-primary/5 font-medium text-go4-primary'
+              : 'text-gray-700 dark:text-gray-200'
+          "
+          @click="selectPipeline(p.id)"
+        >
+          <span class="truncate">{{ p.name }}</span>
+          <span
+            v-if="!p.is_active"
+            class="ml-2 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] uppercase text-gray-500 dark:bg-gray-700 dark:text-gray-400"
+          >
+            inaktiv
+          </span>
+        </button>
+      </div>
+
+      <!-- Backdrop -->
+      <div
+        v-if="pipelineMenuOpen"
+        class="fixed inset-0 z-20"
+        @click="pipelineMenuOpen = false"
+      />
+    </div>
+
     <!-- Right: Action buttons -->
     <div class="flex items-center gap-1">
-      <!-- AI Sparkle (Chat) -->
+      <!-- AI Sparkle (Chat) — turns green when the current page has help-topics -->
       <button
-        class="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-go4-secondary dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200"
-        title="KI-Assistent"
+        class="relative rounded-lg p-2 transition"
+        :class="
+          hasPageHelp
+            ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300 dark:hover:bg-emerald-900/60'
+            : 'text-gray-500 hover:bg-gray-100 hover:text-go4-secondary dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200'
+        "
+        :title="helpButtonTitle"
         @click="layout.toggleChat"
       >
         <svg
@@ -150,6 +287,10 @@ function closeMenuOnOutsideClick() {
             d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"
           />
         </svg>
+        <span
+          v-if="hasPageHelp"
+          class="absolute right-1 top-1 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-gray-800"
+        />
       </button>
 
       <!-- Dark/Light Toggle -->

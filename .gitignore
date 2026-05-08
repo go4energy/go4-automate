@@ -35,6 +35,8 @@ logs/*.log
 
 # Database
 *.sqlite3
+*.db
+backend/uploads/
 
 # Docker
 docker/volumes/

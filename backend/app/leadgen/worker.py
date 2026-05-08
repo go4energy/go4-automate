@@ -15,6 +15,7 @@ import httpx
 from loguru import logger
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.leadgen.geo_tiling import (
@@ -27,8 +28,18 @@ from app.leadgen.homepage_analyzer import (
     analyze_place_with_llm,
 )
 from app.leadgen.impressum_scraper import ImpressumData, fetch_impressum
+from app.leadgen.apollo_client import (
+    MAX_BATCH_SIZE as APOLLO_BATCH_SIZE,
+    bulk_match_people,
+    pace as apollo_pace,
+)
+from app.leadgen.linkedin_search import (
+    find_company_linkedin_url,
+    find_person_linkedin_url,
+)
 from app.leadgen.models import (
     LeadgenCampaign,
+    LeadgenContact,
     LeadgenImpressum,
     LeadgenLLMInsights,
     LeadgenPlace,
@@ -86,11 +97,22 @@ MAX_IMPRESSUM_PLACES_PER_INVOCATION = 50
 MAX_LLM_PLACES_PER_INVOCATION = 25
 
 
-def _next_stage_for_mode(current: str, mode: str) -> str:
+def _next_stage_for_mode(current: str, mode: str, *, stages: list[str] | None = None) -> str:
     """Resolve which stage runs after `current` for the given pipeline_mode.
 
-    Returns "completed" when no more stages should run.
+    When ``stages`` is provided the run honours that explicit subset (set by
+    the unified Run-modal); otherwise the legacy mode-based defaults apply.
+
+    Returns ``"completed"`` when no more stages should run.
     """
+    if stages:
+        order = [s for s in STAGE_KEYS if s in stages]
+        try:
+            idx = order.index(current)
+        except ValueError:
+            return "completed"
+        return order[idx + 1] if idx + 1 < len(order) else "completed"
+
     if current == "places":
         if mode == "smart":
             return "llm"
@@ -118,45 +140,77 @@ def _transition_stage(run: LeadgenRun, mode: str) -> None:
     if run.current_stage in STAGE_KEYS:
         mark_stage_completed(state, run.current_stage)
 
-    next_stage = _next_stage_for_mode(run.current_stage, mode)
+    explicit_stages = state.get("explicit_stages")
+    next_stage = _next_stage_for_mode(
+        run.current_stage,
+        mode,
+        stages=list(explicit_stages) if isinstance(explicit_stages, list) else None,
+    )
     now = datetime.utcnow()
 
     if next_stage == "completed":
         # Mark stages that the chosen pipeline_mode bypassed as skipped, so
         # the timeline doesn't leave them as eternally "pending".
-        _mark_unreached_stages_as_skipped(state, mode=mode)
+        _mark_unreached_stages_as_skipped(
+            state,
+            mode=mode,
+            explicit=list(explicit_stages) if isinstance(explicit_stages, list) else None,
+        )
         run.current_stage = "completed"
         run.status = "completed"
         run.completed_at = run.completed_at or now
-        # Persist only the timeline; per-stage counter workspace is no longer
-        # interesting once the run is closed.
-        run.stage_state = {"stages": state.get("stages", {})}
+        # Final completion: keep the entire state (timeline + counters +
+        # config) so post-mortem analytics work. The previous code stripped
+        # everything except ``stages`` + ``explicit_stages``, which lost the
+        # apollo_*, places_*, serper_calls etc. summary metrics needed for
+        # the run detail view.
+        run.stage_state = state
         return
 
     # Auto-chain into next stage with fresh per-stage counters but preserved
-    # timeline.
+    # timeline + explicit-stages marker.
     run.current_stage = next_stage
     run.status = "queued"
-    run.stage_state = {"stages": state.get("stages", {})}
+    carry = {"stages": state.get("stages", {})}
+    if explicit_stages:
+        carry["explicit_stages"] = list(explicit_stages)
+    if state.get("max_override"):
+        carry["max_override"] = state["max_override"]
+    if state.get("sampling"):
+        carry["sampling"] = state["sampling"]
+    if state.get("min_match_score") is not None:
+        carry["min_match_score"] = state["min_match_score"]
+    if state.get("enrich_companies"):
+        carry["enrich_companies"] = True
+    run.stage_state = carry
     run.last_error = None
     run.completed_at = None
 
 
 def _mark_unreached_stages_as_skipped(
-    state: dict[str, Any], *, mode: str
+    state: dict[str, Any],
+    *,
+    mode: str,
+    explicit: list[str] | None = None,
 ) -> None:
     """At run completion, any stage in ``STAGE_KEYS`` that has no status entry
-    yet was bypassed by the chosen pipeline mode — record that explicitly
-    instead of leaving a blank row in the UI timeline."""
+    yet was bypassed (either by the chosen pipeline mode or by the explicit
+    stages selection from the run modal) — record that explicitly instead of
+    leaving a blank row in the UI timeline."""
     block = state.get("stages")
     if not isinstance(block, dict):
         block = {}
         state["stages"] = block
+    explicit_set = set(explicit) if explicit else None
     for key in STAGE_KEYS:
         entry = block.get(key)
         if isinstance(entry, dict) and entry.get("status"):
             continue
-        mark_stage_skipped(state, key, reason=f"pipeline_mode={mode}")
+        if explicit_set is not None:
+            reason = "deselected" if key not in explicit_set else f"pipeline_mode={mode}"
+        else:
+            reason = f"pipeline_mode={mode}"
+        mark_stage_skipped(state, key, reason=reason)
 
 
 async def _load_tenant_config(db: AsyncSession, tenant_id: str) -> dict:
@@ -495,6 +549,20 @@ def _apply_impressum_to_place(
     record.ust_id = data.ust_id
     record.extraction_error = data.error
     record.extracted_at = now
+
+    # LinkedIn URLs surfaced from <a href> tags. The company URL goes straight
+    # on the place; person URLs are stashed for the linkedin stage to correlate
+    # with contact rows once they're materialised.
+    if data.linkedin_company_url and not place.linkedin_company_url:
+        place.linkedin_company_url = data.linkedin_company_url[:500]
+        place.linkedin_company_match_method = "impressum_link"
+    if data.linkedin_person_links:
+        flags = dict(place.enrichment_flags or {})
+        flags["linkedin_person_links"] = [
+            {"url": p["url"], "text": p.get("text", "")}
+            for p in data.linkedin_person_links[:20]
+        ]
+        place.enrichment_flags = flags
 
     has_any = bool(
         data.email or data.phone or data.managing_directors
@@ -857,11 +925,27 @@ async def _process_llm_stage(
         no_site_places = still_no_site
         site_places = list(site_places) + promoted
 
-    # No-website places skip the LLM entirely: they ARE the prime homepage-sales
-    # leads. We synthesise a max-score insights row and mark them llm_done.
+    # No-website places: behaviour is opt-in per campaign.
+    # - cfg.no_website_score is None  → no synth-row, status='no_website'.
+    #   Default for normal lead-gen so the LLM is the only scoring authority.
+    # - cfg.no_website_score is int   → synth-row with that score. Used by
+    #   homepage-sales campaigns where lack of website IS the qualifier.
+    no_website_score = cfg.no_website_score
     for place in no_site_places:
+        if no_website_score is None:
+            place.status = "no_website"
+            state["places_processed"] = state.get("places_processed", 0) + 1
+            state["places_succeeded"] = state.get("places_succeeded", 0) + 1
+            update_stage_counters(
+                state,
+                "llm",
+                delta={"processed": 1, "succeeded": 1, "skipped_no_site": 1},
+            )
+            run.processed_count += 1
+            continue
+
         synth = LLMAnalysis(
-            target_match_score=10,
+            target_match_score=int(no_website_score),
             personalization_hook="Kein eigener Webauftritt — Komplettangebot pitchen.",
             red_flags=["keine Homepage"],
             model_used="skip:no_website",
@@ -970,6 +1054,768 @@ async def _process_llm_stage(
             run.success_count += 1
             run.processed_count += 1
 
+    run.stage_state = dict(state)
+    await db.flush()
+    return False
+
+
+# Upper bound on contacts processed per worker invocation in the linkedin
+# stage. Each contact is up to one Serper call (~250ms) so 50 keeps the loop
+# responsive while still finishing a 100-place campaign in 2-3 invocations.
+MAX_LINKEDIN_CONTACTS_PER_INVOCATION = 50
+
+# Apollo bulk_match accepts max 10 details per call. We process at most 50
+# contacts per invocation = 5 bulk calls × ~600ms each + pacing.
+MAX_APOLLO_CONTACTS_PER_INVOCATION = 50
+
+
+async def _materialise_contacts_for_place(
+    db: AsyncSession,
+    place: LeadgenPlace,
+) -> list[LeadgenContact]:
+    """Idempotent: ensure one ``leadgen_contacts`` row per discovered person.
+
+    Pulls candidates from the existing impressum.managing_directors list and
+    llm_insights.primary_contact blob; skips names that are already represented
+    on the place. Returns the rows that exist after this call (new + existing).
+    """
+    from app.leadgen.contact_normalize import (
+        from_managing_director_string,
+        from_primary_contact_dict,
+        normalize_full_name,
+    )
+    from app.leadgen.gender import guess_gender_from_first_name
+
+    existing_rows = (
+        await db.execute(
+            select(LeadgenContact).where(LeadgenContact.place_id == place.id)
+        )
+    ).scalars().all()
+    existing_names = {(r.full_name or "").lower() for r in existing_rows}
+
+    candidates: list[dict] = []
+    if place.llm_insights and place.llm_insights.primary_contact:
+        payload = from_primary_contact_dict(place.llm_insights.primary_contact)
+        if payload:
+            candidates.append(payload)
+    if place.impressum and place.impressum.managing_directors:
+        for raw in place.impressum.managing_directors:
+            if isinstance(raw, str):
+                payload = from_managing_director_string(raw)
+                if payload:
+                    candidates.append(payload)
+
+    email = place.impressum.email if place.impressum else None
+    phone = place.impressum.phone if place.impressum else None
+
+    fresh: list[LeadgenContact] = []
+    for payload in candidates:
+        normalised = normalize_full_name(payload["full_name"])
+        key = normalised.lower()
+        if key in existing_names:
+            continue
+        existing_names.add(key)
+
+        if not payload.get("gender"):
+            gender, confidence, method = guess_gender_from_first_name(
+                payload.get("first_name")
+            )
+            if gender is not None:
+                payload["gender"] = gender
+                payload["gender_confidence"] = confidence
+                payload["gender_method"] = method
+
+        row = LeadgenContact(
+            tenant_id=place.tenant_id,
+            place_id=place.id,
+            first_name=payload.get("first_name"),
+            last_name=payload.get("last_name"),
+            full_name=normalised,
+            role=payload.get("role"),
+            email=email,
+            phone=phone,
+            gender=payload.get("gender"),
+            gender_confidence=payload.get("gender_confidence"),
+            gender_method=payload.get("gender_method"),
+            source=payload["source"],
+        )
+        db.add(row)
+        fresh.append(row)
+    await db.flush()
+    return list(existing_rows) + fresh
+
+
+def _correlate_impressum_person_links(
+    place: LeadgenPlace,
+    contacts: list[LeadgenContact],
+) -> int:
+    """Match person URLs scraped from the impressum HTML against contact rows.
+
+    Heuristic: the anchor text or the URL slug must contain the contact's last
+    name (case-insensitive). When a match is found we set ``linkedin_url`` and
+    ``linkedin_match_method='impressum_link'`` so the Serper fallback skips the
+    row. Returns the number of contacts updated.
+    """
+    flags = place.enrichment_flags or {}
+    person_links = flags.get("linkedin_person_links") or []
+    if not person_links:
+        return 0
+
+    updated = 0
+    for contact in contacts:
+        if contact.linkedin_url:
+            continue
+        last = (contact.last_name or "").strip().lower()
+        first = (contact.first_name or "").strip().lower()
+        if not last and not first:
+            continue
+        for entry in person_links:
+            blob = f"{entry.get('url', '')} {entry.get('text', '')}".lower()
+            # Last name carries more discriminative power, prefer that match.
+            if last and last in blob:
+                contact.linkedin_url = entry["url"][:500]
+                contact.linkedin_match_method = "impressum_link"
+                contact.linkedin_match_confidence = 1.0
+                updated += 1
+                break
+            if first and first in blob and len(first) >= 4:
+                contact.linkedin_url = entry["url"][:500]
+                contact.linkedin_match_method = "impressum_link"
+                contact.linkedin_match_confidence = 0.7
+                updated += 1
+                break
+    return updated
+
+
+async def _llm_disambiguate_genders(
+    contacts: list[LeadgenContact],
+    *,
+    llm: "LLMService",
+) -> int:
+    """Single LLM call to classify ``contacts`` whose gender is still unknown.
+
+    Sends one prompt with all candidate first names and parses the JSON answer.
+    Confidence is fixed at 0.9 since the model rarely guesses on real DACH
+    names. Returns the number of contacts updated.
+    """
+    candidates = [
+        c for c in contacts
+        if not c.gender and (c.first_name or "").strip()
+    ]
+    if not candidates:
+        return 0
+
+    names = sorted({c.first_name.strip() for c in candidates if c.first_name})
+    if not names:
+        return 0
+
+    prompt = (
+        "Klassifiziere folgende deutsche/österreichische/schweizerische "
+        "Vornamen nach Geschlecht im DACH-Kontext. Antworte als JSON-Objekt "
+        '{"<Vorname>": "male"|"female"|"unknown", ...}. '
+        "Bei Unsicherheit 'unknown'.\n\nVornamen: " + ", ".join(names)
+    )
+    try:
+        response = await llm.generate_json("leadgen_gender", prompt)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("LLM gender disambiguation failed: {e}", e=str(e))
+        return 0
+
+    if not isinstance(response, dict):
+        return 0
+
+    updated = 0
+    for c in candidates:
+        guess = response.get(c.first_name.strip())
+        if guess in ("male", "female"):
+            c.gender = guess
+            c.gender_confidence = 0.9
+            c.gender_method = "llm"
+            updated += 1
+    return updated
+
+
+async def _process_linkedin_stage(
+    db: AsyncSession,
+    *,
+    run: LeadgenRun,
+    campaign: LeadgenCampaign,
+    llm: LLMService,
+) -> bool:
+    """Stage 5: enrich leadgen_contacts with LinkedIn URLs (Serper) + gender.
+
+    For every place that has impressum or LLM data, this stage:
+    1. Materialises ``leadgen_contacts`` rows from existing data (idempotent).
+    2. Correlates pre-extracted impressum-person-links with contact rows.
+    3. Runs Serper for places + contacts still missing a LinkedIn URL.
+    4. Closes the loop with a single bulk LLM call to classify the few names
+       ``gender_guesser`` could not resolve.
+
+    Always degrades gracefully when ``settings.serper_api_key`` is empty so
+    self-hosted deployments without a Serper subscription can still ship.
+    """
+    state: dict[str, Any] = dict(run.stage_state or {})
+    mark_stage_running(state, "linkedin")
+
+    eligible_statuses = ["impressum_done", "llm_done", "llm_failed"]
+
+    # Honour state.max_override (set by the Run-Modal) so the operator can
+    # cap the run at e.g. 100 places for a test before committing the full
+    # enrichment budget.
+    max_override = int(state.get("max_override") or 100_000)
+
+    # Optional LLM-score filter — set by the operator to e.g. only enrich
+    # leads that the LLM rated >= 7/10. Applied as an extra JOIN+WHERE on
+    # LeadgenLLMInsights so we don't waste Serper calls on low-quality leads.
+    min_match_score = state.get("min_match_score")
+    # Default = persons-only. Operator opts in to also Serper-search the
+    # /company/ URL per place (one extra call each), via the Run-Modal.
+    enrich_companies = bool(state.get("enrich_companies"))
+
+    def _apply_score_filter(stmt):
+        if min_match_score is None:
+            return stmt
+        return stmt.join(
+            LeadgenLLMInsights,
+            LeadgenLLMInsights.place_id == LeadgenPlace.id,
+        ).where(LeadgenLLMInsights.target_match_score >= int(min_match_score))
+
+    # First call only: stamp the eligible-pool size into the timeline so the
+    # UI shows total/processed correctly. We bound it by max_override so the
+    # progress bar reflects what the user asked for.
+    if "places_total" not in state:
+        count_stmt = (
+            select(func.count(LeadgenPlace.id))
+            .select_from(LeadgenPlace)
+            .where(
+                LeadgenPlace.campaign_id == campaign.id,
+                LeadgenPlace.status.in_(eligible_statuses),
+            )
+        )
+        count_stmt = _apply_score_filter(count_stmt)
+        total = await db.scalar(count_stmt)
+        bounded = min(int(total or 0), max_override)
+        state["places_total"] = bounded
+        state["places_processed"] = 0
+        state["contacts_created"] = 0
+        state["contacts_via_impressum"] = 0
+        state["contacts_via_serper"] = 0
+        state["company_via_impressum"] = 0
+        state["company_via_serper"] = 0
+        state["serper_calls"] = 0
+        update_stage_counters(
+            state, "linkedin", set_values={"total": bounded}
+        )
+
+    # Stop early once we've hit the user's cap on this run.
+    remaining_budget = max_override - state.get("places_processed", 0)
+    if remaining_budget <= 0:
+        run.stage_state = dict(state)
+        await db.flush()
+        return True
+
+    # Resumable pagination: ``enrichment_flags["linkedin_processed_at"]`` is
+    # set on each place at the end of its loop iteration. We over-fetch to
+    # absorb the already-processed rows in Python (cross-DB safe — JSONB
+    # has-key operators differ between PG and SQLite). The Python skip is
+    # cheap because each place row is small + the SELECT is bounded.
+    batch_size = min(MAX_LINKEDIN_CONTACTS_PER_INVOCATION, remaining_budget)
+    fetch_size = batch_size * 4
+    fetch_stmt = (
+        select(LeadgenPlace)
+        .options(
+            selectinload(LeadgenPlace.impressum),
+            selectinload(LeadgenPlace.llm_insights),
+            selectinload(LeadgenPlace.contacts),
+        )
+        .where(
+            LeadgenPlace.campaign_id == campaign.id,
+            LeadgenPlace.status.in_(eligible_statuses),
+        )
+        .order_by(LeadgenPlace.id.asc())
+        .offset(state.get("_fetch_offset", 0))
+        .limit(fetch_size)
+    )
+    fetch_stmt = _apply_score_filter(fetch_stmt)
+    result = await db.execute(fetch_stmt)
+    candidates = list(result.scalars().all())
+    batch: list[LeadgenPlace] = []
+    skipped_processed = 0
+    for p in candidates:
+        flags = p.enrichment_flags or {}
+        if flags.get("linkedin_processed_at"):
+            skipped_processed += 1
+            continue
+        batch.append(p)
+        if len(batch) >= batch_size:
+            break
+    # Advance the fetch offset by however far we scanned, so the next
+    # invocation skips the rows we already consumed.
+    state["_fetch_offset"] = (
+        state.get("_fetch_offset", 0) + skipped_processed + len(batch)
+    )
+    if not batch:
+        # Final pass: bulk LLM gender disambiguation across all contacts of
+        # this campaign that still have no gender. Cheap, runs once at the end.
+        unresolved = (
+            await db.execute(
+                select(LeadgenContact)
+                .join(
+                    LeadgenPlace, LeadgenPlace.id == LeadgenContact.place_id
+                )
+                .where(
+                    LeadgenPlace.campaign_id == campaign.id,
+                    LeadgenContact.gender.is_(None),
+                )
+            )
+        ).scalars().all()
+        if unresolved:
+            updated = await _llm_disambiguate_genders(unresolved, llm=llm)
+            state["gender_via_llm"] = updated
+            update_stage_counters(
+                state, "linkedin", delta={"gender_via_llm": updated}
+            )
+        run.stage_state = dict(state)
+        await db.flush()
+        return True
+
+    serper_key = settings.serper_api_key or ""
+    contacts_created = 0
+    contacts_via_imp = 0
+    contacts_via_serp = 0
+    company_via_serp = 0
+    company_via_imp = 0
+    serper_calls = 0
+
+    for place in batch:
+        # Step 1: ensure contacts exist.
+        before_count = len(place.contacts or [])
+        contacts = await _materialise_contacts_for_place(db, place)
+        contacts_created += len(contacts) - before_count
+
+        # Step 2: correlate impressum person links with contact rows.
+        contacts_via_imp += _correlate_impressum_person_links(place, contacts)
+
+        # Step 3a: company LinkedIn URL via Serper. Opt-in only — for the
+        # default persons-only run we skip this entirely so 100 places cost
+        # ~100 fewer Serper calls. The impressum-extracted URL (if any) is
+        # always preserved regardless of the toggle.
+        if (
+            enrich_companies
+            and not place.linkedin_company_url
+            and serper_key
+        ):
+            url, score = await find_company_linkedin_url(
+                name=place.name,
+                city=place.address_city,
+                serper_api_key=serper_key,
+            )
+            serper_calls += 1
+            if url:
+                place.linkedin_company_url = url[:500]
+                place.linkedin_company_match_method = "serper"
+                company_via_serp += 1
+        elif place.linkedin_company_url and place.linkedin_company_match_method == "impressum_link":
+            company_via_imp += 1
+
+        # Step 3b: per-contact LinkedIn URL via Serper.
+        if serper_key:
+            for contact in contacts:
+                if contact.linkedin_url:
+                    continue
+                if not (contact.first_name or contact.last_name):
+                    continue
+                url, score = await find_person_linkedin_url(
+                    first_name=contact.first_name or "",
+                    last_name=contact.last_name or "",
+                    company=place.name,
+                    city=place.address_city,
+                    serper_api_key=serper_key,
+                )
+                serper_calls += 1
+                if url:
+                    contact.linkedin_url = url[:500]
+                    contact.linkedin_match_method = "serper"
+                    contact.linkedin_match_confidence = score
+                    contacts_via_serp += 1
+
+        # Stamp the place so a resumed run can SQL-skip it (and the in-Python
+        # skip in the candidate-fetch loop). Stored in enrichment_flags rather
+        # than a dedicated column to avoid another schema migration.
+        flags = dict(place.enrichment_flags or {})
+        flags["linkedin_processed_at"] = datetime.utcnow().isoformat()
+        place.enrichment_flags = flags
+
+        state["places_processed"] = state.get("places_processed", 0) + 1
+
+    state["contacts_created"] = state.get("contacts_created", 0) + contacts_created
+    state["contacts_via_impressum"] = (
+        state.get("contacts_via_impressum", 0) + contacts_via_imp
+    )
+    state["contacts_via_serper"] = (
+        state.get("contacts_via_serper", 0) + contacts_via_serp
+    )
+    state["company_via_impressum"] = (
+        state.get("company_via_impressum", 0) + company_via_imp
+    )
+    state["company_via_serper"] = (
+        state.get("company_via_serper", 0) + company_via_serp
+    )
+    state["serper_calls"] = state.get("serper_calls", 0) + serper_calls
+    # Cost: ~$0.0003/call → 0.03 cents. Round up to whole cents per batch.
+    cost_increment = max(1, (serper_calls * 3 + 99) // 100) if serper_calls else 0
+    update_stage_counters(
+        state,
+        "linkedin",
+        delta={
+            "processed": len(batch),
+            "succeeded": len(batch),
+            "cost_cents": cost_increment,
+            "serper_calls": serper_calls,
+        },
+    )
+    run.cost_cents += cost_increment
+    run.stage_state = dict(state)
+    await db.flush()
+    return False
+
+
+def _classify_apollo_match(profile: dict[str, Any]) -> str:
+    """Map an Apollo match payload to a coarse quality bucket.
+
+    ``high`` = LinkedIn URL + verified email status, ``medium`` = LinkedIn URL
+    only, ``low`` = no LinkedIn URL but other fields, ``no_match`` = empty.
+    """
+    if not profile:
+        return "no_match"
+    has_linkedin = bool(profile.get("linkedin_url"))
+    has_verified_email = profile.get("email_status") == "verified"
+    if has_linkedin and has_verified_email:
+        return "high"
+    if has_linkedin:
+        return "medium"
+    if profile.get("title") or profile.get("organization") or profile.get("name"):
+        return "low"
+    return "no_match"
+
+
+def _linkedin_slug(url: str | None) -> str:
+    """Return the lowercase ``/in/<slug>`` segment, stripped of host and query.
+
+    Two URLs are considered the same person when their slugs match. We use
+    this in the Apollo stage to detect whether Apollo's URL agrees with the
+    Serper-found URL ("de.linkedin.com/in/foo" vs "www.linkedin.com/in/foo"
+    differ on host but match on slug → same person).
+    """
+    if not url:
+        return ""
+    try:
+        from urllib.parse import urlparse
+
+        path = (urlparse(url).path or "").lower()
+    except ValueError:
+        return ""
+    parts = [p for p in path.split("/") if p]
+    if len(parts) >= 2 and parts[0] == "in":
+        return parts[1].rstrip("/")
+    return ""
+
+
+async def _process_apollo_stage(
+    db: AsyncSession,
+    *,
+    run: LeadgenRun,
+    campaign: LeadgenCampaign,
+) -> bool:
+    """Stage 6: enrich ``leadgen_contacts`` with Apollo-matched LinkedIn URLs.
+
+    Match-only design — no reveal flags, so we only consume basic export
+    credits (verified empirically; the per-call ``credits_consumed`` is
+    summed into ``stage_state.apollo_credits_used`` so the operator can see
+    exact spend in the timeline).
+
+    Idempotent via ``apollo_enriched_at IS NULL`` filter — re-running the
+    stage for the same campaign skips already-processed contacts.
+    """
+    state: dict[str, Any] = dict(run.stage_state or {})
+    mark_stage_running(state, "apollo")
+
+    api_key = settings.apollo_api_key or ""
+    if not api_key:
+        # Cannot proceed without a key — skip the stage entirely so the
+        # operator gets a clear timeline marker rather than a hidden no-op.
+        mark_stage_skipped(state, "apollo", reason="no_apollo_api_key")
+        run.stage_state = dict(state)
+        await db.flush()
+        return True
+
+    max_override = int(state.get("max_override") or 100_000)
+    min_match_score = state.get("min_match_score")
+    # Default workflow: Serper runs first on every contact, then Apollo only
+    # processes the contacts Serper *missed* (linkedin_url IS NULL). That keeps
+    # Apollo credits low because Serper is much cheaper. The operator opts in
+    # via ``apollo_validate_existing_urls`` to ALSO send the already-matched
+    # contacts through Apollo — useful to confirm/correct Serper hits, but
+    # costs an extra credit per existing URL.
+    validate_existing = bool(state.get("apollo_validate_existing_urls"))
+    # Reveal-Flags: each ``true`` consumes one extra Apollo credit per match
+    # on top of the base export credit. Basic plan: email = +1, phone = +8.
+    # Phone reveals are async (webhook) so they're disabled in the UI until
+    # the webhook receiver is implemented.
+    reveal_email = bool(state.get("apollo_reveal_email"))
+    reveal_phone = bool(state.get("apollo_reveal_phone"))
+
+    base_stmt = (
+        select(LeadgenContact)
+        .join(LeadgenPlace, LeadgenPlace.id == LeadgenContact.place_id)
+        .where(
+            LeadgenPlace.campaign_id == campaign.id,
+            LeadgenContact.apollo_enriched_at.is_(None),
+        )
+    )
+    if min_match_score is not None:
+        base_stmt = base_stmt.join(
+            LeadgenLLMInsights,
+            LeadgenLLMInsights.place_id == LeadgenPlace.id,
+        ).where(LeadgenLLMInsights.target_match_score >= int(min_match_score))
+    if not validate_existing:
+        # Default: skip contacts that already have a LinkedIn URL (Serper hit
+        # or manual). Apollo only fills gaps. ``apollo_validate_existing_urls``
+        # opts in to also send already-matched contacts → confirms or
+        # replaces the URL but costs +1 credit per existing URL.
+        base_stmt = base_stmt.where(LeadgenContact.linkedin_url.is_(None))
+
+    # First call: stamp the eligible-pool size (capped by max_override).
+    if "apollo_total" not in state:
+        count_stmt = select(func.count()).select_from(base_stmt.subquery())
+        total = await db.scalar(count_stmt)
+        bounded = min(int(total or 0), max_override)
+        state["apollo_total"] = bounded
+        state["apollo_processed"] = 0
+        state["apollo_matched_high"] = 0
+        state["apollo_matched_medium"] = 0
+        state["apollo_matched_low"] = 0
+        state["apollo_no_match"] = 0
+        state["apollo_credits_used"] = 0
+        state["apollo_bulk_calls"] = 0
+        update_stage_counters(state, "apollo", set_values={"total": bounded})
+
+    remaining_budget = max_override - state.get("apollo_processed", 0)
+    if remaining_budget <= 0:
+        run.stage_state = dict(state)
+        await db.flush()
+        return True
+
+    batch_size = min(MAX_APOLLO_CONTACTS_PER_INVOCATION, remaining_budget)
+    fetch_stmt = (
+        base_stmt.options(selectinload(LeadgenContact.place))
+        .order_by(LeadgenContact.id.asc())
+        .limit(batch_size)
+    )
+    contacts = list((await db.execute(fetch_stmt)).scalars().all())
+    if not contacts:
+        run.stage_state = dict(state)
+        await db.flush()
+        return True
+
+    counters = {
+        "high": 0,
+        "medium": 0,
+        "low": 0,
+        "no_match": 0,
+        "credits": 0,
+        "bulk_calls": 0,
+        "url_overridden": 0,  # Serper-URL replaced by Apollo (different slug)
+        "url_confirmed": 0,   # Serper-URL confirmed by Apollo (same slug)
+    }
+    now = datetime.utcnow()
+
+    for chunk_start in range(0, len(contacts), APOLLO_BATCH_SIZE):
+        chunk = contacts[chunk_start : chunk_start + APOLLO_BATCH_SIZE]
+        details: list[dict[str, Any]] = []
+        for c in chunk:
+            d: dict[str, Any] = {}
+            if c.linkedin_url:
+                d["linkedin_url"] = c.linkedin_url
+            if c.first_name:
+                d["first_name"] = c.first_name
+            if c.last_name:
+                d["last_name"] = c.last_name
+            if c.place is not None and c.place.name:
+                d["organization_name"] = c.place.name
+            details.append(d)
+
+        result = await bulk_match_people(
+            details=details,
+            api_key=api_key,
+            base_url=settings.apollo_api_base_url,
+            reveal_email=reveal_email,
+            reveal_phone=reveal_phone,
+            webhook_url=(
+                settings.apollo_phone_webhook_url if reveal_phone else None
+            ),
+        )
+        counters["bulk_calls"] += 1
+        counters["credits"] += result.credits_consumed
+
+        # Apollo returns matches in the same order as ``details`` — pair them
+        # back up positionally. When a slot didn't match, ``matches[i]`` is
+        # ``None`` (or omitted), so we use a defensive zip with fillvalue.
+        matches = list(result.matches)
+        # Pad to chunk length so positional pairing works regardless of
+        # whether Apollo omits or nulls missing slots.
+        if len(matches) < len(chunk):
+            matches.extend([None] * (len(chunk) - len(matches)))
+
+        for contact, profile in zip(chunk, matches):
+            quality = _classify_apollo_match(profile or {})
+            counters[quality if quality != "no_match" else "no_match"] += 1
+
+            if profile:
+                # Apollo wins on LinkedIn-URL conflicts. The 10er-Pilot showed
+                # Apollo confirmed all 5 Serper hits 100% (same slug, just
+                # different host prefix), so when slugs differ the Serper hit
+                # was almost certainly a false positive — we replace it.
+                # Manual edits (linkedin_match_method='manual') are still
+                # preserved so the operator's hand-corrections are sticky.
+                lk = profile.get("linkedin_url")
+                replaced_from: str | None = None
+                if lk:
+                    apollo_slug = _linkedin_slug(lk)
+                    current_slug = _linkedin_slug(contact.linkedin_url)
+                    same_person = apollo_slug and apollo_slug == current_slug
+                    is_manual = contact.linkedin_match_method == "manual"
+                    if not contact.linkedin_url:
+                        # Fill empty
+                        contact.linkedin_url = lk[:500]
+                        contact.linkedin_match_method = "apollo"
+                        contact.linkedin_match_confidence = (
+                            1.0 if quality == "high" else 0.85
+                        )
+                    elif same_person:
+                        # Apollo confirms the existing slug — promote the
+                        # match-method to indicate Apollo verified it.
+                        counters["url_confirmed"] += 1
+                        if contact.linkedin_match_method == "serper":
+                            contact.linkedin_match_method = "serper+apollo"
+                            contact.linkedin_match_confidence = max(
+                                contact.linkedin_match_confidence or 0.0,
+                                1.0 if quality == "high" else 0.9,
+                            )
+                    elif not is_manual:
+                        # Slugs disagree — Apollo overrides. Keep the old URL
+                        # in extra so we can audit how often this happens.
+                        counters["url_overridden"] += 1
+                        replaced_from = contact.linkedin_url
+                        contact.linkedin_url = lk[:500]
+                        contact.linkedin_match_method = "apollo"
+                        contact.linkedin_match_confidence = (
+                            1.0 if quality == "high" else 0.85
+                        )
+                if not contact.role:
+                    title = profile.get("title")
+                    if title:
+                        contact.role = title[:100]
+                # Email reveal (only when operator opted in). Apollo returns
+                # the verified address in ``email`` when reveal_personal_emails
+                # was set; otherwise the field is the work email or absent.
+                if reveal_email and not contact.email:
+                    apollo_email = profile.get("email")
+                    if apollo_email:
+                        contact.email = apollo_email[:320]
+                # Phone reveal arrives later via webhook (async) — Apollo
+                # responds here without phone data even when reveal_phone=True.
+                # We just stash whatever ``phone_numbers`` is present in case
+                # the bulk endpoint already returned it for some plans.
+                if reveal_phone and not contact.phone:
+                    phones = profile.get("phone_numbers") or []
+                    if phones:
+                        first = phones[0]
+                        if isinstance(first, dict):
+                            num = first.get("raw_number") or first.get("sanitized_number")
+                        else:
+                            num = first
+                        if num:
+                            contact.phone = str(num)[:50]
+                # Stash a curated summary AND the full raw profile so we
+                # can backfill any future field (employment_history, education,
+                # organization, photo_url, intent_strength, …) without re-
+                # spending an Apollo credit. ``replaced_from`` records the
+                # old Serper URL when Apollo's slug overrode it.
+                extra = dict(contact.extra or {})
+                extra["apollo"] = {
+                    "matched_at": now.isoformat(),
+                    "id": profile.get("id"),
+                    "linkedin_url": profile.get("linkedin_url"),
+                    "title": profile.get("title"),
+                    "seniority": profile.get("seniority"),
+                    "departments": profile.get("departments"),
+                    "city": profile.get("city"),
+                    "country": profile.get("country"),
+                    "email_status": profile.get("email_status"),
+                    "match_quality": quality,
+                    "reveal_email": reveal_email,
+                    "reveal_phone": reveal_phone,
+                    "replaced_from": replaced_from,
+                    # Full Apollo response — single source of truth. The
+                    # curated keys above are duplicates for fast access in SQL
+                    # JSONB queries; ``raw`` keeps everything else (org data,
+                    # employment_history, education, photo, intent, …).
+                    "raw": profile,
+                }
+                contact.extra = extra
+
+            contact.apollo_enriched_at = now
+            contact.apollo_match_quality = quality
+            # Distribute the bulk credits across the slots that actually
+            # matched, so per-contact cost is at least directionally correct.
+            # Cap at 1 per contact so totals never exceed the bulk count.
+            if quality != "no_match":
+                contact.apollo_credits_used = 1
+
+        await apollo_pace()
+
+    state["apollo_processed"] = state.get("apollo_processed", 0) + len(contacts)
+    state["apollo_matched_high"] = (
+        state.get("apollo_matched_high", 0) + counters["high"]
+    )
+    state["apollo_matched_medium"] = (
+        state.get("apollo_matched_medium", 0) + counters["medium"]
+    )
+    state["apollo_matched_low"] = (
+        state.get("apollo_matched_low", 0) + counters["low"]
+    )
+    state["apollo_no_match"] = (
+        state.get("apollo_no_match", 0) + counters["no_match"]
+    )
+    state["apollo_credits_used"] = (
+        state.get("apollo_credits_used", 0) + counters["credits"]
+    )
+    state["apollo_bulk_calls"] = (
+        state.get("apollo_bulk_calls", 0) + counters["bulk_calls"]
+    )
+    state["apollo_url_confirmed"] = (
+        state.get("apollo_url_confirmed", 0) + counters["url_confirmed"]
+    )
+    state["apollo_url_overridden"] = (
+        state.get("apollo_url_overridden", 0) + counters["url_overridden"]
+    )
+
+    # Cost: 1 export credit ≈ $0.20 overage = 20 cents. We bill at base + cap;
+    # this is the most we'd pay per credit at Apollo's published overage rate.
+    cost_increment = counters["credits"] * 20
+    update_stage_counters(
+        state,
+        "apollo",
+        delta={
+            "processed": len(contacts),
+            "succeeded": counters["high"] + counters["medium"] + counters["low"],
+            "cost_cents": cost_increment,
+            "credits_used": counters["credits"],
+            "bulk_calls": counters["bulk_calls"],
+        },
+    )
+    run.cost_cents += cost_increment
     run.stage_state = dict(state)
     await db.flush()
     return False
@@ -1177,6 +2023,20 @@ async def run_once(
                     http_client=http_client,
                     llm=llm_service,
                 )
+        elif run.current_stage == "linkedin":
+            llm_service = LLMService()
+            stage_completed = await _process_linkedin_stage(
+                db,
+                run=run,
+                campaign=campaign,
+                llm=llm_service,
+            )
+        elif run.current_stage == "apollo":
+            stage_completed = await _process_apollo_stage(
+                db,
+                run=run,
+                campaign=campaign,
+            )
         else:
             return {
                 "status": "noop",

@@ -1,7 +1,8 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useEmailMarketingStore } from '@/stores/emailmarketing'
+import { usePageTopics } from '@/stores/pageTopics'
 import PageHeader from '@/components/ui/PageHeader.vue'
 
 const route = useRoute()
@@ -14,7 +15,7 @@ const saving = ref(false)
 const verifying = ref(false)
 
 const form = ref({
-  provider_type: 'brevo',
+  provider_type: 'sendgrid',
   api_key: '',
   // AWS SES specific (bundled into api_key as JSON on save)
   aws_access_key_id: '',
@@ -31,14 +32,15 @@ const form = ref({
 })
 
 const providerTypes = [
-  { value: 'brevo', label: 'Brevo (EU, DSGVO) – Empfohlen für Cold-Outreach' },
+  { value: 'sendgrid', label: 'Twilio SendGrid – Konsolidiert mit eurem Twilio-Account (SMS, Voice)' },
+  { value: 'brevo', label: 'Brevo (EU, DSGVO) – Risiko-isoliert, gut für Cold-Outreach' },
   { value: 'o365', label: 'Office 365 / Microsoft 365 – Für Transactional & Replies' },
   { value: 'aws_ses', label: 'AWS SES (Frankfurt) – Nur für Transactional' },
-  { value: 'sendgrid', label: 'SendGrid' },
   { value: 'mailgun', label: 'Mailgun' },
 ]
 
 const isAwsSes = computed(() => form.value.provider_type === 'aws_ses')
+const isTwilioSendgrid = computed(() => form.value.provider_type === 'sendgrid')
 
 const inputClass =
   'block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 ' +
@@ -165,7 +167,90 @@ const canSubmit = computed(() => {
   return true
 })
 
-onMounted(loadData)
+// Page-help topic registration — chat icon turns green, suggestions
+// appear in the chat panel when the user opens it.
+const pageTopics = usePageTopics()
+
+function topicForCurrentProvider() {
+  if (isTwilioSendgrid.value) {
+    return {
+      topic: 'provider-twilio-sendgrid',
+      title: 'Twilio SendGrid einrichten',
+      context: {
+        module: 'emailmarketing',
+        page: '/emailmarketing/providers/new',
+        form_state: form.value,
+      },
+      suggestions: [
+        'Wie hole ich den SendGrid-API-Key aus der Twilio-Konsole?',
+        'Wie verifiziere ich smartladen.de für SendGrid (Domain Authentication)?',
+        'Wie richte ich Sender Identity ein (Single Sender vs. Domain)?',
+        'Welche DNS-Records brauche ich (CNAME, DKIM, SPF, DMARC)?',
+        'Soll ich einen Twilio-Subaccount für SendGrid nutzen, um SMS zu schützen?',
+      ],
+    }
+  }
+  if (isAwsSes.value) {
+    return {
+      topic: 'provider-aws-ses',
+      title: 'AWS SES einrichten',
+      context: {
+        module: 'emailmarketing',
+        page: '/emailmarketing/providers/new',
+        form_state: form.value,
+      },
+      suggestions: [
+        'Wo bekomme ich den Access Key?',
+        'Wie richte ich DKIM in Strato ein?',
+        'Wie beantrage ich Production-Access?',
+      ],
+    }
+  }
+  if (form.value.provider_type === 'brevo') {
+    return {
+      topic: 'provider-brevo',
+      title: 'Brevo einrichten',
+      context: {
+        module: 'emailmarketing',
+        page: '/emailmarketing/providers/new',
+        form_state: form.value,
+      },
+      suggestions: [
+        'Wie lege ich einen Brevo-Account an?',
+        'Welche DNS-Records brauche ich?',
+        'Was ist der API-Key?',
+      ],
+    }
+  }
+  return {
+    topic: 'provider-list',
+    title: 'Provider auswählen',
+    context: {
+      module: 'emailmarketing',
+      page: '/emailmarketing/providers/new',
+      form_state: form.value,
+    },
+    suggestions: [
+      'Welcher Provider passt für meinen Use-Case?',
+      'Was ist der Unterschied zwischen Twilio SendGrid und Brevo?',
+    ],
+  }
+}
+
+watch(
+  () => form.value.provider_type,
+  () => pageTopics.setTopics([topicForCurrentProvider()]),
+  { immediate: false },
+)
+
+onMounted(() => {
+  pageTopics.setTopics([topicForCurrentProvider()])
+  loadData()
+})
+
+onBeforeUnmount(() => {
+  pageTopics.clearTopics()
+})
 </script>
 
 <template>
@@ -247,10 +332,73 @@ onMounted(loadData)
               type="password"
               :required="isNew && !isAwsSes"
               :class="inputClass"
-              placeholder="API-Schlüssel"
+              :placeholder="isTwilioSendgrid ? 'SG.xxxx... (Twilio SendGrid v3-Key)' : 'API-Schlüssel'"
               autocomplete="new-password"
             >
+            <p v-if="isTwilioSendgrid" class="mt-2 text-xs text-gray-600 dark:text-gray-400">
+              <strong>So holst du den Key:</strong>
+              <strong>Direkt-URL:</strong>
+              <a href="https://app.sendgrid.com/settings/api_keys" target="_blank" class="text-go4-primary underline">app.sendgrid.com/settings/api_keys</a>
+              (ggf. einmal Twilio-SSO). Im SendGrid-Dashboard
+              <strong>Settings (⚙️ unten) → API Keys → Create API Key</strong>.
+              Permissions: <em>„Restricted Access"</em> mit <em>Mail Send (Full)</em> +
+              <em>Tracking (Read)</em> + <em>Stats (Read)</em>. Key wird nur einmal angezeigt
+              und beginnt mit <code>SG.</code>.<br>
+              <strong>Achtung:</strong> NICHT die Twilio-Console-API-Keys nehmen
+              (`console.twilio.com → Account settings → API keys & auth tokens`) — die sind
+              für SMS/Voice und funktionieren nicht für Email.
+            </p>
           </div>
+        </div>
+
+        <!-- Twilio SendGrid Setup-Anleitung -->
+        <div
+          v-if="isTwilioSendgrid && isNew"
+          class="mt-6 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm dark:border-blue-800 dark:bg-blue-900/20"
+        >
+          <h4 class="mb-2 font-semibold text-blue-900 dark:text-blue-200">
+            ⚡ Setup-Schritte Twilio SendGrid
+          </h4>
+          <ol class="ml-5 list-decimal space-y-1 text-blue-900 dark:text-blue-200">
+            <li>
+              <strong>Subaccount empfohlen</strong> — in Twilio Console „Subaccounts" → einen
+              dedizierten Subaccount nur für Email anlegen (z.B. „smartladen-email"). So bleibt
+              eure SMS-Verifizierung sicher, falls SendGrid mal sperrt.
+            </li>
+            <li>
+              <strong>Domain authentifizieren</strong> — SendGrid Dashboard
+              → <em>Settings → Sender Authentication → Authenticate Your Domain</em>.
+              Domain: <code>smartladen.de</code>. SendGrid liefert ~3 CNAME-Records → bei eurem
+              DNS-Provider (Strato/IONOS) eintragen.
+            </li>
+            <li>
+              <strong>SPF-Record erweitern</strong> (falls schon einer existiert):
+              <code class="text-xs">v=spf1 include:sendgrid.net include:spf.protection.outlook.com ~all</code>
+            </li>
+            <li>
+              <strong>DMARC starten mit p=none</strong>:
+              <code class="text-xs">v=DMARC1; p=none; rua=mailto:dmarc@smartladen.de;</code>
+              — nach 4 Wochen sauberer Sendings auf <code>p=quarantine</code>.
+            </li>
+            <li>
+              <strong>API-Key holen</strong> — direkt zu
+              <a href="https://app.sendgrid.com/settings/api_keys" target="_blank" class="underline">app.sendgrid.com/settings/api_keys</a>
+              (NICHT Twilio-Console-Keys). Im SendGrid-Dashboard:
+              <em>Settings → API Keys → Create API Key</em>. Den `SG.`-Key in das Feld oben eintragen.
+            </li>
+            <li>
+              <strong>Sender Identity</strong>: Single-Sender (info@smartladen.de) verifizieren —
+              SendGrid schickt eine Bestätigungs-Mail.
+            </li>
+            <li>
+              <strong>Speichern</strong>, dann <em>„Provider testen"</em> klicken — sollte Test-Mail
+              an deine Sender-Email senden.
+            </li>
+          </ol>
+          <p class="mt-3 text-xs text-blue-800 dark:text-blue-300">
+            💡 Brauchst du Hilfe? Klick rechts auf den 🟢 KI-Helfer — er kennt diese Seite und
+            beantwortet deine Fragen kontextbezogen.
+          </p>
         </div>
 
         <!-- AWS SES specific fields -->

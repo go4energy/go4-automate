@@ -7,6 +7,7 @@ import PageHeader from '@/components/ui/PageHeader.vue'
 import SearchInput from '@/components/ui/SearchInput.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
+import ModuleSettings from '@/components/settings/ModuleSettings.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -16,10 +17,51 @@ const activeTab = computed(() => route.meta?.tab || 'dashboard')
 
 const tabs = [
   { key: 'dashboard', label: 'Dashboard', route: '/customer-journey' },
-  { key: 'leads', label: 'Leads', route: '/customer-journey/leads' },
   { key: 'refs', label: 'Ref-Codes', route: '/customer-journey/ref-codes' },
   { key: 'campaigns', label: 'Kampagnen', route: '/customer-journey/campaigns' },
+  { key: 'einstellungen', label: 'Einstellungen', route: '/customer-journey/einstellungen' },
 ]
+
+// Activity mode: 'time' (flat live feed) or 'lead' (tree grouped by lead).
+// Default 'lead' when arriving via /customer-journey/leads (legacy route)
+// or when ?mode=lead is set in URL.
+const initialMode = (() => {
+  if (route.query?.mode === 'lead') return 'lead'
+  if (route.name === 'customer-journey-leads') return 'lead'
+  return 'time'
+})()
+store.setActivityMode(initialMode)
+const activityMode = computed(() => store.activityMode)
+
+function setMode(mode) {
+  store.setActivityMode(mode)
+  // Reflect mode in URL so reload + bookmarks keep state, without leaving
+  // the dashboard tab.
+  if (activeTab.value === 'dashboard') {
+    const next = { ...route.query }
+    if (mode === 'lead') next.mode = 'lead'
+    else delete next.mode
+    router.replace({ path: route.path, query: next })
+  }
+  loadActivityForMode()
+}
+
+const leadFeedFilter = ref({ category: '', journey_status: '', search: '' })
+
+async function loadActivityForMode() {
+  if (activityMode.value === 'lead') {
+    await store.fetchFeedByLead({
+      limit: feedPageSize,
+      events_per_lead: 10,
+      category: leadFeedFilter.value.category || undefined,
+      journey_status: leadFeedFilter.value.journey_status || undefined,
+      search: leadFeedFilter.value.search || undefined,
+    })
+  } else {
+    feedHasMore.value = true
+    await store.fetchFeed(feedPageSize)
+  }
+}
 
 // Search
 const searchQuery = ref('')
@@ -320,6 +362,16 @@ let countdownTimer = null
 
 async function refreshNewEvents() {
   await store.fetchStats()
+  if (activityMode.value === 'lead') {
+    await store.fetchFeedByLead({
+      limit: feedPageSize,
+      events_per_lead: 10,
+      category: leadFeedFilter.value.category || undefined,
+      journey_status: leadFeedFilter.value.journey_status || undefined,
+      search: leadFeedFilter.value.search || undefined,
+    })
+    return
+  }
   const oldFeed = [...store.feed]
   await store.fetchFeed(feedPageSize)
   if (oldFeed.length > 0 && store.feed.length > 0) {
@@ -372,10 +424,8 @@ function resetCampaignForm() {
 // Load data based on tab
 async function loadTabData() {
   if (activeTab.value === 'dashboard') {
-    feedHasMore.value = true
-    await Promise.all([store.fetchStats(), store.fetchFeed(feedPageSize)])
-  } else if (activeTab.value === 'leads') {
-    await store.fetchLeads({ search: searchQuery.value || undefined })
+    await store.fetchStats()
+    await loadActivityForMode()
   } else if (activeTab.value === 'refs') {
     await store.fetchRefCodes({ search: searchQuery.value || undefined })
   } else if (activeTab.value === 'campaigns') {
@@ -394,7 +444,7 @@ watch(activeTab, () => {
 })
 
 watch(searchQuery, () => {
-  if (activeTab.value === 'leads' || activeTab.value === 'refs') {
+  if (activeTab.value === 'refs') {
     loadTabData()
   }
 })
@@ -411,7 +461,30 @@ onMounted(() => {
 async function onSourceFilterChange(value) {
   store.setFeedSourceFilter(value)
   feedHasMore.value = true
-  await store.fetchFeed(feedPageSize)
+  if (activityMode.value === 'lead') {
+    await loadActivityForMode()
+  } else {
+    await store.fetchFeed(feedPageSize)
+  }
+}
+
+let leadFilterTimer = null
+function onLeadFilterChange() {
+  clearTimeout(leadFilterTimer)
+  leadFilterTimer = setTimeout(() => loadActivityForMode(), 300)
+}
+
+function relativeFromNow(iso) {
+  if (!iso) return '-'
+  const then = new Date(iso.endsWith('Z') ? iso : iso + 'Z').getTime()
+  const diff = Math.max(0, Date.now() - then)
+  const min = Math.round(diff / 60000)
+  if (min < 1) return 'jetzt'
+  if (min < 60) return `vor ${min}m`
+  const h = Math.round(min / 60)
+  if (h < 24) return `vor ${h}h`
+  const d = Math.round(h / 24)
+  return `vor ${d}d`
 }
 
 // Ref-Code actions
@@ -707,19 +780,112 @@ function statusColor(status) {
         </div>
       </div>
 
-      <!-- Live Feed -->
+      <!-- Activity Panel -->
       <div
         class="flex flex-col rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
         style="min-height: calc(100vh - 360px)"
       >
-        <div class="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-4 py-3 shrink-0">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 dark:border-gray-700 px-4 py-3 shrink-0">
           <div class="flex items-center gap-3">
-            <h3 class="text-sm font-medium text-gray-900 dark:text-white">
-              Live-Feed
-            </h3>
-            <span class="text-xs text-gray-400">{{ store.feed.length }} Events</span>
+            <!-- Mode Toggle -->
+            <div class="inline-flex rounded-md border border-gray-200 dark:border-gray-700 p-0.5">
+              <button
+                type="button"
+                class="px-3 py-1 text-xs font-medium rounded transition-colors"
+                :class="activityMode === 'time'
+                  ? 'bg-go4-primary text-white'
+                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'"
+                @click="setMode('time')"
+              >
+                Zeitlich
+              </button>
+              <button
+                type="button"
+                class="px-3 py-1 text-xs font-medium rounded transition-colors"
+                :class="activityMode === 'lead'
+                  ? 'bg-go4-primary text-white'
+                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'"
+                @click="setMode('lead')"
+              >
+                Pro Lead
+              </button>
+            </div>
+            <span
+              v-if="activityMode === 'time'"
+              class="text-xs text-gray-400"
+            >{{ store.feed.length }} Events</span>
+            <span
+              v-else
+              class="text-xs text-gray-400"
+            >{{ store.feedByLead.length }} Leads</span>
           </div>
-          <div class="flex items-center gap-3">
+          <div class="flex flex-wrap items-center gap-3">
+            <!-- Lead-mode filters -->
+            <template v-if="activityMode === 'lead'">
+              <input
+                v-model="leadFeedFilter.search"
+                type="text"
+                placeholder="Name / E-Mail"
+                class="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-xs text-gray-700 dark:text-gray-200 w-40"
+                @input="onLeadFilterChange"
+              >
+              <select
+                v-model="leadFeedFilter.category"
+                class="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-xs text-gray-700 dark:text-gray-200"
+                @change="onLeadFilterChange"
+              >
+                <option value="">
+                  Alle Kategorien
+                </option>
+                <option value="awareness">
+                  Awareness
+                </option>
+                <option value="engagement">
+                  Engagement
+                </option>
+                <option value="conversion">
+                  Conversion
+                </option>
+                <option value="retention">
+                  Retention
+                </option>
+              </select>
+              <select
+                v-model="leadFeedFilter.journey_status"
+                class="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-xs text-gray-700 dark:text-gray-200"
+                @change="onLeadFilterChange"
+              >
+                <option value="">
+                  Alle Status
+                </option>
+                <option value="new">
+                  Neu
+                </option>
+                <option value="active">
+                  Aktiv
+                </option>
+                <option value="converted">
+                  Converted
+                </option>
+                <option value="lost">
+                  Lost
+                </option>
+              </select>
+              <button
+                type="button"
+                class="text-xs text-gray-500 hover:text-go4-primary"
+                @click="store.expandAllLeads()"
+              >
+                Alle aufklappen
+              </button>
+              <button
+                type="button"
+                class="text-xs text-gray-500 hover:text-go4-primary"
+                @click="store.collapseAllLeads()"
+              >
+                Alle einklappen
+              </button>
+            </template>
             <select
               v-if="store.feedSources.length > 1"
               :value="store.feedSourceFilter || ''"
@@ -780,8 +946,9 @@ function statusColor(status) {
         >
           Noch keine Events
         </div>
+        <!-- TIME MODE: flat live feed -->
         <div
-          v-else
+          v-else-if="activityMode === 'time'"
           ref="feedScrollContainer"
           class="overflow-y-auto"
           style="max-height: calc(100vh - 360px)"
@@ -910,82 +1077,130 @@ function statusColor(status) {
             Alle Events geladen
           </div>
         </div>
-      </div>
-    </template>
 
-    <!-- ============ LEADS TAB ============ -->
-    <template v-else-if="activeTab === 'leads'">
-      <EmptyState
-        v-if="store.leads.length === 0"
-        title="Keine Leads"
-        description="Leads werden automatisch erstellt wenn Besucher identifiziert werden."
-      />
-      <div
-        v-else
-        class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden"
-      >
-        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead class="bg-gray-50 dark:bg-gray-700/50">
-            <tr>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                Name
-              </th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                E-Mail
-              </th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                Quelle
-              </th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                Status
-              </th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                Events
-              </th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                Letztes Event
-              </th>
-              <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                Erstellt
-              </th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-            <tr
-              v-for="lead in store.leads"
-              :key="lead.id"
-              class="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
-              @click="router.push(`/customer-journey/leads/${lead.id}`)"
+        <!-- LEAD MODE: tree grouped by lead, ordered by most recent event -->
+        <div
+          v-else-if="activityMode === 'lead'"
+          class="overflow-y-auto"
+          style="max-height: calc(100vh - 360px)"
+        >
+          <div
+            v-if="store.feedByLead.length === 0"
+            class="flex items-center justify-center p-8 text-gray-500 dark:text-gray-400"
+          >
+            Keine Leads im aktuellen Filter
+          </div>
+          <div
+            v-else
+            class="divide-y divide-gray-100 dark:divide-gray-700"
+          >
+            <div
+              v-for="leadRow in store.feedByLead"
+              :key="leadRow.id"
             >
-              <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
-                {{ lead.name }}
-              </td>
-              <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                {{ lead.email }}
-              </td>
-              <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                {{ lead.source || '-' }}
-              </td>
-              <td class="px-4 py-3">
+              <!-- Lead header row -->
+              <div
+                class="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
+                @click="store.toggleLead(leadRow.id)"
+              >
+                <button
+                  type="button"
+                  class="text-gray-400 hover:text-go4-primary shrink-0"
+                  :title="store.isLeadExpanded(leadRow.id) ? 'Einklappen' : 'Aufklappen'"
+                >
+                  <svg
+                    class="h-4 w-4 transition-transform"
+                    :class="store.isLeadExpanded(leadRow.id) ? 'rotate-90' : ''"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </button>
+                <span
+                  class="text-sm font-medium text-gray-900 dark:text-white hover:text-go4-primary"
+                  @click.stop="router.push(`/customer-journey/leads/${leadRow.id}`)"
+                >
+                  {{ leadRow.name }}
+                </span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">{{ leadRow.email }}</span>
                 <span
                   class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
-                  :class="statusColor(lead.journey_status)"
+                  :class="statusColor(leadRow.journey_status)"
                 >
-                  {{ lead.journey_status || 'new' }}
+                  {{ leadRow.journey_status || 'new' }}
                 </span>
-              </td>
-              <td class="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                {{ lead.event_count }}
-              </td>
-              <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                {{ lead.last_event ? eventLabel(lead.last_event) : '-' }}
-              </td>
-              <td class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                {{ formatDateShort(lead.created_at) }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                <span class="text-xs text-gray-400 tabular-nums">{{ leadRow.event_count }} Events</span>
+                <span class="ml-auto text-xs text-gray-400 tabular-nums">{{ relativeFromNow(leadRow.last_event_at) }}</span>
+              </div>
+
+              <!-- Expanded events -->
+              <div
+                v-if="store.isLeadExpanded(leadRow.id)"
+                class="bg-gray-50 dark:bg-gray-900/30 pl-12 pr-4 py-2"
+              >
+                <table class="min-w-full">
+                  <tbody class="divide-y divide-gray-200/50 dark:divide-gray-700/50">
+                    <tr
+                      v-for="event in leadRow.events"
+                      :key="event.id"
+                      class="text-xs"
+                    >
+                      <td class="py-1 pr-3 text-gray-400 tabular-nums whitespace-nowrap w-32">
+                        {{ formatDate(event.created_at) }}
+                      </td>
+                      <td class="py-1 pr-3 w-24">
+                        <span
+                          class="inline-flex rounded-full px-2 py-0.5 font-medium"
+                          :class="categoryColor(event.category)"
+                        >
+                          {{ event.category }}
+                        </span>
+                      </td>
+                      <td class="py-1 pr-3 text-gray-900 dark:text-gray-100 whitespace-nowrap">
+                        {{ eventLabel(event.event) }}
+                      </td>
+                      <td class="py-1 pr-3 text-gray-400 truncate">
+                        {{ event.page_path || '—' }}
+                      </td>
+                      <td class="py-1 text-gray-400 whitespace-nowrap">
+                        <template v-if="event.utm_source || event.utm_campaign">
+                          <span
+                            v-if="event.utm_source"
+                            class="text-gray-500"
+                          >{{ event.utm_source }}</span>
+                          <span
+                            v-if="event.utm_campaign"
+                            class="ml-1 text-go4-primary"
+                          >{{ event.utm_campaign }}</span>
+                        </template>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div
+                  v-if="leadRow.event_count > leadRow.events.length"
+                  class="mt-2 text-xs text-gray-400"
+                >
+                  + {{ leadRow.event_count - leadRow.events.length }} weitere Events —
+                  <button
+                    type="button"
+                    class="text-go4-primary hover:underline"
+                    @click.stop="router.push(`/customer-journey/leads/${leadRow.id}`)"
+                  >
+                    auf Detailseite zeigen
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </template>
 
@@ -1165,6 +1380,11 @@ function statusColor(status) {
           </div>
         </div>
       </div>
+    </template>
+
+    <!-- ============ EINSTELLUNGEN TAB ============ -->
+    <template v-else-if="activeTab === 'einstellungen'">
+      <ModuleSettings module-name="customer_journey" />
     </template>
 
     <!-- ============ MODALS ============ -->

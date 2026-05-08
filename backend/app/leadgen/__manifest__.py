@@ -30,6 +30,16 @@ manifest = {
                 },
             },
             {
+                "path": "einstellungen",
+                "name": "leadgen-einstellungen",
+                "view": "ModuleSettingsPageView",
+                "meta": {
+                    "title": "Leadgen — Einstellungen",
+                    "moduleName": "leadgen",
+                    "breadcrumb": {"label": "Einstellungen", "parent": "leadgen"},
+                },
+            },
+            {
                 "path": "campaigns/new",
                 "name": "leadgen-campaign-new",
                 "view": "LeadgenCampaignEditView",
@@ -70,6 +80,17 @@ manifest = {
                     "title": "Prospects",
                     "breadcrumb": {"label": "Prospects", "parent": "leadgen"},
                     "tab": "places",
+                },
+            },
+            {
+                "path": "campaigns/:id/map",
+                "name": "leadgen-campaign-map",
+                "view": "LeadgenCampaignDetailView",
+                "props": True,
+                "meta": {
+                    "title": "Karte",
+                    "breadcrumb": {"label": "Karte", "parent": "leadgen-campaign-detail"},
+                    "tab": "map",
                 },
             },
             {

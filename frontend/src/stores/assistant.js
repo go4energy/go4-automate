@@ -7,6 +7,16 @@ import {
   addSource as apiAddSource,
   updateSource as apiUpdateSource,
   deleteSource as apiDeleteSource,
+  getMailboxPolicy as apiGetMailboxPolicy,
+  setupMailboxPolicy as apiSetupMailboxPolicy,
+  getCategories as apiGetCategories,
+  createCategory as apiCreateCategory,
+  updateCategory as apiUpdateCategory,
+  deleteCategory as apiDeleteCategory,
+  getTempReview as apiGetTempReview,
+  getWaitingReview as apiGetWaitingReview,
+  getTodoReview as apiGetTodoReview,
+  getTriageBatch as apiGetTriageBatch,
   getItems,
   getRules,
   createRule as apiCreateRule,
@@ -17,12 +27,19 @@ import {
   rejectAction as apiRejectAction,
   addFeedback as apiAddFeedback,
   getDashboard,
+  getMailboxHealth as apiGetMailboxHealth,
   getOAuthUrl,
+  getOllamaModels as apiGetOllamaModels,
+  getPiperVoices as apiGetPiperVoices,
+  getSpeakerVoices as apiGetSpeakerVoices,
+  uploadSpeakerVoice as apiUploadSpeakerVoice,
+  deleteSpeakerVoice as apiDeleteSpeakerVoice,
   runIntake as apiRunIntake,
   runClassify as apiRunClassify,
   runRules as apiRunRules,
   runBriefing as apiRunBriefing,
   getRuleSuggestions as apiGetRuleSuggestions,
+  applyRuleSuggestion as apiApplyRuleSuggestion,
 } from '@/api/assistant'
 
 export const useAssistantStore = defineStore('assistant', () => {
@@ -31,11 +48,26 @@ export const useAssistantStore = defineStore('assistant', () => {
   const sources = ref([])
   const items = ref([])
   const rules = ref([])
+  const categories = ref([])
+  const mailboxPolicies = ref({})
+  const tempReview = ref([])
+  const waitingReview = ref([])
+  const todoReview = ref([])
+  const triageBatch = ref([])
   const pendingActions = ref([])
   const dashboardStats = ref(null)
+  const mailboxHealth = ref([])
 
   const loading = ref(false)
   const error = ref(null)
+
+  // Model / Voice lists
+  const ollamaModels = ref([])
+  const ollamaModelsLoading = ref(false)
+  const piperVoices = ref([])
+  const piperVoicesLoading = ref(false)
+  const speakerVoices = ref([])
+  const speakerVoicesLoading = ref(false)
 
   // ── Computed ──
   const activeRules = computed(() => rules.value.filter((r) => r.enabled))
@@ -108,6 +140,124 @@ export const useAssistantStore = defineStore('assistant', () => {
     try {
       await apiDeleteSource(id)
       sources.value = sources.value.filter((s) => s.id !== id)
+    } catch (err) {
+      error.value = err.response?.data?.detail || err.message
+      throw err
+    }
+  }
+
+  async function fetchMailboxPolicy(sourceId) {
+    error.value = null
+    try {
+      const { data } = await apiGetMailboxPolicy(sourceId)
+      mailboxPolicies.value = { ...mailboxPolicies.value, [sourceId]: data }
+      return data
+    } catch (err) {
+      error.value = err.response?.data?.detail || err.message
+      throw err
+    }
+  }
+
+  async function ensureMailboxPolicy(sourceId, payload = {}) {
+    error.value = null
+    try {
+      const { data } = await apiSetupMailboxPolicy(sourceId, payload)
+      mailboxPolicies.value = { ...mailboxPolicies.value, [sourceId]: data }
+      return data
+    } catch (err) {
+      error.value = err.response?.data?.detail || err.message
+      throw err
+    }
+  }
+
+  async function fetchCategories(includeInactive = true) {
+    error.value = null
+    try {
+      const { data } = await apiGetCategories({ include_inactive: includeInactive })
+      categories.value = data
+      return data
+    } catch (err) {
+      error.value = err.response?.data?.detail || err.message
+    }
+  }
+
+  async function addCategory(categoryData) {
+    error.value = null
+    try {
+      const { data } = await apiCreateCategory(categoryData)
+      categories.value.unshift(data)
+      return data
+    } catch (err) {
+      error.value = err.response?.data?.detail || err.message
+      throw err
+    }
+  }
+
+  async function editCategory(id, updates) {
+    error.value = null
+    try {
+      const { data } = await apiUpdateCategory(id, updates)
+      const idx = categories.value.findIndex((item) => item.id === id)
+      if (idx >= 0) categories.value[idx] = data
+      return data
+    } catch (err) {
+      error.value = err.response?.data?.detail || err.message
+      throw err
+    }
+  }
+
+  async function removeCategory(id) {
+    error.value = null
+    try {
+      await apiDeleteCategory(id)
+      categories.value = categories.value.filter((item) => item.id !== id)
+    } catch (err) {
+      error.value = err.response?.data?.detail || err.message
+      throw err
+    }
+  }
+
+  async function fetchTempReview(params = {}) {
+    error.value = null
+    try {
+      const { data } = await apiGetTempReview(params)
+      tempReview.value = data
+      return data
+    } catch (err) {
+      error.value = err.response?.data?.detail || err.message
+    }
+  }
+
+  async function fetchWaitingReview(params = {}) {
+    error.value = null
+    try {
+      const { data } = await apiGetWaitingReview(params)
+      waitingReview.value = data
+      return data
+    } catch (err) {
+      error.value = err.response?.data?.detail || err.message
+      throw err
+    }
+  }
+
+  async function fetchTodoReview(params = {}) {
+    error.value = null
+    try {
+      const { data } = await apiGetTodoReview(params)
+      todoReview.value = data
+      return data
+    } catch (err) {
+      error.value = err.response?.data?.detail || err.message
+      throw err
+    }
+  }
+
+  async function fetchTriageBatch(params = {}) {
+    error.value = null
+    try {
+      const { data } = await apiGetTriageBatch(params)
+      triageBatch.value = data
+      return data
     } catch (err) {
       error.value = err.response?.data?.detail || err.message
       throw err
@@ -221,6 +371,54 @@ export const useAssistantStore = defineStore('assistant', () => {
     }
   }
 
+  // ── Model / Voice Lists ──
+  async function fetchOllamaModels() {
+    ollamaModelsLoading.value = true
+    try {
+      const { data } = await apiGetOllamaModels()
+      ollamaModels.value = data.models || []
+    } catch {
+      ollamaModels.value = []
+    } finally {
+      ollamaModelsLoading.value = false
+    }
+  }
+
+  async function fetchPiperVoices() {
+    piperVoicesLoading.value = true
+    try {
+      const { data } = await apiGetPiperVoices()
+      piperVoices.value = data.voices || []
+    } catch {
+      piperVoices.value = []
+    } finally {
+      piperVoicesLoading.value = false
+    }
+  }
+
+  async function fetchSpeakerVoices() {
+    speakerVoicesLoading.value = true
+    try {
+      const { data } = await apiGetSpeakerVoices()
+      speakerVoices.value = data.voices || []
+    } catch {
+      speakerVoices.value = []
+    } finally {
+      speakerVoicesLoading.value = false
+    }
+  }
+
+  async function uploadSpeakerVoice(name, wavBlob) {
+    const { data } = await apiUploadSpeakerVoice(name, wavBlob)
+    await fetchSpeakerVoices()
+    return data
+  }
+
+  async function removeSpeakerVoice(name) {
+    await apiDeleteSpeakerVoice(name)
+    speakerVoices.value = speakerVoices.value.filter((v) => v.name !== name)
+  }
+
   // ── OAuth ──
   async function connectAccount(provider, sharedMailbox = null) {
     error.value = null
@@ -331,8 +529,23 @@ export const useAssistantStore = defineStore('assistant', () => {
     try {
       const { data } = await apiGetRuleSuggestions()
       ruleSuggestions.value = data
+      return data
     } catch (err) {
       error.value = err.message
+      throw err
+    }
+  }
+
+  async function applyRuleSuggestion(suggestion) {
+    error.value = null
+    try {
+      const { data } = await apiApplyRuleSuggestion(suggestion)
+      rules.value.unshift(data)
+      ruleSuggestions.value = ruleSuggestions.value.filter((item) => item.name !== suggestion.name)
+      return data
+    } catch (err) {
+      error.value = err.response?.data?.detail || err.message
+      throw err
     }
   }
 
@@ -340,8 +553,12 @@ export const useAssistantStore = defineStore('assistant', () => {
   async function fetchDashboard() {
     error.value = null
     try {
-      const { data } = await getDashboard()
+      const [{ data }, { data: mailboxData }] = await Promise.all([
+        getDashboard(),
+        apiGetMailboxHealth(),
+      ])
       dashboardStats.value = data
+      mailboxHealth.value = mailboxData
     } catch (err) {
       error.value = err.response?.data?.detail || err.message
     }
@@ -355,11 +572,24 @@ export const useAssistantStore = defineStore('assistant', () => {
     rules,
     pendingActions,
     dashboardStats,
+    mailboxHealth,
+    categories,
+    mailboxPolicies,
+    tempReview,
+    waitingReview,
+    todoReview,
+    triageBatch,
     testResults,
     briefingText,
     ruleSuggestions,
     loading,
     error,
+    ollamaModels,
+    ollamaModelsLoading,
+    piperVoices,
+    piperVoicesLoading,
+    speakerVoices,
+    speakerVoicesLoading,
 
     // Computed
     activeRules,
@@ -372,6 +602,16 @@ export const useAssistantStore = defineStore('assistant', () => {
     addSource,
     updateSource,
     removeSource,
+    fetchMailboxPolicy,
+    ensureMailboxPolicy,
+    fetchCategories,
+    addCategory,
+    editCategory,
+    removeCategory,
+    fetchTempReview,
+    fetchWaitingReview,
+    fetchTodoReview,
+    fetchTriageBatch,
     fetchItems,
     sendFeedback,
     fetchRules,
@@ -379,6 +619,11 @@ export const useAssistantStore = defineStore('assistant', () => {
     editRule,
     removeRule,
     fetchPendingActions,
+    fetchOllamaModels,
+    fetchPiperVoices,
+    fetchSpeakerVoices,
+    uploadSpeakerVoice,
+    removeSpeakerVoice,
     connectAccount,
     approveAction,
     rejectAction,
@@ -388,6 +633,7 @@ export const useAssistantStore = defineStore('assistant', () => {
     triggerBriefing,
     triggerFullPipeline,
     fetchRuleSuggestions,
+    applyRuleSuggestion,
     fetchDashboard,
   }
 })

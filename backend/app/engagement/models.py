@@ -3,7 +3,17 @@
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import ForeignKey, Index, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -39,6 +49,20 @@ class EngagementPipeline(TimestampMixin, Base):
     auto_actions: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
     # Tracking: auto_create_tracking_hash + utm_* + custom_params
     tracking_config: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
+    # Bulk-Brain-Run progress {channel, slot, status, total, done, started_at,
+    # finished_at, errors[], cache_read_total, cache_create_total}
+    bulk_brain_status: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+    # Auto-Enrollment-Filter — Pipelines mit gesetztem Filter werden bei jedem
+    # /tracking/identify gegen den Contact gematcht und automatisch enrollt.
+    # Schema: {tags_any, tags_all, tags_none, custom_fields}. NULL = manuell only.
+    auto_enroll_filter: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+    # Customer-Journey-Verknüpfung — gesetzt beim ersten Render via
+    # CampaignService.ensure_for_pipeline (Name-Match, idempotent).
+    journey_campaign_id: Mapped[int | None] = mapped_column(
+        ForeignKey("journey_campaigns.id", ondelete="SET NULL"), nullable=True
+    )
 
     # Status
     is_active: Mapped[bool] = mapped_column(default=True)
@@ -91,6 +115,9 @@ class PipelineEnrollment(TimestampMixin, Base):
     stage: Mapped[str] = mapped_column(String(50), default="lead")
     # Status: active, paused, completed, stopped
     status: Mapped[str] = mapped_column(String(50), default="active")
+    # Why was this enrollment stopped? e.g. 'forwarded_to_colleague',
+    # 'converted_via_signup', 'replied', 'unsubscribed'
+    stopped_reason: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     # Engagement Tracking
     touch_count: Mapped[int] = mapped_column(default=0)
@@ -103,6 +130,13 @@ class PipelineEnrollment(TimestampMixin, Base):
     # Timestamps
     enrolled_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
     completed_at: Mapped[datetime | None] = mapped_column(nullable=True)
+
+    # Cache-Pointer auf den Customer-Journey-Ref-Code, der für (Contact,
+    # Campaign) angelegt wurde. Damit kommt der Render-Pfad in 1 SQL-Lookup
+    # an den Code; idempotent gefüllt von ``RefCodeService.ensure_ref_code``.
+    journey_ref_code_id: Mapped[int | None] = mapped_column(
+        ForeignKey("journey_ref_codes.id", ondelete="SET NULL"), nullable=True
+    )
 
     # Relationships
     tenant = relationship("Tenant")
@@ -545,3 +579,53 @@ class AttributionRecord(Base):
 
     def __repr__(self) -> str:
         return f"<AttributionRecord {self.conversion_type}>"
+
+
+class PipelinePrompt(TimestampMixin, Base):
+    """LLM prompt scoped to a pipeline + channel + slot.
+
+    The Brain looks this up at runtime when generating the body for a touch.
+    Multiple prompts per channel allowed (initial / followup_1 / reply / ...).
+    """
+
+    __tablename__ = "pipeline_prompts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(
+        String(50),
+        ForeignKey("tenants.tenant_id"),
+        nullable=False,
+    )
+    pipeline_id: Mapped[int] = mapped_column(
+        ForeignKey("engagement_pipelines.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    channel: Mapped[str] = mapped_column(String(30), nullable=False)
+    slot: Mapped[str] = mapped_column(String(50), nullable=False)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    system_prompt: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # null -> use Standard-class default model
+    model: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    temperature: Mapped[float] = mapped_column(Float, nullable=False, default=0.7)
+    max_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=600)
+
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    pipeline = relationship("EngagementPipeline", backref="prompts")
+
+    __table_args__ = (
+        Index(
+            "ix_pipeline_prompts_lookup",
+            "tenant_id",
+            "pipeline_id",
+            "channel",
+            "slot",
+        ),
+        Index("ix_pipeline_prompts_pipeline", "pipeline_id"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<PipelinePrompt {self.channel}:{self.slot}>"

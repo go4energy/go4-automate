@@ -23,6 +23,10 @@ const visualEditor = ref(null)
 // HTML-mode sub-tabs: 'edit' | 'preview'
 const htmlSubTab = ref('edit')
 
+// Toast notification after save (shown briefly, auto-fades)
+const savedToast = ref(null)
+let savedToastTimer = null
+
 const form = ref({
   name: '',
   slug: '',
@@ -175,6 +179,20 @@ async function loadData() {
   loading.value = false
 }
 
+function showSavedToast(text = '✓ Gespeichert') {
+  savedToast.value = text
+  if (savedToastTimer) clearTimeout(savedToastTimer)
+  savedToastTimer = setTimeout(() => {
+    savedToast.value = null
+  }, 2500)
+}
+
+/**
+ * Persist the current form. Stays on the page (no redirect).
+ * For new templates: routes via router.replace to the edit URL so a
+ * real id is in the URL (needed for KI-chat) without a full page reload.
+ * Returns the saved id, or null on error.
+ */
 async function save() {
   saving.value = true
   try {
@@ -185,24 +203,34 @@ async function save() {
         form.value.html_content = html
       } catch {
         alert('Editor noch nicht bereit, bitte erneut versuchen.')
-        saving.value = false
-        return
+        return null
       }
     } else if (form.value.editor_mode === 'plain') {
-      // For plain mode, copy text into html_content as <pre>-wrapped fallback
-      // so the send pipeline always has html_content available.
+      // Plain-mode: wrap text into html_content so the send pipeline always
+      // has a renderable html_content available.
       form.value.html_content = `<pre style="font-family:Arial,sans-serif;white-space:pre-wrap;">${form.value.text_content}</pre>`
     }
     // 'html' mode: html_content is already maintained by the CodeMirror v-model
 
+    let saved
     if (isNew.value) {
-      await store.addTemplate(form.value)
+      saved = await store.addTemplate(form.value)
+      // Switch URL to the edit route so the id is available (for KI-chat etc.)
+      // — without unmounting this view (replace, not push).
+      if (saved?.id) {
+        router.replace({
+          name: 'emailmarketing-template-edit',
+          params: { id: saved.id },
+        })
+      }
     } else {
-      await store.editTemplate(route.params.id, form.value)
+      saved = await store.editTemplate(route.params.id, form.value)
     }
-    router.push({ name: 'emailmarketing' })
+    showSavedToast()
+    return saved?.id || route.params.id
   } catch (err) {
-    // Error handled by store
+    alert('Speichern fehlgeschlagen: ' + (store.error || err.message || 'unbekannt'))
+    return null
   } finally {
     saving.value = false
   }
@@ -477,6 +505,7 @@ onMounted(loadData)
           <EmailDesignerChat
             :template-id="route.params.id || null"
             :current-html="form.html_content"
+            :auto-save="save"
             @update-html="(html) => { form.html_content = html }"
           />
         </div>
@@ -533,22 +562,23 @@ onMounted(loadData)
         <AssetLibrary />
       </div>
 
-      <!-- Plain-Text Fallback (only for unlayer/html modes — plain mode IS the text) -->
-      <div
-        v-if="form.editor_mode !== 'plain'"
-        :class="cardClass"
-      >
-        <label :class="`${labelClass} mb-2`">
-          Plain-Text-Version
-          <span class="font-normal text-gray-400">(optional, empfohlen für bessere Deliverability)</span>
-        </label>
-        <textarea
-          v-model="form.text_content"
-          rows="6"
-          :class="`${inputClass} font-mono`"
-          placeholder="Reine Text-Version der Mail…"
-        />
-      </div>
     </form>
+
+    <!-- Save-Toast (rechts unten, fadet nach 2.5s) -->
+    <transition
+      enter-active-class="transition duration-200"
+      enter-from-class="opacity-0 translate-y-2"
+      enter-to-class="opacity-100 translate-y-0"
+      leave-active-class="transition duration-200"
+      leave-from-class="opacity-100"
+      leave-to-class="opacity-0"
+    >
+      <div
+        v-if="savedToast"
+        class="fixed bottom-4 right-4 z-50 rounded-lg bg-emerald-600 text-white px-4 py-2 shadow-lg text-sm font-medium"
+      >
+        {{ savedToast }}
+      </div>
+    </transition>
   </div>
 </template>

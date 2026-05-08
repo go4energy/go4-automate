@@ -17,14 +17,15 @@ from app.leadgen.schemas import (
     CampaignResponse,
     CampaignStats,
     CampaignUpdate,
+    EnrichRunPreview,
     EnrichRunRequest,
     ExportFilter,
     ExportPreview,
     HandoffPreview,
     HandoffRequest,
     HandoffResponse,
-    EnrichRunPreview,
     PlaceListResponse,
+    PlaceMapPoint,
     PlaceNeighborsResponse,
     PlaceRejectRequest,
     PlaceResponse,
@@ -413,6 +414,62 @@ async def list_places_for_campaign(
         page=page,
         size=size,
     )
+
+
+@router.get(
+    "/campaigns/{campaign_id}/places/map",
+    response_model=list[PlaceMapPoint],
+)
+async def get_places_for_map(
+    campaign_id: int,
+    status_filter: str | None = Query(default=None, alias="status"),
+    tenant_id: str = Depends(get_current_tenant_id),
+    db: AsyncSession = Depends(get_db),
+    _user: User = Depends(get_current_user),
+) -> list[PlaceMapPoint]:
+    """Return all places of a campaign that have lat/lng — stripped projection
+    for the map view. No pagination because clustering on the client handles
+    20k+ points easily, and the payload stays small (~50 bytes/point)."""
+    from sqlalchemy import select
+
+    from app.leadgen.models import LeadgenLLMInsights, LeadgenPlace
+
+    stmt = (
+        select(
+            LeadgenPlace.id,
+            LeadgenPlace.name,
+            LeadgenPlace.lat,
+            LeadgenPlace.lng,
+            LeadgenPlace.status,
+            LeadgenPlace.address_city,
+            LeadgenLLMInsights.target_match_score,
+        )
+        .outerjoin(
+            LeadgenLLMInsights,
+            LeadgenLLMInsights.place_id == LeadgenPlace.id,
+        )
+        .where(
+            LeadgenPlace.tenant_id == tenant_id,
+            LeadgenPlace.campaign_id == campaign_id,
+            LeadgenPlace.lat.is_not(None),
+            LeadgenPlace.lng.is_not(None),
+        )
+    )
+    if status_filter:
+        stmt = stmt.where(LeadgenPlace.status == status_filter)
+    result = await db.execute(stmt)
+    return [
+        PlaceMapPoint(
+            id=row.id,
+            name=row.name,
+            lat=float(row.lat),
+            lng=float(row.lng),
+            status=row.status,
+            city=row.address_city,
+            match_score=row.target_match_score,
+        )
+        for row in result
+    ]
 
 
 @router.get("/places/{place_id}", response_model=PlaceResponse)

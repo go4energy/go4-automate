@@ -1,8 +1,19 @@
-"""Leadgen models - Campaign, Run, Place, Impressum, LLM Insights."""
+"""Leadgen models - Campaign, Run, Place, Impressum, LLM Insights, Contact."""
 
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, Index, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -175,6 +186,13 @@ class LeadgenPlace(TimestampMixin, Base):
     # can be added without migrations.
     enrichment_flags: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
 
+    # Company-level LinkedIn URL (one per place). Populated by impressum-link
+    # extraction first, then Serper fallback in the linkedin stage.
+    linkedin_company_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    linkedin_company_match_method: Mapped[str | None] = mapped_column(
+        String(30), nullable=True
+    )
+
     # Handoff
     contact_id: Mapped[int | None] = mapped_column(
         ForeignKey("contacts.id", ondelete="SET NULL"), nullable=True
@@ -193,6 +211,11 @@ class LeadgenPlace(TimestampMixin, Base):
         "LeadgenLLMInsights",
         back_populates="place",
         uselist=False,
+        cascade="all, delete-orphan",
+    )
+    contacts = relationship(
+        "LeadgenContact",
+        back_populates="place",
         cascade="all, delete-orphan",
     )
 
@@ -289,4 +312,91 @@ class LeadgenLLMInsights(TimestampMixin, Base):
 
     __table_args__ = (
         UniqueConstraint("place_id", name="uq_leadgen_llm_insights_place"),
+    )
+
+
+class LeadgenContact(TimestampMixin, Base):
+    """One row per person discovered for a place (managing director, primary
+    contact, etc.). Source of truth for the Apollo CSV export and the
+    ``linkedin`` worker stage. Migrated to ``contacts`` on engagement handoff.
+    """
+
+    __tablename__ = "leadgen_contacts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(
+        String(50),
+        ForeignKey("tenants.tenant_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    place_id: Mapped[int] = mapped_column(
+        ForeignKey("leadgen_places.id", ondelete="CASCADE"), nullable=False
+    )
+
+    # Identity
+    first_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    last_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    full_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    role: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
+    # LinkedIn
+    linkedin_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # impressum_link | serper | manual | None
+    linkedin_match_method: Mapped[str | None] = mapped_column(
+        String(30), nullable=True
+    )
+    linkedin_match_confidence: Mapped[float | None] = mapped_column(
+        Float, nullable=True
+    )
+
+    # Gender for salutation
+    gender: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    gender_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # library | llm | manual | jsonb_legacy
+    gender_method: Mapped[str | None] = mapped_column(String(20), nullable=True)
+
+    # Provenance
+    # managing_director | primary_contact | impressum_link | manual
+    source: Mapped[str] = mapped_column(String(40), nullable=False)
+    is_handed_off: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    contact_id: Mapped[int | None] = mapped_column(
+        ForeignKey("contacts.id", ondelete="SET NULL"), nullable=True
+    )
+
+    # Apollo enrichment — populated by the apollo worker stage
+    apollo_enriched_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # high | medium | low | no_match
+    apollo_match_quality: Mapped[str | None] = mapped_column(
+        String(20), nullable=True
+    )
+    apollo_credits_used: Mapped[int] = mapped_column(
+        Integer, default=0, nullable=False
+    )
+
+    # Free-form bag for future fields (LLM gender notes, raw_serper_hit, ...)
+    extra: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
+
+    # Relationships
+    place = relationship("LeadgenPlace", back_populates="contacts")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "place_id", "full_name", name="uq_leadgen_contacts_place_name"
+        ),
+        Index(
+            "ix_leadgen_contacts_tenant_place",
+            "tenant_id",
+            "place_id",
+        ),
+        Index(
+            "ix_leadgen_contacts_tenant_handoff",
+            "tenant_id",
+            "is_handed_off",
+        ),
     )

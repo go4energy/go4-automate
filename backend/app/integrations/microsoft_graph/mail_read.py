@@ -32,6 +32,8 @@ class MicrosoftGraphMailReadProvider(MailReadProvider):
                     "receivedDateTime",
                     "isRead",
                     "bodyPreview",
+                    "parentFolderId",
+                    "hasAttachments",
                 ]
             ),
         }

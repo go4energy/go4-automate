@@ -36,8 +36,7 @@ async function handleLogin() {
 </script>
 
 <template>
-  <div class="flex items-center justify-center bg-gradient-to-br from-[#E8EDFF] via-[#DED8FF] to-[#FFE8D8] px-4 dark:from-[#0A0015] dark:via-[#000A1A] dark:to-[#050510]"
-  >
+  <div class="flex items-center justify-center bg-gradient-to-br from-[#E8EDFF] via-[#DED8FF] to-[#FFE8D8] px-4 dark:from-[#0A0015] dark:via-[#000A1A] dark:to-[#050510]">
     <div class="w-full max-w-sm">
       <!-- Logo -->
       <div class="mb-8 flex flex-col items-center">

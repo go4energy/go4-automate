@@ -22,6 +22,7 @@ class Conversation(TimestampMixin, Base):
         String(50), nullable=False, server_default="general"
     )
     context_data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    topic: Mapped[str | None] = mapped_column(String(100), nullable=True)
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, server_default="active"
     )
@@ -33,9 +34,14 @@ class Conversation(TimestampMixin, Base):
         back_populates="conversation",
         lazy="selectin",
         order_by="ChatMessage.created_at",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
-    __table_args__ = (Index("ix_conversations_tenant_status", "tenant_id", "status"),)
+    __table_args__ = (
+        Index("ix_conversations_tenant_status", "tenant_id", "status"),
+        Index("ix_conversations_tenant_topic", "tenant_id", "topic"),
+    )
 
     def __repr__(self) -> str:
         return f"<Conversation {self.id} ({self.context_type})>"

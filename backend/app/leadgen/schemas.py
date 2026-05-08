@@ -456,3 +456,17 @@ class LeadgenContactRead(LeadgenContactBase):
 # LeadgenContactRead so the FastAPI response model can serialise eager-loaded
 # contact rows.
 PlaceResponse.model_rebuild()
+
+
+class PlaceMapPoint(BaseModel):
+    """Lightweight place projection for the map view (cluster-ready)."""
+
+    id: int
+    name: str
+    lat: float
+    lng: float
+    status: str | None = None
+    city: str | None = None
+    match_score: int | None = None  # from leadgen_llm_insights, 0..10
+
+    model_config = ConfigDict(from_attributes=True)

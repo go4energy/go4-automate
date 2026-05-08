@@ -282,6 +282,9 @@ pytest tests/test_assistant.py -v
 | `tts_voice` | string | de_DE-thorsten-high | Stimme |
 | `stt_provider` | enum | faster-whisper | STT fuer Spracheingabe |
 | `autopilot_enabled` | boolean | false | Automatische Aktionen |
+| `autopilot_min_confidence` | number | 0.85 | Mindest-Confidence fuer Autopilot |
+| `autopilot_max_rule_risk` | enum | medium | Hoechste Risikostufe fuer Autopilot |
+| `suggestion_min_confidence` | number | 0.70 | Untergrenze fuer sichtbare Regelvorschlaege |
 | `max_items_per_run` | integer | 30 | Items pro Briefing-Lauf |
 
 ## Noch nicht implementiert

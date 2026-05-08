@@ -22,7 +22,7 @@ from app.models.conversation import Conversation
 from app.models.module_context import ModuleContext
 from app.models.module_parameter import ModuleParameter
 from app.models.prompt import Prompt
-from app.services.llm import LLMService
+from app.services.llm import LLMService, get_default_model
 from app.utils.module_registry import get_manifest, get_module
 
 
@@ -468,7 +468,7 @@ Keine Erklärungen, kein Markdown, keine Anführungszeichen um den Text."""
                     system_prompt=system_prompt,
                     user_prompt=template["instructions"],
                     provider="anthropic",
-                    model="claude-sonnet-4-20250514",
+                    model=get_default_model("standard"),
                     temperature=0.7,
                     max_tokens=500,
                     is_system=True,
@@ -931,7 +931,7 @@ Beginne mit einer freundlichen Begrüßung und der ersten Frage."""
                 system_prompt="",  # Productive prompts don't need system prompt
                 user_prompt=prompt_data["content"],
                 provider="anthropic",
-                model="claude-sonnet-4-20250514",
+                model=get_default_model("standard"),
                 temperature=0.7,
                 max_tokens=500,
                 is_system=prompt_data.get("is_system", False),
@@ -964,7 +964,7 @@ Beginne mit einer freundlichen Begrüßung und der ersten Frage."""
             system_prompt="",  # Will be built dynamically from parameters
             user_prompt="Starte das Onboarding-Interview.",
             provider="anthropic",
-            model="claude-sonnet-4-20250514",
+            model=get_default_model("standard"),
             temperature=0.7,
             max_tokens=1024,
             is_system=True,

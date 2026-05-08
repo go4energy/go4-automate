@@ -5,6 +5,7 @@ import {
   createCampaign,
   deleteCampaign,
   downloadAccountsCsv,
+  downloadApolloCsv,
   downloadLeadsCsv,
   executeHandoff,
   getCampaign,
@@ -15,7 +16,7 @@ import {
   listCampaigns,
   listPlacesForCampaign,
   listRunsForCampaign,
-  pauseRun,
+  stopRun,
   previewExport,
   previewHandoff,
   rejectPlace,
@@ -140,10 +141,31 @@ export const useLeadgenStore = defineStore('leadgen', () => {
     }
   }
 
-  async function launchEnrichRun(campaignId, { limit, sampling = 'top_rated' } = {}) {
+  async function launchEnrichRun(
+    campaignId,
+    {
+      limit,
+      sampling = 'top_rated',
+      stages,
+      minMatchScore,
+      enrichCompanies,
+      apolloValidateExistingUrls,
+      apolloRevealEmail,
+      apolloRevealPhone
+    } = {}
+  ) {
     _reset()
     try {
-      const { data } = await startEnrichRun(campaignId, { limit, sampling })
+      const { data } = await startEnrichRun(campaignId, {
+        limit,
+        sampling,
+        stages,
+        minMatchScore,
+        enrichCompanies,
+        apolloValidateExistingUrls,
+        apolloRevealEmail,
+        apolloRevealPhone
+      })
       runs.value = [data, ...runs.value]
       _finish()
       return data
@@ -164,10 +186,10 @@ export const useLeadgenStore = defineStore('leadgen', () => {
     }
   }
 
-  async function pauseRunAction(id) {
+  async function stopRunAction(id) {
     _reset()
     try {
-      const { data } = await pauseRun(id)
+      const { data } = await stopRun(id)
       _finish()
       return data
     } catch (e) {
@@ -265,16 +287,27 @@ export const useLeadgenStore = defineStore('leadgen', () => {
   }
 
   async function exportDownload(campaignId, kind, params) {
-    // kind: 'accounts' | 'leads'
+    // kind: 'accounts' | 'leads' | 'apollo'
     _reset()
     try {
-      const fn = kind === 'leads' ? downloadLeadsCsv : downloadAccountsCsv
+      let fn
+      let filename
+      if (kind === 'apollo') {
+        fn = downloadApolloCsv
+        filename = `apollo_contacts_camp_${campaignId}.csv`
+      } else if (kind === 'leads') {
+        fn = downloadLeadsCsv
+        filename = `sales_nav_leads_camp_${campaignId}.csv`
+      } else {
+        fn = downloadAccountsCsv
+        filename = `sales_nav_accounts_camp_${campaignId}.csv`
+      }
       const response = await fn(campaignId, params)
       const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `sales_nav_${kind}_camp_${campaignId}.csv`
+      a.download = filename
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -316,7 +349,7 @@ export const useLeadgenStore = defineStore('leadgen', () => {
     launchRun,
     launchEnrichRun,
     fetchRun,
-    pauseRunAction,
+    stopRunAction,
     resumeRunAction,
     advanceRunStageAction,
     fetchPlaces,

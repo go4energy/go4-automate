@@ -249,11 +249,17 @@ class EmailRecipient(TimestampMixin, Base):
     tenant_id: Mapped[str] = mapped_column(
         String(50), ForeignKey("tenants.tenant_id"), nullable=False
     )
-    campaign_id: Mapped[int] = mapped_column(
-        ForeignKey("email_campaigns.id", ondelete="CASCADE"), nullable=False
+    campaign_id: Mapped[int | None] = mapped_column(
+        ForeignKey("email_campaigns.id", ondelete="CASCADE"), nullable=True
     )
     contact_id: Mapped[int | None] = mapped_column(
         ForeignKey("contacts.id", ondelete="SET NULL"), nullable=True
+    )
+    # For engagement-driven 1-to-1 outreach (no campaign): link back to the
+    # Brain-generated action so we can re-render the mail and trace the
+    # touch in the contact's activity timeline.
+    pending_action_id: Mapped[int | None] = mapped_column(
+        ForeignKey("pending_actions.id", ondelete="SET NULL"), nullable=True
     )
 
     # Recipient info (copied at send time)
@@ -293,6 +299,12 @@ class EmailRecipient(TimestampMixin, Base):
     # RFC822 Message-ID header we set on outbound — used to match replies
     # via In-Reply-To / References headers on the inbound side.
     message_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+    # Audit trail of what we actually sent (the canonical record).
+    subject_rendered: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Brain-generated pieces (e.g. {"llm_subject": "...", "llm_body": "..."})
+    # so we can re-render the body later without re-calling the LLM.
+    personalized_inputs: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     # Relationships
     tenant: Mapped["Tenant"] = relationship("Tenant")

@@ -162,7 +162,25 @@ function cancel() {
   <div class="bg-go4-bg dark:bg-gray-900">
     <PageHeader
       :title="isEdit ? 'A/B Test bearbeiten' : 'Neuer A/B Test'"
-    />
+    >
+      <template #actions>
+        <button
+          type="button"
+          class="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+          @click="cancel"
+        >
+          Abbrechen
+        </button>
+        <button
+          type="button"
+          :disabled="saving"
+          class="rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white hover:bg-go4-primary-dark disabled:opacity-50"
+          @click="save"
+        >
+          {{ saving ? 'Speichern…' : isEdit ? 'Speichern' : 'Erstellen' }}
+        </button>
+      </template>
+    </PageHeader>
 
     <div class="sm: lg:">
       <div
@@ -434,23 +452,6 @@ function cancel() {
           </div>
         </div>
 
-        <!-- Actions -->
-        <div class="flex justify-end gap-3">
-          <button
-            type="button"
-            class="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-            @click="cancel"
-          >
-            Abbrechen
-          </button>
-          <button
-            type="submit"
-            :disabled="saving"
-            class="rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white hover:bg-go4-primary-dark disabled:opacity-50"
-          >
-            {{ saving ? 'Speichern...' : isEdit ? 'Speichern' : 'Erstellen' }}
-          </button>
-        </div>
       </form>
     </div>
   </div>

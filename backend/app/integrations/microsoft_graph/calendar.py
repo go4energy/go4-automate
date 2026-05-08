@@ -30,6 +30,7 @@ class MicrosoftGraphCalendarProvider(CalendarReadProvider):
                     "end",
                     "organizer",
                     "location",
+                    "attendees",
                 ]
             ),
         }

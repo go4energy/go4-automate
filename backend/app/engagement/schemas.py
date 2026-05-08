@@ -1,6 +1,7 @@
 """Engagement schemas."""
 
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -23,6 +24,20 @@ class TrackingConfig(BaseModel):
     custom_params: dict[str, str] = Field(default_factory=dict)
 
 
+class AutoEnrollFilter(BaseModel):
+    """Tag- + Custom-Field-Filter für Auto-Enrollment.
+
+    Bei jedem ``/tracking/identify`` werden Pipelines mit gesetztem Filter
+    gegen die Contact-Tags + custom_fields gematcht. Lead landet in *allen*
+    matchenden Pipelines parallel. Leerer Filter = manuell only.
+    """
+
+    tags_any: list[str] = Field(default_factory=list)
+    tags_all: list[str] = Field(default_factory=list)
+    tags_none: list[str] = Field(default_factory=list)
+    custom_fields: dict[str, Any] = Field(default_factory=dict)
+
+
 class PipelineCreate(BaseModel):
     """Schema for creating an engagement pipeline."""
 
@@ -38,6 +53,7 @@ class PipelineCreate(BaseModel):
     min_days_between_touches: int = Field(default=3, ge=1, le=30)
     auto_actions: dict = Field(default_factory=dict)
     tracking_config: TrackingConfig = Field(default_factory=TrackingConfig)
+    auto_enroll_filter: AutoEnrollFilter | None = None
     is_active: bool = True
 
 
@@ -55,6 +71,7 @@ class PipelineUpdate(BaseModel):
     min_days_between_touches: int | None = Field(None, ge=1, le=30)
     auto_actions: dict | None = None
     tracking_config: TrackingConfig | None = None
+    auto_enroll_filter: AutoEnrollFilter | None = None
     is_active: bool | None = None
 
 
@@ -75,6 +92,7 @@ class PipelineResponse(BaseModel):
     min_days_between_touches: int
     auto_actions: dict
     tracking_config: dict = Field(default_factory=dict)
+    auto_enroll_filter: dict | None = None
     is_active: bool
     created_at: datetime
     updated_at: datetime
@@ -94,6 +112,7 @@ class PipelineListResponse(BaseModel):
     channels: list[str]
     goal: str | None
     is_active: bool
+    auto_enroll_filter: dict | None = None
     enrollment_count: int = 0
     active_enrollment_count: int = 0
     created_at: datetime
@@ -793,3 +812,65 @@ class PixelCodeResponse(BaseModel):
     pixel_code: str
     pixel_url: str
     tenant_id: str
+
+
+# =========================================================================
+# Pipeline Prompts (per-pipeline, per-channel LLM prompts)
+# =========================================================================
+
+
+class PipelinePromptBase(BaseModel):
+    channel: str = Field(..., description="email | letter | whatsapp | linkedin | phone")
+    slot: str = Field(..., description="initial | followup_1 | reply | ...")
+    name: str
+    system_prompt: str
+    model: str | None = None
+    temperature: float = 0.7
+    max_tokens: int = 600
+    is_active: bool = True
+    sort_order: int = 0
+
+
+class PipelinePromptCreate(PipelinePromptBase):
+    pass
+
+
+class PipelinePromptUpdate(BaseModel):
+    channel: str | None = None
+    slot: str | None = None
+    name: str | None = None
+    system_prompt: str | None = None
+    model: str | None = None
+    temperature: float | None = None
+    max_tokens: int | None = None
+    is_active: bool | None = None
+    sort_order: int | None = None
+
+
+class PipelinePromptResponse(PipelinePromptBase):
+    id: int
+    pipeline_id: int
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PipelinePromptTestRequest(BaseModel):
+    """Run a prompt with sample variables and return the LLM output."""
+
+    contact_id: int | None = None  # if set, variables are auto-resolved
+    variables: dict = Field(default_factory=dict)
+
+
+class PipelinePromptTestResponse(BaseModel):
+    output: str
+    model_used: str
+    duration_ms: int
+    # Anthropic prompt-caching telemetry — non-zero values indicate the
+    # static system prefix was cached (write on first call, read on later
+    # calls within the 5-min TTL).
+    cache_creation_tokens: int = 0
+    cache_read_tokens: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0

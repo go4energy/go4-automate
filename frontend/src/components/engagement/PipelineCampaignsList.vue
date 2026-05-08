@@ -16,6 +16,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useEngagementStore } from '@/stores/engagement'
+import { usePipelineContext } from '@/stores/pipelineContext'
 
 const props = defineProps({
   channelFilter: { type: String, default: null }, // null = no filter
@@ -24,6 +25,7 @@ const props = defineProps({
 
 const router = useRouter()
 const store = useEngagementStore()
+const pipelineCtx = usePipelineContext()
 
 const loading = ref(false)
 const error = ref(null)
@@ -58,6 +60,8 @@ async function load() {
 }
 
 function openPipeline(p) {
+  // Setze globale Auswahl, damit alle Outreach-Module die gleiche Pipeline zeigen.
+  pipelineCtx.setActivePipeline(p.id)
   router.push(`/engagement/pipelines/${p.id}/uebersicht`)
 }
 
@@ -153,12 +157,24 @@ onMounted(load)
               {{ p.product_name || p.slug }}
             </div>
           </div>
-          <span
-            class="rounded px-2 py-0.5 text-[10px] font-medium uppercase"
-            :class="p.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'"
-          >
-            {{ p.is_active ? 'aktiv' : 'inaktiv' }}
-          </span>
+          <div class="flex flex-col items-end gap-1">
+            <span
+              class="rounded px-2 py-0.5 text-[10px] font-medium uppercase"
+              :class="p.is_active ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'"
+            >
+              {{ p.is_active ? 'aktiv' : 'inaktiv' }}
+            </span>
+            <span
+              v-if="p.auto_enroll_filter"
+              class="inline-flex items-center gap-1 rounded bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-800 dark:bg-blue-900/40 dark:text-blue-300"
+              title="Auto-Enrollment aktiv — passende Leads werden automatisch eingetragen"
+            >
+              <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              auto-match
+            </span>
+          </div>
         </div>
 
         <div class="mt-3 flex flex-wrap gap-1">

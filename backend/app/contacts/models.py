@@ -123,6 +123,16 @@ class Contact(TimestampMixin, Base):
         index=True,
     )
 
+    # Forward-Audit: when a Cold-Mail recipient forwarded the email to a
+    # colleague who then signed up with their own address, the new contact's
+    # source_contact_id points back to the original recipient. Enables
+    # "Weitergeleitet von ..."-Badges and audit trails.
+    source_contact_id: Mapped[int | None] = mapped_column(
+        ForeignKey("contacts.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
     # Relationships
     tenant = relationship("Tenant", back_populates="contacts")
     company = relationship("Company", back_populates="contacts")

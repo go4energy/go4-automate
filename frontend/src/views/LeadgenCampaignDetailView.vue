@@ -5,6 +5,7 @@ import { useLeadgenStore } from '@/stores/leadgen'
 import { previewEnrichRun } from '@/api/leadgen'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import LeadgenRunStageTimeline from '@/components/leadgen/LeadgenRunStageTimeline.vue'
+import LeadgenMap from '@/components/leadgen/LeadgenMap.vue'
 
 const props = defineProps({
   id: { type: [String, Number], default: null }
@@ -880,6 +881,17 @@ function goBack() {
               ({{ stats.total_places.toLocaleString('de-DE') }})
             </span>
           </router-link>
+          <router-link
+            :to="`/leadgen/campaigns/${campaign.id}/map`"
+            class="border-b-2 pb-3 text-sm font-medium transition-colors"
+            :class="
+              activeTab === 'map'
+                ? 'border-go4-primary text-go4-primary'
+                : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'
+            "
+          >
+            Karte
+          </router-link>
         </div>
       </nav>
 
@@ -1277,6 +1289,14 @@ function goBack() {
             </button>
           </div>
         </div>
+      </div>
+
+      <!-- MAP TAB -->
+      <div
+        v-if="activeTab === 'map'"
+        class="mt-4"
+      >
+        <LeadgenMap :campaign-id="campaign.id" />
       </div>
     </div>
 

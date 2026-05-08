@@ -179,11 +179,11 @@ async function handleDelete() {
 <template>
   <div>
     <PageHeader :title="isEdit ? 'Quelle bearbeiten' : 'Neue Quelle'">
-      <template
-        v-if="isEdit && store.sources.length > 1"
-        #actions
-      >
-        <div class="flex items-center gap-1">
+      <template #actions>
+        <div
+          v-if="isEdit && store.sources.length > 1"
+          class="flex items-center gap-1"
+        >
           <button
             :disabled="!prevSource"
             class="rounded-lg border border-gray-300 dark:border-gray-600 p-2 text-go4-secondary dark:text-gray-100 transition hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed"
@@ -228,6 +228,29 @@ async function handleDelete() {
             </svg>
           </button>
         </div>
+        <button
+          v-if="isDirty && isEdit"
+          type="button"
+          class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-go4-secondary hover:bg-gray-50 dark:border-gray-600 dark:text-gray-100 dark:hover:bg-gray-700"
+          @click="resetForm"
+        >
+          Abbrechen
+        </button>
+        <router-link
+          v-if="isDirty && !isEdit"
+          to="/collector"
+          class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-go4-secondary hover:bg-gray-50 dark:border-gray-600 dark:text-gray-100 dark:hover:bg-gray-700"
+        >
+          Abbrechen
+        </router-link>
+        <button
+          type="button"
+          :disabled="!isDirty || saving"
+          class="rounded-lg bg-go4-primary px-4 py-2 text-sm font-medium text-white hover:bg-go4-primary/90 disabled:opacity-50"
+          @click="handleSubmit"
+        >
+          {{ saving ? 'Speichern…' : 'Speichern' }}
+        </button>
       </template>
     </PageHeader>
 
@@ -398,35 +421,14 @@ async function handleDelete() {
         />
       </div>
 
-      <div class="flex items-center gap-3">
+      <div
+        v-if="isEdit"
+        class="flex items-center justify-end"
+      >
         <button
-          v-if="isDirty"
-          type="submit"
-          :disabled="saving"
-          class="rounded-lg bg-go4-primary px-6 py-2 text-sm font-medium text-white transition hover:bg-go4-primary/90 disabled:opacity-50"
-        >
-          {{ saving ? 'Speichern...' : 'Speichern' }}
-        </button>
-        <button
-          v-if="isDirty && isEdit"
-          type="button"
-          class="rounded-lg border border-gray-300 dark:border-gray-600 px-6 py-2 text-sm font-medium text-go4-secondary dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700"
-          @click="resetForm"
-        >
-          Abbrechen
-        </button>
-        <router-link
-          v-if="isDirty && !isEdit"
-          to="/collector"
-          class="rounded-lg border border-gray-300 dark:border-gray-600 px-6 py-2 text-sm font-medium text-go4-secondary dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700"
-        >
-          Abbrechen
-        </router-link>
-        <button
-          v-if="isEdit"
           type="button"
           :disabled="deleting"
-          class="ml-auto rounded-lg bg-red-100 dark:bg-red-900/20 px-6 py-2 text-sm font-medium text-red-700 dark:text-red-400 transition hover:bg-red-200 dark:hover:bg-red-900/40 disabled:opacity-50"
+          class="rounded-lg bg-red-100 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-200 disabled:opacity-50 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40"
           @click="handleDelete"
         >
           {{ deleting ? 'Loeschen...' : 'Loeschen' }}

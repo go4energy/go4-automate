@@ -5,8 +5,10 @@ import {
   listConversations as apiListConversations,
   getConversation as apiGetConversation,
   deleteConversation as apiDeleteConversation,
-  sendMessage as apiSendMessage
+  sendMessage as apiSendMessage,
+  listTopics as apiListTopics
 } from '@/api/chat'
+import { useLayoutStore } from '@/stores/layout'
 
 export const useChatStore = defineStore('chat', () => {
   const conversations = ref([])
@@ -15,8 +17,48 @@ export const useChatStore = defineStore('chat', () => {
   const isStreaming = ref(false)
   const loading = ref(false)
   const error = ref(null)
+  const topicRegistry = ref({}) // { topic_id: title }
 
   const unreadCount = computed(() => 0)
+
+  async function fetchTopics() {
+    try {
+      const { data } = await apiListTopics()
+      const map = {}
+      for (const t of data) map[t.id] = t.title
+      topicRegistry.value = map
+    } catch {
+      // non-critical — fallback uses page-supplied titles
+    }
+  }
+
+  /** Open the chat for a help-topic. Reuses an existing topic-conversation
+   * (backend dedups) and forces the panel open so the user lands directly
+   * in the conversation. */
+  async function startTopicConversation(topic, { context = null, title = null } = {}) {
+    error.value = null
+    try {
+      const { data } = await apiCreateConversation({
+        title,
+        context_type: 'help',
+        context_data: context,
+        topic
+      })
+      // Replace-or-prepend in list
+      const idx = conversations.value.findIndex((c) => c.id === data.id)
+      if (idx >= 0) conversations.value.splice(idx, 1)
+      conversations.value.unshift(data)
+      // Reload full conversation (with messages) so prior history shows up.
+      const { data: full } = await apiGetConversation(data.id)
+      activeConversation.value = full
+      const layout = useLayoutStore()
+      if (!layout.chatOpen) layout.toggleChat()
+      return full
+    } catch (err) {
+      error.value = err.response?.data?.detail || err.message
+      return null
+    }
+  }
 
   async function fetchConversations() {
     loading.value = true
@@ -59,13 +101,20 @@ export const useChatStore = defineStore('chat', () => {
 
   async function removeConversation(convId) {
     error.value = null
+    // Optimistic remove — drop from list immediately for snappy UI.
+    const previous = conversations.value
+    conversations.value = previous.filter((c) => c.id !== convId)
+    if (activeConversation.value?.id === convId) {
+      activeConversation.value = null
+    }
     try {
       await apiDeleteConversation(convId)
-      conversations.value = conversations.value.filter((c) => c.id !== convId)
-      if (activeConversation.value?.id === convId) {
-        activeConversation.value = null
-      }
     } catch (err) {
+      const status = err.response?.status
+      // 404 = already gone server-side (stale list) — keep it removed.
+      if (status === 404) return
+      // Real error: restore item + surface error.
+      conversations.value = previous
       error.value = err.response?.data?.detail || err.message
     }
   }
@@ -167,11 +216,14 @@ export const useChatStore = defineStore('chat', () => {
     loading,
     error,
     unreadCount,
+    topicRegistry,
     fetchConversations,
+    fetchTopics,
     createConversation,
     openConversation,
     removeConversation,
     sendMessage,
+    startTopicConversation,
     goBack
   }
 })

@@ -92,11 +92,14 @@ async def voice_realtime_ws(
     openai_url = f"{OPENAI_REALTIME_URL}?model={OPENAI_REALTIME_MODEL}"
 
     try:
+        logger.info("Connecting to OpenAI Realtime: {url}", url=openai_url)
         async with websockets.connect(
             openai_url,
             additional_headers=openai_headers,
             max_size=2**24,
         ) as openai_ws:
+            logger.info("OpenAI Realtime connected")
+
             # Load user profile for settings
             from app.assistant.models import AssistantProfile
             from app.database import async_session
@@ -117,14 +120,17 @@ async def voice_realtime_ws(
 
             # Configure session with full system prompt
             await _configure_session(openai_ws, ai_suggestions_enabled=ai_suggestions)
+            logger.info("OpenAI session configured")
 
             # Notify client that session is ready
             await ws.send_json(
                 {"type": "session.ready", "model": OPENAI_REALTIME_MODEL}
             )
+            logger.info("Client notified: session.ready")
 
             # Create tool executor for this session
             executor = await _create_executor(tenant_id, user_id)
+            logger.info("Tool executor created, starting relay")
 
             # Run bidirectional relay — cancel all on first exit
             tasks = [
@@ -139,6 +145,12 @@ async def voice_realtime_ws(
                 done, pending = await asyncio.wait(
                     tasks, return_when=asyncio.FIRST_COMPLETED
                 )
+                # Log which task finished first
+                for t in done:
+                    if t.exception():
+                        logger.error("Relay task error: {e}", e=t.exception())
+                    else:
+                        logger.info("Relay task completed normally")
             finally:
                 for t in tasks:
                     t.cancel()
