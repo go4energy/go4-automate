@@ -9,6 +9,13 @@ services:
       - '8000:8000'
     env_file:
       - ../config/.env
+    extra_hosts:
+      # Lets the intel module reach the host-native Ollama service
+      # (port 11434) for embeddings without leaking go4net into the
+      # host network.
+      - 'host.docker.internal:host-gateway'
+    environment:
+      INTEL_OLLAMA_URL: http://host.docker.internal:11434
     volumes:
       - ../logs:/app/logs
       - ../config:/app/config:ro
@@ -47,7 +54,11 @@ services:
       - go4net
 
   postgres:
-    image: postgres:16-alpine
+    # pgvector/pgvector:pg16 is a drop-in replacement for postgres:16-alpine
+    # — same PG16 binary, same data layout, only adds the pgvector extension
+    # for the intel module's semantic-embedding diff (vector(1024)).
+    # The extension itself is activated by alembic migration 089.
+    image: pgvector/pgvector:pg16
     container_name: go4-postgres
     restart: unless-stopped
     environment:
@@ -124,6 +135,31 @@ services:
 
   # XTTS läuft nativ auf dem Host (nicht als Container)
   # URL: http://localhost:8020
+
+  # Intel-Worker — periodisch source-fetch + briefing-compose
+  # Embeddings via host-native Ollama (port 11434, shared service);
+  # erreicht über host.docker.internal:host-gateway extra_hosts mapping.
+  intel-worker:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: go4-intel-worker
+    restart: unless-stopped
+    command: ['python', 'run_intel_worker.py']
+    env_file:
+      - ../config/.env
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    environment:
+      INTEL_OLLAMA_URL: http://host.docker.internal:11434
+    volumes:
+      - ../logs:/app/logs
+      - ../config:/app/config:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - go4net
 
 volumes:
   postgres_data:

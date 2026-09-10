@@ -86,6 +86,9 @@ class AsyncSessionShim:
     async def delete(self, instance) -> None:
         self._session.delete(instance)
 
+    async def get(self, entity, ident, *args, **kwargs):
+        return self._session.get(entity, ident, *args, **kwargs)
+
     def add(self, instance) -> None:
         self._session.add(instance)
 

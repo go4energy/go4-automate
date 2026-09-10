@@ -52,6 +52,10 @@ cryptography==44.0.0         # ^44.0.0 (Fernet)
 # AWS SES (SendRawEmail for custom Message-ID headers)
 boto3==1.43.1                # ^1.43.0
 
+# Intel — semantic-embedding diff (pgvector) + JS rendering (playwright)
+pgvector==0.4.2              # ^0.4.0 (binding for pgvector Postgres extension)
+playwright==1.49.1           # ^1.49.0 (Chromium bundled; install in Dockerfile)
+
 # Dev Dependencies
 pytest==8.3.4                # ^8.3.0
 pytest-asyncio==0.25.0       # ^0.25.0

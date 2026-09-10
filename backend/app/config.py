@@ -139,6 +139,23 @@ class Settings(BaseSettings):
     tenant_config_dir: str = "config/tenants"
     template_dir: str = "config/templates"
 
+    # ── Intel module ──────────────────────────────────────────────
+    # Embedding backend — Ollama is shared host infrastructure (systemd
+    # service, OLLAMA_HOST=0.0.0.0), already runs ``bge-m3:latest``
+    # producing 1024-d vectors. In Docker the URL must reach the host
+    # gateway: set INTEL_OLLAMA_URL=http://host.docker.internal:11434
+    # for the worker container.
+    intel_ollama_url: str = "http://localhost:11434"
+    intel_ollama_model: str = "bge-m3:latest"
+    intel_embed_dim: int = 1024
+    # Optional cloud fallback if Ollama unreachable.
+    intel_openai_fallback_enabled: bool = False
+    intel_openai_embed_model: str = "text-embedding-3-small"
+    intel_worker_interval_sec: int = 1800
+    intel_triage_threshold: float = 0.30
+    intel_llm_timeout_sec: int = 60
+    intel_briefing_period_hours: int = 24
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
 
